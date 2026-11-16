@@ -793,12 +793,15 @@
 
 
   // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
-  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivLiveCandles=[], derivCurrentCandle=null;
+  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;
+  const DERIV_CANDLES_KEY='mendtrader_deriv_candles_v1';
+  try{derivLiveCandles=JSON.parse(localStorage.getItem(DERIV_CANDLES_KEY)||'[]').slice(-300);}catch(e){derivLiveCandles=[];}
   function setDerivFeedStatus(label,kind='neutral'){
     const el=$('derivFeedStatus'); if(!el)return;
     el.textContent=label; el.className='signal-tag '+kind;
   }
   function closeDerivFeed(){
+    derivFeedWanted=false;clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
     if(derivFeedSocket){
       try{if(derivFeedSubscription&&derivFeedSocket.readyState===WebSocket.OPEN)derivFeedSocket.send(JSON.stringify({forget:derivFeedSubscription}));}catch(e){}
       try{derivFeedSocket.close();}catch(e){}
@@ -820,6 +823,7 @@
     }else if(bucket>derivCurrentCandle.epoch){
       derivLiveCandles.push({...derivCurrentCandle,time:new Date(derivCurrentCandle.epoch*1000).toLocaleTimeString('pt-PT')});
       derivLiveCandles=derivLiveCandles.slice(-300);
+      try{localStorage.setItem(DERIV_CANDLES_KEY,JSON.stringify(derivLiveCandles));}catch(e){}
       derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
       renderDerivCandles();
       updateDerivCandleSignal();
@@ -878,19 +882,26 @@
       reason.textContent='Sem alinhamento suficiente entre EMA 9/21, RSI e direção recente. RSI: '+rsi.toFixed(1)+'.';
     }
   }
-  function connectDerivFeed(){
+  function scheduleDerivReconnect(){
+    if(!derivFeedWanted||derivReconnectTimer)return;
+    const delay=Math.min(30000,1500*Math.pow(2,Math.min(derivReconnectAttempts,4)));
+    derivReconnectAttempts++;
+    derivReconnectTimer=setTimeout(()=>{derivReconnectTimer=null;if(derivFeedWanted&&document.visibilityState!=='hidden')connectDerivFeed(true);},delay);
+  }
+  function connectDerivFeed(isReconnect=false){
+    if(!isReconnect){derivFeedWanted=true;derivReconnectAttempts=0;}
     if(!('WebSocket' in window)){ $('derivFeedMessage').textContent='Este navegador não suporta WebSocket.';return; }
-    if(derivFeedSocket&&derivFeedSocket.readyState===WebSocket.OPEN){closeDerivFeed();}
+    if(derivFeedSocket&&derivFeedSocket.readyState===WebSocket.OPEN){if(isReconnect)return;closeDerivFeed();return;}
     const symbol=$('derivFeedSymbol').value;
     $('derivFeedConnect').disabled=true;$('derivFeedDisconnect').disabled=false;
     $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
     $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
     setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
     const ws=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
-    derivFeedSocket=ws;derivFeedTicks=[];derivLiveCandles=[];derivCurrentCandle=null;renderDerivCandles();$('derivCandleState').textContent='A iniciar recolha';
+    derivFeedSocket=ws;derivFeedTicks=[];renderDerivCandles();$('derivCandleState').textContent='A iniciar/reiniciar recolha';
     ws.onopen=()=>{
       if(derivFeedSocket!==ws)return;
-      setDerivFeedStatus('● Ligado','positive');$('derivFeedMessage').textContent='Ligado. A receber cotações públicas.';
+      derivReconnectAttempts=0;setDerivFeedStatus('● Ligado','positive');$('derivFeedMessage').textContent='Ligado. A receber cotações públicas.';
       ws.send(JSON.stringify({ticks:symbol,subscribe:1}));
       ws.send(JSON.stringify({ping:1}));
       clearInterval(derivFeedPingTimer);
@@ -916,17 +927,21 @@
     };
     ws.onerror=()=>{
       if(derivFeedSocket!==ws)return;
-      setDerivFeedStatus('● Falha','negative');$('derivFeedMessage').textContent='Não foi possível ligar. Verifica a internet e tenta novamente.';
+      setDerivFeedStatus('● Falha','negative');$('derivFeedMessage').textContent='Falha de ligação. '+(derivFeedWanted?'A tentar novamente…':'Verifica a internet e tenta novamente.');
       $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+      if(derivFeedWanted)scheduleDerivReconnect();
     };
     ws.onclose=()=>{
       if(derivFeedSocket!==ws)return;
       derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
+      if(derivFeedWanted){setDerivFeedStatus('● A reconectar','neutral');$('derivFeedMessage').textContent='Ligação interrompida. A tentar reconectar…';scheduleDerivReconnect();return;}
       setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada (código '+event.code+(event.reason?': '+event.reason:'')+'). Tenta novamente.';
       $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
     };
   }
   $('derivFeedConnect')?.addEventListener('click',connectDerivFeed);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&derivFeedWanted&&(!derivFeedSocket||derivFeedSocket.readyState===WebSocket.CLOSED)){clearTimeout(derivReconnectTimer);derivReconnectTimer=null;connectDerivFeed(true);}});
+  window.addEventListener('pageshow',()=>{if(derivFeedWanted&&(!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN)){clearTimeout(derivReconnectTimer);derivReconnectTimer=null;connectDerivFeed(true);}});
   $('derivFeedDisconnect')?.addEventListener('click',closeDerivFeed);
   $('derivFeedSymbol')?.addEventListener('change',()=>{if(derivFeedSocket)connectDerivFeed();});
   window.addEventListener('beforeunload',()=>{try{derivFeedSocket?.close();}catch(e){}});

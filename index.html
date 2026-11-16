@@ -210,6 +210,55 @@
       .manual-panel .tablewrap,.bot-panel .tablewrap{max-height:100px}
     }
 
+
+    /* Compactação reforçada para telemóveis: menos altura em cada janela operacional. */
+    .ops-hero{padding:9px 11px;margin-bottom:6px}
+    .ops-title{font-size:19px;line-height:1.15}
+    .ops-sub{font-size:12px;line-height:1.25}
+    .ops-carousel{margin:5px 0 8px}
+    .ops-carousel-hint{font-size:10px;padding:0 2px 4px}
+    .ops-carousel-tabs{gap:5px;padding:2px 1px 5px}
+    .ops-carousel-tabs button{font-size:12px;padding:7px 9px}
+    .ops-carousel-track{gap:6px;padding:0 1px 5px}
+    .ops-slide{flex-basis:100%;min-width:0}
+    .ops-slide>.card,.ops-slide>.operation-panel{height:auto}
+    .operation-panel,.manual-panel,.bot-panel{padding:8px}
+    .panel-heading{padding-bottom:6px;margin-bottom:6px}
+    .panel-heading h2{font-size:15px}
+    .manual-panel,.bot-panel,#derivLivePanel{max-height:58vh;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+    .manual-panel .signal-card{padding:7px;margin:5px 0}
+    .manual-panel .notice{font-size:10px;line-height:1.25;padding:6px;margin:5px 0}
+    .manual-panel .field{margin:4px 0;gap:3px}
+    .manual-panel .field label,.manual-panel .label{font-size:11px}
+    .manual-panel .field input,.manual-panel .field select{padding:7px;font-size:13px}
+    .manual-panel h3{font-size:13px;margin:6px 0 3px}
+    .manual-panel .mini-row{padding:4px 0;font-size:11px}
+    .manual-panel .tablewrap,.bot-panel .tablewrap{max-height:85px}
+    .bot-panel .market-screen{padding:6px;margin-bottom:6px}
+    .bot-panel .market-screen svg{height:88px}
+    .bot-panel .ops-mini{padding:7px}
+    .bot-panel .ops-mini strong{font-size:15px}
+    #derivLivePanel .card{padding:7px;margin-top:5px!important}
+    #derivLivePanel .field{margin:4px 0}
+    #derivLivePanel .field input,#derivLivePanel .field select{padding:7px}
+    #derivLivePanel .tablewrap{max-height:90px}
+    .window-dock{margin:5px 0;padding:6px}
+    .window-chip{font-size:11px;padding:6px 8px}
+    @media(max-width:760px){
+      .wrap{padding:6px}
+      .card{padding:8px}
+      .ops-hero{padding:8px}
+      .ops-slide{flex-basis:100%}
+      .manual-panel,.bot-panel,#derivLivePanel{max-height:54vh}
+      .manual-panel .formgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 6px}
+      .manual-panel .tablewrap,.bot-panel .tablewrap{max-height:72px}
+      .bot-panel .market-screen svg{height:76px}
+    }
+    @media(max-width:380px){
+      .manual-panel .formgrid{grid-template-columns:1fr}
+      .manual-panel,.bot-panel,#derivLivePanel{max-height:52vh}
+    }
+
   </style>
 </head>
 <body>

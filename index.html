@@ -385,8 +385,8 @@
           </div>
           <div class="card">
             <div class="row"><div><h2 style="margin:0">Utilizadores</h2><p class="small muted">Perfis existentes na tabela pública de perfis.</p></div><button id="ownerRefreshBtn" class="secondary right">Atualizar dados</button></div>
-            <input id="ownerUserSearch" type="search" placeholder="Pesquisar por nome, e-mail ou ID…" aria-label="Pesquisar utilizadores" style="width:100%;margin:10px 0;padding:12px;border-radius:10px;background:#08110b;color:#effff5;border:1px solid #31533c"><div class="tablewrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>ID</th><th>Registo</th></tr></thead><tbody id="ownerUsersRows"><tr><td colspan="4" class="muted">A carregar…</td></tr></tbody></table></div>
-            <p id="ownerUsersNote" class="small muted">Nota: contas Auth sem linha correspondente em profiles não aparecem nesta lista. A gestão completa de contas e suspensões exige uma função administrativa segura no servidor.</p>
+            <input id="ownerUserSearch" type="search" placeholder="Pesquisar por nome, e-mail ou ID…" aria-label="Pesquisar utilizadores" style="width:100%;margin:10px 0;padding:12px;border-radius:10px;background:#08110b;color:#effff5;border:1px solid #31533c"><div class="tablewrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>ID</th><th>Estado</th><th>Registo</th><th>Ações</th></tr></thead><tbody id="ownerUsersRows"><tr><td colspan="6" class="muted">A carregar…</td></tr></tbody></table></div>
+            <p id="ownerUsersNote" class="small muted">Suspender bloqueia temporariamente o início de sessão. Reativar devolve o acesso. A conta do proprietário está protegida e não pode ser suspensa por este painel. Nenhuma conta é apagada.</p>
           </div>
           <div class="card" style="margin-top:14px">
             <h2 style="margin-top:0">Últimas operações</h2>
@@ -464,9 +464,33 @@
   function renderOwnerUsers(filter=''){
     const q=filter.trim().toLocaleLowerCase();
     const rows=ownerProfileCache.filter(u=>[u.full_name,u.email,u.id].some(v=>String(v||'').toLocaleLowerCase().includes(q)));
-    $('ownerUsersRows').innerHTML=rows.length?rows.map(u=>'<tr><td>'+escapeHtml(u.full_name||'—')+'</td><td>'+escapeHtml(u.email||'—')+'</td><td><span class="small">'+escapeHtml(u.id)+'</span></td><td>'+ (u.created_at?new Date(u.created_at).toLocaleDateString('pt-PT'):'—')+'</td></tr>').join(''):'<tr><td colspan="4" class="muted">Nenhum utilizador corresponde à pesquisa.</td></tr>';
+    $('ownerUsersRows').innerHTML=rows.length?rows.map(u=>{
+      const status=u.suspended?'<span class="pill" style="color:#ff9b9b;border-color:#8b4545">Suspenso</span>':'<span class="pill" style="color:#9be8b2;border-color:#39734b">Ativo</span>';
+      const action=u.id===currentUser?.id?'<span class="small muted">Protegido</span>':u.suspended
+        ?'<button class="secondary owner-user-action" data-action="reactivate" data-user-id="'+escapeHtml(u.id)+'">Reativar</button>'
+        :'<button class="secondary owner-user-action" data-action="suspend" data-user-id="'+escapeHtml(u.id)+'" style="border-color:#8b4545;color:#ffb0b0">Suspender</button>';
+      return '<tr><td>'+escapeHtml(u.full_name||'—')+'</td><td>'+escapeHtml(u.email||'—')+'</td><td><span class="small">'+escapeHtml(u.id)+'</span></td><td>'+status+'</td><td>'+(u.created_at?new Date(u.created_at).toLocaleDateString('pt-PT'):'—')+'</td><td>'+action+'</td></tr>';
+    }).join(''):'<tr><td colspan="6" class="muted">Nenhum utilizador corresponde à pesquisa.</td></tr>';
   }
   $('ownerUserSearch')?.addEventListener('input',e=>renderOwnerUsers(e.target.value));
+  $('ownerUsersRows')?.addEventListener('click',async e=>{
+    const button=e.target.closest('.owner-user-action');
+    if(!button)return;
+    const action=button.dataset.action, userId=button.dataset.userId;
+    const target=ownerProfileCache.find(u=>u.id===userId);
+    if(!target)return;
+    const verb=action==='suspend'?'suspender':'reativar';
+    if(!confirm('Confirmas que pretendes '+verb+' a conta '+(target.email||userId)+'?'))return;
+    button.disabled=true;
+    const {data,error}=await client.functions.invoke('owner-user-management',{body:{action,user_id:userId}});
+    if(error||!data?.ok){
+      alert(data?.error||error?.message||'Não foi possível concluir a ação.');
+      button.disabled=false;
+      return;
+    }
+    alert(data.message||'Estado da conta atualizado.');
+    await loadOwnerDashboard();
+  });
 
   async function loadOwnerDashboard(){
     if(!currentUser)return;
@@ -474,16 +498,16 @@
     msg.textContent='A atualizar os dados administrativos…';
     $('ownerUsersRows').innerHTML='<tr><td colspan="4" class="muted">A carregar…</td></tr>';
     $('ownerTradesRows').innerHTML='<tr><td colspan="6" class="muted">A carregar…</td></tr>';
-    const [profiles, trades, bots]=await Promise.all([
-      client.from('profiles').select('id,full_name,email,created_at').order('created_at',{ascending:false}).limit(100),
+    const [accounts, trades, bots]=await Promise.all([
+      client.functions.invoke('owner-user-management',{body:{action:'list'}}),
       client.from('trade_history').select('user_id,created_at,asset,trade_type,result,commission,status').order('created_at',{ascending:false}).limit(100),
       client.from('bot_settings').select('id',{count:'exact',head:true})
     ]);
-    if(profiles.error||trades.error||bots.error){
-      msg.textContent='Não foi possível carregar todos os dados. '+[profiles.error,trades.error,bots.error].filter(Boolean).map(e=>e.message).join(' · ');
+    if(accounts.error||accounts.data?.error||trades.error||bots.error){
+      msg.textContent='Não foi possível carregar todos os dados. '+(accounts.data?.error||accounts.error?.message||trades.error?.message||bots.error?.message||'Erro desconhecido.');
       return;
     }
-    const profileRows=profiles.data||[], tradeRows=trades.data||[];
+    const profileRows=accounts.data?.users||[], tradeRows=trades.data||[];
     ownerProfileCache=profileRows;
     $('ownerUsersCount').textContent=String(profileRows.length);
     $('ownerTradesCount').textContent=String(tradeRows.length);
@@ -491,7 +515,7 @@
     $('ownerCommissionTotal').textContent=money(totalCommission);
     $('ownerBotsCount').textContent=String(bots.count??'—');
     renderOwnerUsers($('ownerUserSearch')?.value||'');
-    if(!profileRows.length) $('ownerUsersRows').innerHTML='<tr><td colspan="4" class="muted">Ainda não existem perfis registados na tabela profiles.</td></tr>';
+    if(!profileRows.length) $('ownerUsersRows').innerHTML='<tr><td colspan="6" class="muted">Ainda não existem contas registadas.</td></tr>';
     $('ownerTradesRows').innerHTML=tradeRows.length?tradeRows.slice(0,30).map(r=>'<tr><td>'+new Date(r.created_at).toLocaleString('pt-PT')+'</td><td><span class="small">'+escapeHtml(r.user_id||'—')+'</span></td><td>'+escapeHtml(r.asset||'—')+'</td><td>'+money(r.result)+'</td><td>'+money(r.commission)+'</td><td>'+escapeHtml(r.status||'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Ainda não existem operações registadas.</td></tr>';
     msg.textContent='Dados atualizados. A comissão total é a soma dos valores gravados nos últimos 100 registos consultados; não é prova de cobrança ou recebimento.';
   }

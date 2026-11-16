@@ -1079,7 +1079,19 @@
     const selector=$('languageSelect');
     if(selector && selector.value!==key)selector.value=key;
   }
-  $('languageSelect')?.addEventListener('change',e=>applyLanguage(e.target.value));
+  // Seletor de idioma: aplica a tradução imediatamente e volta a aplicá-la
+  // após a atualização do DOM, para incluir painéis criados dinamicamente.
+  const languageSelector=$('languageSelect');
+  if(languageSelector){
+    const changeLanguage=()=>{
+      const selected=translations[languageSelector.value]?languageSelector.value:'pt';
+      applyLanguage(selected);
+      requestAnimationFrame(()=>applyLanguage(selected));
+      setTimeout(()=>applyLanguage(selected),120);
+    };
+    languageSelector.addEventListener('change',changeLanguage);
+    languageSelector.addEventListener('input',changeLanguage);
+  }
   const savedLanguage=localStorage.getItem('mendtrade_language')||'pt';
   if($('languageSelect'))$('languageSelect').value=translations[savedLanguage]?savedLanguage:'pt';
   applyLanguage(savedLanguage);

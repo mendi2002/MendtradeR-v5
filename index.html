@@ -982,21 +982,24 @@
     $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
     $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
     setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
-    const ws=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+    const ws=new WebSocket('wss://mendtrader-market-stream-j9w5.onrender.com/stream?symbol='+encodeURIComponent(symbol));
     derivFeedSocket=ws;derivFeedTicks=[];renderDerivCandles();$('derivCandleState').textContent='A iniciar/reiniciar recolha';
     ws.onopen=()=>{
       if(derivFeedSocket!==ws)return;
-      derivReconnectAttempts=0;setDerivFeedStatus('● Ligado','positive');$('derivFeedMessage').textContent='Ligado. A receber cotações públicas.';
-      ws.send(JSON.stringify({ticks:symbol,subscribe:1}));
-      ws.send(JSON.stringify({ping:1}));
+      derivReconnectAttempts=0;setDerivFeedStatus('● Ligado','positive');$('derivFeedMessage').textContent='Ligado ao servidor MendtradeR. A receber cotações públicas da Deriv.';
       clearInterval(derivFeedPingTimer);
-      derivFeedPingTimer=setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({ping:1}));},30000);
+      derivFeedPingTimer=setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'ping'}));},25000);
     };
     ws.onmessage=(event)=>{
       if(derivFeedSocket!==ws)return;
       let data;try{data=JSON.parse(event.data);}catch(e){return;}
-      if(data.error){$('derivFeedMessage').textContent='Deriv: '+(data.error.message||'erro na resposta');setDerivFeedStatus('● Erro','negative');return;}
-      if(data.msg_type==='tick'&&data.tick){
+      if(data.type==='status'){
+        if(data.status==='connected'){setDerivFeedStatus('● Deriv ligada','positive');$('derivFeedMessage').textContent='Servidor ligado à Deriv; a aguardar cotações…';}
+        else if(data.status==='connecting'||data.status==='reconnecting'){setDerivFeedStatus('● A ligar à Deriv','neutral');$('derivFeedMessage').textContent='O servidor está a estabelecer/repor a ligação à Deriv…';}
+        else if(data.status==='upstream_error'){$('derivFeedMessage').textContent='Deriv: '+(data.message||'erro na resposta');setDerivFeedStatus('● Erro','negative');}
+        return;
+      }
+      if(data.type==='tick'&&data.tick){
         const t=data.tick, quote=Number(t.quote);
         if(!Number.isFinite(quote))return;
         const time=new Date((Number(t.epoch)||Date.now()/1000)*1000);

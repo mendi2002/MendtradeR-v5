@@ -841,7 +841,7 @@
   setupOperationsCarousel();
 
   // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
-  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;
+  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivTickWatchdogTimer=null, derivLastTickAt=0, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;
   const DERIV_CANDLES_KEY='mendtrader_deriv_candles_v1';
   try{derivLiveCandles=JSON.parse(localStorage.getItem(DERIV_CANDLES_KEY)||'[]').slice(-300);}catch(e){derivLiveCandles=[];}
   function setDerivFeedStatus(label,kind='neutral'){
@@ -854,7 +854,7 @@
       try{if(derivFeedSubscription&&derivFeedSocket.readyState===WebSocket.OPEN)derivFeedSocket.send(JSON.stringify({forget:derivFeedSubscription}));}catch(e){}
       try{derivFeedSocket.close();}catch(e){}
     }
-    derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
+    derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
     $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
     setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
   }
@@ -988,7 +988,16 @@
       if(derivFeedSocket!==ws)return;
       derivReconnectAttempts=0;setDerivFeedStatus('● Ligado','positive');$('derivFeedMessage').textContent='Ligado ao servidor MendtradeR. A receber cotações públicas da Deriv.';
       clearInterval(derivFeedPingTimer);
-      derivFeedPingTimer=setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'ping'}));},25000);
+      derivFeedPingTimer=setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'ping'}));},15000);
+      derivLastTickAt=Date.now();clearInterval(derivTickWatchdogTimer);
+      derivTickWatchdogTimer=setInterval(()=>{
+        if(derivFeedSocket!==ws||ws.readyState!==WebSocket.OPEN)return;
+        if(Date.now()-derivLastTickAt>25000){
+          setDerivFeedStatus('● Preço parado','negative');
+          $('derivFeedMessage').textContent='Sem novas cotações há mais de 25 segundos. A reiniciar a ligação…';
+          try{ws.close(4000,'Sem atualização de preços');}catch(e){}
+        }
+      },5000);
     };
     ws.onmessage=(event)=>{
       if(derivFeedSocket!==ws)return;
@@ -996,10 +1005,12 @@
       if(data.type==='status'){
         if(data.status==='connected'){setDerivFeedStatus('● Deriv ligada','positive');$('derivFeedMessage').textContent='Servidor ligado à Deriv; a aguardar cotações…';}
         else if(data.status==='connecting'||data.status==='reconnecting'){setDerivFeedStatus('● A ligar à Deriv','neutral');$('derivFeedMessage').textContent='O servidor está a estabelecer/repor a ligação à Deriv…';}
+        else if(data.status==='stale'){setDerivFeedStatus('● Preço parado','negative');$('derivFeedMessage').textContent='O servidor detetou ausência de cotações. A reconectar automaticamente…';}
         else if(data.status==='upstream_error'){$('derivFeedMessage').textContent='Deriv: '+(data.message||'erro na resposta');setDerivFeedStatus('● Erro','negative');}
         return;
       }
       if(data.type==='tick'&&data.tick){
+        derivLastTickAt=Date.now();
         const t=data.tick, quote=Number(t.quote);
         if(!Number.isFinite(quote))return;
         const time=new Date((Number(t.epoch)||Date.now()/1000)*1000);
@@ -1021,7 +1032,7 @@
     };
     ws.onclose=()=>{
       if(derivFeedSocket!==ws)return;
-      derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
+      derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
       if(derivFeedWanted){setDerivFeedStatus('● A reconectar','neutral');$('derivFeedMessage').textContent='Ligação interrompida. A tentar reconectar…';scheduleDerivReconnect();return;}
       setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada (código '+event.code+(event.reason?': '+event.reason:'')+'). Tenta novamente.';
       $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;

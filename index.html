@@ -1010,6 +1010,7 @@
       'Instruções e técnicas de operações':'Instrucciones y técnicas de operaciones','Guia educativo para compreender o MendtradeR e preparar uma utilização responsável.':'Guía educativa para comprender MendtradeR y prepararse para un uso responsable.','Suporte IA / Proprietário':'Soporte IA / Propietario','Conta e definições':'Cuenta y ajustes','Centro de suporte':'Centro de soporte'
     }
   };
+  const originalUiTextNodes=new WeakMap();
   function applyLanguage(code){
     const key=translations[code]?code:'pt';
     const dictionary=uiText[key]||{};
@@ -1021,7 +1022,8 @@
     const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
     const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
     nodes.forEach(node=>{
-      const original=node.nodeValue,trimmed=original.trim();
+      if(!originalUiTextNodes.has(node))originalUiTextNodes.set(node,node.nodeValue);
+      const original=originalUiTextNodes.get(node),trimmed=original.trim();
       if(!trimmed)return;
       let translated=dictionary[trimmed];
       if(!translated){

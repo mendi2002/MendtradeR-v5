@@ -54,7 +54,7 @@ function send(client, payload) {
 
 function startStream(symbol) {
   if (streams.has(symbol)) return streams.get(symbol);
-  const state = { symbol, socket: null, subscriptionId: null, reconnectTimer: null, pingTimer: null, attempts: 0, lastTick: null, stopped: false };
+  const state = { symbol, socket: null, subscriptionId: null, reconnectTimer: null, pingTimer: null, watchdogTimer: null, attempts: 0, lastTick: null, lastTickAt: 0, stopped: false };
   streams.set(symbol, state);
 
   const connect = () => {
@@ -63,12 +63,24 @@ function startStream(symbol) {
     state.socket = upstream;
     upstream.on('open', () => {
       state.attempts = 0;
+      state.lastTickAt = Date.now();
       upstream.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
       upstream.send(JSON.stringify({ ping: 1 }));
       clearInterval(state.pingTimer);
+      clearInterval(state.watchdogTimer);
       state.pingTimer = setInterval(() => {
         if (upstream.readyState === WebSocket.OPEN) upstream.send(JSON.stringify({ ping: 1 }));
-      }, 25000);
+      }, 10000);
+      // Alguns sockets podem permanecer abertos mesmo depois de pararem de entregar ticks.
+      // Vigia a idade do último preço e força uma nova ligação se o fluxo ficar silencioso.
+      state.watchdogTimer = setInterval(() => {
+        if (state.stopped || state.socket !== upstream || upstream.readyState !== WebSocket.OPEN) return;
+        const silentFor = Date.now() - (state.lastTickAt || Date.now());
+        if (silentFor > 20000) {
+          broadcast(symbol, { type: 'status', status: 'stale', symbol, silentFor });
+          try { upstream.terminate(); } catch { try { upstream.close(); } catch {} }
+        }
+      }, 5000);
       broadcast(symbol, { type: 'status', status: 'connected', symbol, at: Date.now() });
     });
     upstream.on('message', raw => {
@@ -80,13 +92,16 @@ function startStream(symbol) {
       }
       if (data.msg_type === 'tick' && data.tick && Number.isFinite(Number(data.tick.quote))) {
         state.lastTick = data.tick;
+        state.lastTickAt = Date.now();
         if (data.subscription && data.subscription.id) state.subscriptionId = data.subscription.id;
-        broadcast(symbol, { type: 'tick', symbol, tick: data.tick, receivedAt: Date.now() });
+        broadcast(symbol, { type: 'tick', symbol, tick: data.tick, receivedAt: state.lastTickAt });
       }
     });
     upstream.on('close', () => {
       clearInterval(state.pingTimer);
+      clearInterval(state.watchdogTimer);
       state.pingTimer = null;
+      state.watchdogTimer = null;
       if (state.stopped) return;
       broadcast(symbol, { type: 'status', status: 'reconnecting', symbol });
       const delay = Math.min(30000, 1500 * Math.pow(2, Math.min(state.attempts++, 4)));
@@ -149,6 +164,7 @@ function shutdown() {
     state.stopped = true;
     clearTimeout(state.reconnectTimer);
     clearInterval(state.pingTimer);
+    clearInterval(state.watchdogTimer);
     try { state.socket?.close(); } catch {}
   }
   server.close(() => process.exit(0));

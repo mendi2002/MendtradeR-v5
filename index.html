@@ -1174,7 +1174,7 @@
   window.addEventListener('focus',()=>{resumeDerivFeedIfStale();});
   window.addEventListener('online',()=>{if(derivFeedWanted)resumeDerivFeedIfStale();});
   $('derivFeedDisconnect')?.addEventListener('click',closeDerivFeed);
-  $('derivFeedSymbol')?.addEventListener('change',()=>{if(derivFeedSocket)connectDerivFeed();});
+  $('derivFeedSymbol')?.addEventListener('change',()=>{if(derivFeedSocket||derivFeedWanted){closeDerivFeed();connectDerivFeed();}});
   window.addEventListener('beforeunload',()=>{try{derivFeedSocket?.close();}catch(e){}});
 
   $('depositBtn').addEventListener('click',()=>{});

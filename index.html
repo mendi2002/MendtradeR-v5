@@ -200,6 +200,18 @@
             </div>
             <div class="row"><button id="derivFeedConnect">Ligar mercado</button><button id="derivFeedDisconnect" class="secondary" disabled>Desligar</button><span id="derivFeedMessage" class="small muted">Sem ligação à Deriv.</span></div>
             <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Hora</th><th>Ativo</th><th>Preço</th></tr></thead><tbody id="derivFeedRows"><tr><td colspan="3" class="muted">Ainda sem cotações.</td></tr></tbody></table></div>
+            <div id="derivSignalPanel" class="card" style="margin-top:14px;border:1px solid #42604f;background:#0a1510">
+              <div class="row" style="justify-content:space-between;align-items:center">
+                <div><span class="badge">ANÁLISE EXPERIMENTAL · SEM ORDENS</span><h3 style="margin:8px 0">🧭 Sinal do mercado</h3></div>
+                <span id="derivSignalTag" class="signal-tag neutral">● A aguardar dados</span>
+              </div>
+              <div class="formgrid">
+                <div class="field"><label>Direção sugerida</label><strong id="derivSignalDirection" style="font-size:22px">A AGUARDAR</strong></div>
+                <div class="field"><label>Força técnica indicativa</label><strong id="derivSignalStrength" style="font-size:22px">—</strong></div>
+              </div>
+              <p id="derivSignalReason" class="small muted">São necessários pelo menos 30 ticks consecutivos para uma primeira leitura.</p>
+              <p id="derivSignalWarning" class="small muted">Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.</p>
+            </div>
             <p class="small muted">As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.</p>
           </div>
           <div class="v5-grid">
@@ -784,6 +796,28 @@
     $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
     setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
   }
+  function updateDerivLiveSignal(){
+    const prices=derivFeedTicks.slice().reverse().map(x=>x.quote);
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    if(!tag||!dir||!strength||!reason)return;
+    const wait=(msg)=>{tag.textContent='● A aguardar';tag.className='signal-tag neutral';dir.textContent='A AGUARDAR';strength.textContent='—';reason.textContent=msg;};
+    if(prices.length<30){wait('A recolher dados: '+prices.length+'/30 ticks. Aguarda alguns instantes com o mercado ligado.');return;}
+    const ema=(arr,p)=>{const k=2/(p+1);let v=arr.slice(0,p).reduce((a,b)=>a+b,0)/p;for(let i=p;i<arr.length;i++)v=arr[i]*k+v*(1-k);return v;};
+    const last=prices[prices.length-1], fast=ema(prices.slice(-30),9), slow=ema(prices.slice(-30),21);
+    let gains=0,losses=0;for(let i=prices.length-14;i<prices.length;i++){const d=prices[i]-prices[i-1];gains+=Math.max(d,0);losses+=Math.max(-d,0);}
+    const avgGain=gains/14,avgLoss=losses/14,rsi=avgLoss===0?100:100-100/(1+avgGain/avgLoss);
+    const rising=last>prices[prices.length-4],falling=last<prices[prices.length-4];
+    const bull=fast>slow&&rsi>=52&&rsi<=68&&rising;
+    const bear=fast<slow&&rsi>=32&&rsi<=48&&falling;
+    if(bull||bear){
+      const side=bull?'COMPRA':'VENDA',score=[bull?fast>slow:fast<slow,bull?rsi>=52&&rsi<=68:rsi>=32&&rsi<=48,bull?rising:falling].filter(Boolean).length;
+      tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');dir.textContent=side;strength.textContent=Math.round(score/3*100)+'%';
+      reason.textContent='Condições técnicas alinhadas nos últimos ticks. RSI: '+rsi.toFixed(1)+' · EMA 9/21: '+(bull?'cruzamento relativo favorável à subida':'cruzamento relativo favorável à descida')+'.';
+    }else{
+      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
+      reason.textContent='Sem alinhamento suficiente entre EMA 9/21, RSI e direção recente. RSI: '+rsi.toFixed(1)+'.';
+    }
+  }
   function connectDerivFeed(){
     if(!('WebSocket' in window)){ $('derivFeedMessage').textContent='Este navegador não suporta WebSocket.';return; }
     if(derivFeedSocket&&derivFeedSocket.readyState===WebSocket.OPEN){closeDerivFeed();}
@@ -813,9 +847,9 @@
         $('derivFeedPrice').textContent=quote.toLocaleString('pt-PT',{maximumFractionDigits:8});
         $('derivFeedTime').textContent=time.toLocaleTimeString('pt-PT');
         derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote});
-        derivFeedTicks=derivFeedTicks.slice(0,12);
-        $('derivFeedRows').innerHTML=derivFeedTicks.map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
-        if(data.subscription?.id)derivFeedSubscription=data.subscription.id;
+        derivFeedTicks=derivFeedTicks.slice(0,120);
+        $('derivFeedRows').innerHTML=derivFeedTicks.slice(0,12).map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
+        updateDerivLiveSignal();\n        if(data.subscription?.id)derivFeedSubscription=data.subscription.id;
       }
     };
     ws.onerror=()=>{

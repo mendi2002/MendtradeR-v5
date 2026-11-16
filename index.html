@@ -212,6 +212,7 @@
               <div class="field"><label>Última cotação recebida</label><strong id="derivFeedPrice" style="font-size:24px">—</strong><span id="derivFeedTime" class="small muted">A aguardar ligação</span></div>
             </div>
             <div class="row"><button id="derivFeedConnect">Ligar mercado</button><button id="derivFeedDisconnect" class="secondary" disabled>Desligar</button><span id="derivFeedMessage" class="small muted">Sem ligação à Deriv.</span></div>
+            <div class="row" style="margin-top:8px"><button id="toggleSignalSound" class="secondary" type="button">🔔 Ativar aviso sonoro</button><span id="signalSoundStatus" class="small muted">Som desligado</span></div>
             <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Hora</th><th>Ativo</th><th>Preço</th></tr></thead><tbody id="derivFeedRows"><tr><td colspan="3" class="muted">Ainda sem cotações.</td></tr></tbody></table></div>
             <div id="derivSignalPanel" class="card" style="margin-top:14px;border:1px solid #42604f;background:#0a1510">
               <div class="row" style="justify-content:space-between;align-items:center">
@@ -907,6 +908,40 @@
       resultEl.textContent='TESTE DEMO · '+derivLiveCandles.length+' candles · '+result.signals+' operações simuladas · '+result.wins+' positivas · '+result.losses+' negativas · taxa positiva '+result.winRate.toFixed(1)+'% · resultado bruto '+result.equity.toFixed(5)+' pontos. Não inclui spread, custos, latência nem execução real.';
     }catch(e){resultEl.textContent='Não foi possível executar o teste: '+e.message;}
   });
+
+  // Aviso sonoro ao surgir um novo sinal técnico. Não indica lucro realizado.
+  let signalSoundEnabled=false, signalAudioContext=null, lastSoundSignal='neutral';
+  function playSignalAlert(){
+    if(!signalSoundEnabled)return;
+    try{
+      const AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx)return;
+      signalAudioContext=signalAudioContext||new AudioCtx();
+      if(signalAudioContext.state==='suspended')signalAudioContext.resume();
+      const now=signalAudioContext.currentTime;
+      [0,0.18].forEach((offset,index)=>{
+        const osc=signalAudioContext.createOscillator(),gain=signalAudioContext.createGain();
+        osc.type='sine';osc.frequency.value=index===0?880:1175;
+        gain.gain.setValueAtTime(0.0001,now+offset);
+        gain.gain.exponentialRampToValueAtTime(0.16,now+offset+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001,now+offset+0.13);
+        osc.connect(gain);gain.connect(signalAudioContext.destination);
+        osc.start(now+offset);osc.stop(now+offset+0.14);
+      });
+    }catch(e){}
+  }
+  $('toggleSignalSound')?.addEventListener('click',async()=>{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx){$('signalSoundStatus').textContent='Áudio não suportado neste navegador.';return;}
+    try{
+      signalAudioContext=signalAudioContext||new AudioCtx();
+      await signalAudioContext.resume();
+      signalSoundEnabled=!signalSoundEnabled;
+      $('toggleSignalSound').textContent=signalSoundEnabled?'🔕 Desativar aviso sonoro':'🔔 Ativar aviso sonoro';
+      $('signalSoundStatus').textContent=signalSoundEnabled?'Som ativo · alerta em novo sinal':'Som desligado';
+      if(signalSoundEnabled)playSignalAlert();
+    }catch(e){$('signalSoundStatus').textContent='Não foi possível ativar o áudio.';}
+  });
   function updateDerivLiveSignal(){
     const prices=derivFeedTicks.slice().reverse().map(x=>x.quote);
     const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
@@ -921,10 +956,13 @@
     const bull=fast>slow&&rsi>=52&&rsi<=68&&rising;
     const bear=fast<slow&&rsi>=32&&rsi<=48&&falling;
     if(bull||bear){
+      const signalKey=bull?'COMPRA':'VENDA';
+      if(signalKey!==lastSoundSignal){playSignalAlert();lastSoundSignal=signalKey;}
       const side=bull?'COMPRA':'VENDA',score=[bull?fast>slow:fast<slow,bull?rsi>=52&&rsi<=68:rsi>=32&&rsi<=48,bull?rising:falling].filter(Boolean).length;
       tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');dir.textContent=side;strength.textContent=Math.round(score/3*100)+'%';
       reason.textContent='Condições técnicas alinhadas nos últimos ticks. RSI: '+rsi.toFixed(1)+' · EMA 9/21: '+(bull?'cruzamento relativo favorável à subida':'cruzamento relativo favorável à descida')+'.';
     }else{
+      lastSoundSignal='neutral';
       tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
       reason.textContent='Sem alinhamento suficiente entre EMA 9/21, RSI e direção recente. RSI: '+rsi.toFixed(1)+'.';
     }

@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: mendtrader-market-stream
+    runtime: node
+    plan: starter
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DEFAULT_SYMBOL
+        value: R_100

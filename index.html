@@ -821,7 +821,7 @@
     carousel.innerHTML='<div class="ops-carousel-tabs" role="tablist" aria-label="Painéis de operações"></div><div class="ops-carousel-hint">Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.</div><div class="ops-carousel-track"></div>';
     page.querySelector('.ops-hero').insertAdjacentElement('afterend',carousel);
     const tabs=carousel.querySelector('.ops-carousel-tabs'),track=carousel.querySelector('.ops-carousel-track');
-    const panels=[['🤖 BOT',botPanel],['📡 MERCADO',marketPanel],['🎯 MANUAL',manualPanel],['🧠 MOTOR IA',enginePanel],['🧪 ESTRATÉGIA',strategyLab]].filter(([,el])=>!!el);
+    const panels=[['🤖 BOT',botPanel],['📡 MERCADO',marketPanel],['🎯 MANUAL',manualPanel],['🧠 MOTOR',enginePanel],['🧪 ESTRATÉGIA',strategyLab]].filter(([,el])=>!!el);
     panels.forEach(([label,panel],index)=>{
       const slide=document.createElement('div');slide.className='ops-slide';slide.appendChild(panel);track.appendChild(slide);
       const tab=document.createElement('button');tab.type='button';tab.textContent=label;tab.setAttribute('role','tab');tab.setAttribute('aria-selected',index===0?'true':'false');if(index===0)tab.classList.add('active');

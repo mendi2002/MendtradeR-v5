@@ -393,7 +393,12 @@
             <div class="tablewrap"><table><thead><tr><th>Data</th><th>Utilizador</th><th>Ativo</th><th>Resultado</th><th>Comissão registada</th><th>Estado</th></tr></thead><tbody id="ownerTradesRows"><tr><td colspan="6" class="muted">A carregar…</td></tr></tbody></table></div>
             <p id="ownerPanelMsg" class="small muted" aria-live="polite">Os valores de comissão são apenas os que já estiverem gravados no histórico; não representam pagamentos recebidos.</p>
           </div>
-          <div class="notice warning"><b>Limites desta versão:</b> ainda não permite suspender/eliminar contas, consultar todas as contas Auth, alterar saldos ou cobrar comissões. Essas ações serão implementadas por funções Edge seguras, sem expor chaves administrativas no navegador.</div>
+          <div class="card" style="margin-top:14px">
+            <div class="row"><div><h2 style="margin:0">Registo de auditoria</h2><p class="small muted">Histórico das ações de suspensão e reativação realizadas no painel.</p></div><span class="pill right">ÚLTIMAS 100 AÇÕES</span></div>
+            <div class="tablewrap"><table><thead><tr><th>Data e hora</th><th>Ação</th><th>Conta afetada</th><th>Responsável</th></tr></thead><tbody id="ownerAuditRows"><tr><td colspan="4" class="muted">A carregar…</td></tr></tbody></table></div>
+            <p class="small muted">O registo é guardado no servidor e não pode ser alterado pelos utilizadores comuns.</p>
+          </div>
+          <div class="notice warning"><b>Limites desta versão:</b> não permite apagar contas, alterar saldos ou cobrar comissões. As ações administrativas são executadas no servidor, sem expor chaves administrativas no navegador.</div>
         </section>
       </div>
     </div>
@@ -496,7 +501,7 @@
     if(!currentUser)return;
     const msg=$('ownerPanelMsg');
     msg.textContent='A atualizar os dados administrativos…';
-    $('ownerUsersRows').innerHTML='<tr><td colspan="4" class="muted">A carregar…</td></tr>';
+    $('ownerUsersRows').innerHTML='<tr><td colspan="6" class="muted">A carregar…</td></tr>';
     $('ownerTradesRows').innerHTML='<tr><td colspan="6" class="muted">A carregar…</td></tr>';
     const [accounts, trades, bots]=await Promise.all([
       client.functions.invoke('owner-user-management',{body:{action:'list'}}),
@@ -509,6 +514,12 @@
     }
     const profileRows=accounts.data?.users||[], tradeRows=trades.data||[];
     ownerProfileCache=profileRows;
+    const auditRows=accounts.data?.audit_logs||[];
+    $('ownerAuditRows').innerHTML=auditRows.length?auditRows.map(a=>{
+      const label=a.action==='suspend'?'Suspensão':'Reativação';
+      const color=a.action==='suspend'?'#ffb0b0':'#9be8b2';
+      return '<tr><td>'+new Date(a.created_at).toLocaleString('pt-PT')+'</td><td><b style="color:'+color+'">'+label+'</b></td><td>'+escapeHtml(a.target_email||a.target_user_id||'—')+'</td><td>'+escapeHtml(a.actor_email||'Proprietário')+'</td></tr>';
+    }).join(''):'<tr><td colspan="4" class="muted">Ainda não existem ações administrativas registadas.</td></tr>';
     $('ownerUsersCount').textContent=String(profileRows.length);
     $('ownerTradesCount').textContent=String(tradeRows.length);
     const totalCommission=tradeRows.reduce((sum,r)=>sum+Math.max(0,Number(r.commission)||0),0);

@@ -190,6 +190,26 @@
     }
     @media(max-width:380px){.manual-panel .formgrid{grid-template-columns:1fr}}
 
+
+    /* Painéis operacionais compactos: rolagem interna em vez de páginas excessivamente longas. */
+    #derivLivePanel,.manual-panel,.bot-panel{max-height:72vh;overflow-y:auto;overscroll-behavior:contain}
+    #derivLivePanel .card{padding:9px;margin-top:8px!important}
+    #derivLivePanel .field{margin:5px 0}
+    #derivLivePanel .tablewrap{max-height:150px;overflow:auto}
+    #derivLivePanel h2{font-size:18px}
+    #derivLivePanel h3{font-size:14px;margin:7px 0}
+    #derivLivePanel .formgrid{gap:2px 8px}
+    #derivLivePanel .notice{padding:7px;margin:6px 0}
+    .manual-panel,.bot-panel{padding:9px}
+    .manual-panel .tablewrap,.bot-panel .tablewrap{max-height:125px;overflow:auto}
+    .ops-carousel-track{align-items:flex-start}
+    .ops-slide{align-self:flex-start}
+    @media(max-width:760px){
+      #derivLivePanel,.manual-panel,.bot-panel{max-height:68vh}
+      #derivLivePanel .tablewrap{max-height:115px}
+      .manual-panel .tablewrap,.bot-panel .tablewrap{max-height:100px}
+    }
+
   </style>
 </head>
 <body>
@@ -871,20 +891,31 @@
     $('ownerSupportMsg').textContent='Mensagem preparada neste dispositivo. O envio ao proprietário só ficará disponível após configurar o serviço de suporte no backend.';
   });
 
-  // Seletor de idioma para navegação e elementos principais do painel.
+  // Idioma persistente: aplica-se imediatamente aos principais elementos visíveis.
   const translations={
-    pt:{nav:['Área de operações','Visão geral','Histórico','Instruções e técnicas','Depósitos','Levantamentos','Suporte IA / Proprietário','Conta e definições'],support:'Centro de suporte',bot:'Operações do Bot',manual:'Operações Manuais'},
-    en:{nav:['Trading workspace','Overview','History','Guides & techniques','Deposits','Withdrawals','AI / Owner support','Account & settings'],support:'Support Center',bot:'Bot Operations',manual:'Manual Operations'},
-    es:{nav:['Área de operaciones','Resumen','Historial','Instrucciones y técnicas','Depósitos','Retiros','Soporte IA / Propietario','Cuenta y ajustes'],support:'Centro de soporte',bot:'Operaciones del Bot',manual:'Operaciones Manuales'}
+    pt:{nav:['Área de operações','Visão geral','Histórico','Instruções e técnicas','Depósitos','Levantamentos','Suporte IA / Proprietário','Conta e definições'],support:'Centro de suporte',bot:'Operações do Bot',manual:'Operações Manuais',market:'Mercado em tempo real',connect:'Ligar mercado',disconnect:'Desligar',sound:'Ativar aviso sonoro',overview:'Visão geral',history:'Histórico',guides:'Instruções e técnicas',deposit:'Depósitos',withdraw:'Levantamentos',account:'Conta e definições',hint:'Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.'},
+    en:{nav:['Trading workspace','Overview','History','Guides & techniques','Deposits','Withdrawals','AI / Owner support','Account & settings'],support:'Support Center',bot:'Bot Operations',manual:'Manual Operations',market:'Live market',connect:'Connect market',disconnect:'Disconnect',sound:'Enable sound alert',overview:'Overview',history:'History',guides:'Guides & techniques',deposit:'Deposits',withdraw:'Withdrawals',account:'Account & settings',hint:'Swipe left to view the other panels. BOT is always first.'},
+    es:{nav:['Área de operaciones','Resumen','Historial','Instrucciones y técnicas','Depósitos','Retiros','Soporte IA / Propietario','Cuenta y ajustes'],support:'Centro de soporte',bot:'Operaciones del Bot',manual:'Operaciones manuales',market:'Mercado en tiempo real',connect:'Conectar mercado',disconnect:'Desconectar',sound:'Activar alerta sonora',overview:'Resumen',history:'Historial',guides:'Instrucciones y técnicas',deposit:'Depósitos',withdraw:'Retiros',account:'Cuenta y ajustes',hint:'Desliza hacia la izquierda para ver los otros paneles. BOT aparece primero.'}
   };
-  $('languageSelect')?.addEventListener('change',e=>{
-    const lang=translations[e.target.value]||translations.pt;
-    document.querySelectorAll('#mainNav [data-page]').forEach((b,i)=>{const icon=b.textContent.trim().split(' ')[0];b.textContent=icon+' '+lang.nav[i];});
+  function applyLanguage(code){
+    const key=translations[code]?code:'pt',lang=translations[key];
+    const navLabels=Array.from(document.querySelectorAll('#mainNav [data-page]'));
+    navLabels.forEach((button,i)=>{if(lang.nav[i]){const icon=button.textContent.trim().split(' ')[0];button.textContent=icon+' '+lang.nav[i];}});
     const sh=$('#support h1');if(sh)sh.textContent=lang.support;
     const bh=document.querySelector('.bot-panel .panel-heading h2');if(bh)bh.textContent='🤖 '+lang.bot;
     const mh=document.querySelector('.manual-panel .panel-heading h2');if(mh)mh.textContent='🎯 '+lang.manual;
-    document.documentElement.lang=e.target.value;
-  });
+    const marketHeading=$('#derivLivePanel h2');if(marketHeading)marketHeading.textContent='📡 '+lang.market;
+    const connect=$('derivFeedConnect');if(connect&&!derivFeedSocket)connect.textContent=lang.connect;
+    const disconnect=$('derivFeedDisconnect');if(disconnect)disconnect.textContent=lang.disconnect;
+    const sound=$('toggleSignalSound');if(sound&&!signalSoundEnabled)sound.textContent='🔔 '+lang.sound;
+    const hint=document.querySelector('.ops-carousel-hint');if(hint)hint.textContent=lang.hint;
+    document.documentElement.lang=key;
+    localStorage.setItem('mendtrade_language',key);
+  }
+  $('languageSelect')?.addEventListener('change',e=>applyLanguage(e.target.value));
+  const savedLanguage=localStorage.getItem('mendtrade_language')||'pt';
+  if($('languageSelect'))$('languageSelect').value=savedLanguage;
+  applyLanguage(savedLanguage);
 
 
 
@@ -936,7 +967,7 @@
       try{derivFeedSocket.close();}catch(e){}
     }
     derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
-    $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    $('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Ligar mercado';$('derivFeedDisconnect').disabled=true;
     setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
   }
   function addDerivCandleTick(tick){
@@ -1057,9 +1088,9 @@
   function connectDerivFeed(isReconnect=false){
     if(!isReconnect){derivFeedWanted=true;derivReconnectAttempts=0;}
     if(!('WebSocket' in window)){ $('derivFeedMessage').textContent='Este navegador não suporta WebSocket.';return; }
-    if(derivFeedSocket&&derivFeedSocket.readyState===WebSocket.OPEN){if(isReconnect)return;closeDerivFeed();return;}
+    if(derivFeedSocket&&derivFeedSocket.readyState===WebSocket.OPEN){setDerivFeedStatus('● Ligado','positive');$('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='Mercado ligado';$('derivFeedDisconnect').disabled=false;return;}
     const symbol=$('derivFeedSymbol').value;
-    $('derivFeedConnect').disabled=true;$('derivFeedDisconnect').disabled=false;
+    $('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='A ligar…';$('derivFeedDisconnect').disabled=false;
     $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
     $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
     setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
@@ -1067,7 +1098,7 @@
     derivFeedSocket=ws;derivFeedTicks=[];renderDerivCandles();$('derivCandleState').textContent='A iniciar/reiniciar recolha';
     ws.onopen=()=>{
       if(derivFeedSocket!==ws)return;
-      derivReconnectAttempts=0;setDerivFeedStatus('● Ligado','positive');$('derivFeedMessage').textContent='Ligado ao servidor MendtradeR. A receber cotações públicas da Deriv.';
+      derivReconnectAttempts=0;setDerivFeedStatus('● Ligado','positive');$('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='Mercado ligado';$('derivFeedDisconnect').disabled=false;$('derivFeedMessage').textContent='Ligado ao servidor MendtradeR. A receber cotações públicas da Deriv.';
       clearInterval(derivFeedPingTimer);
       derivFeedPingTimer=setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'ping'}));},15000);
       derivLastTickAt=Date.now();clearInterval(derivTickWatchdogTimer);
@@ -1107,15 +1138,15 @@
     };
     ws.onerror=()=>{
       if(derivFeedSocket!==ws)return;
-      setDerivFeedStatus('● Falha','negative');$('derivFeedMessage').textContent='Falha de ligação. '+(derivFeedWanted?'A tentar novamente…':'Verifica a internet e tenta novamente.');
+      setDerivFeedStatus('● Falha','negative');$('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Tentar ligar novamente';$('derivFeedMessage').textContent='Falha de ligação. '+(derivFeedWanted?'A tentar novamente…':'Verifica a internet e tenta novamente.');
       try{ws.close();}catch(e){}
       $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
     };
     ws.onclose=()=>{
       if(derivFeedSocket!==ws)return;
       derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
-      if(derivFeedWanted){setDerivFeedStatus('● A reconectar','neutral');$('derivFeedMessage').textContent='Ligação interrompida. A tentar reconectar…';scheduleDerivReconnect();return;}
-      setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada (código '+event.code+(event.reason?': '+event.reason:'')+'). Tenta novamente.';
+      if(derivFeedWanted){$('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Reconectar mercado';$('derivFeedDisconnect').disabled=false;setDerivFeedStatus('● A reconectar','neutral');$('derivFeedMessage').textContent='Ligação interrompida. A tentar reconectar automaticamente…';scheduleDerivReconnect();return;}
+      setDerivFeedStatus('● Desligado');$('derivFeedConnect').textContent='Ligar mercado';$('derivFeedMessage').textContent='Ligação encerrada (código '+event.code+(event.reason?': '+event.reason:'')+'). Tenta novamente.';
       $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
     };
   }

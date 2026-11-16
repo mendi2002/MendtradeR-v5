@@ -189,6 +189,19 @@
             <p class="ops-sub">Escolhe entre operações automáticas do bot e operações manuais. Os sinais só serão apresentados quando existir uma fonte de dados validada; nesta prévia, o gráfico é ilustrativo.</p>
           </div>
           <div class="window-dock"><b>Janelas de gráfico</b><button id="openChartWindow" class="window-chip">＋ Abrir nova janela</button><button class="window-chip chart-shortcut" data-symbol="EUR/USD">EUR/USD</button><button class="window-chip chart-shortcut" data-symbol="GBP/USD">GBP/USD</button><button class="window-chip chart-shortcut" data-symbol="Volatility 100 Index">Volatility 100</button><span class="small muted">Abre um gráfico separado, ao estilo do MT5. Nesta versão é apenas visual DEMO.</span></div>
+          <div class="card" id="derivLivePanel" style="margin:14px 0;border:1px solid #286052">
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <div><span class="badge">DERIV · DADOS PÚBLICOS</span><h2 style="margin:8px 0 3px">📡 Mercado em tempo real</h2><p class="small muted">Ligação apenas de leitura. Não acede à conta, saldo ou ordens.</p></div>
+              <span id="derivFeedStatus" class="signal-tag neutral">● Desligado</span>
+            </div>
+            <div class="formgrid">
+              <div class="field"><label for="derivFeedSymbol">Mercado</label><select id="derivFeedSymbol"><option value="1HZ100V">Volatility 100 (1s)</option><option value="R_100">Volatility 100</option><option value="frxEURUSD">EUR/USD</option><option value="frxGBPUSD">GBP/USD</option></select></div>
+              <div class="field"><label>Última cotação recebida</label><strong id="derivFeedPrice" style="font-size:24px">—</strong><span id="derivFeedTime" class="small muted">A aguardar ligação</span></div>
+            </div>
+            <div class="row"><button id="derivFeedConnect">Ligar mercado</button><button id="derivFeedDisconnect" class="secondary" disabled>Desligar</button><span id="derivFeedMessage" class="small muted">Sem ligação à Deriv.</span></div>
+            <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Hora</th><th>Ativo</th><th>Preço</th></tr></thead><tbody id="derivFeedRows"><tr><td colspan="3" class="muted">Ainda sem cotações.</td></tr></tbody></table></div>
+            <p class="small muted">As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.</p>
+          </div>
           <div class="v5-grid">
             <div class="v5-stat"><div class="v5-kicker">Saldo de demonstração</div><strong>25.000,00 Kz</strong></div>
             <div class="v5-stat"><div class="v5-kicker">Resultado do bot</div><strong style="color:var(--green)">—</strong><span class="small muted">Aguardando integração</span></div>
@@ -754,6 +767,72 @@
     const mh=document.querySelector('.manual-panel .panel-heading h2');if(mh)mh.textContent='🎯 '+lang.manual;
     document.documentElement.lang=e.target.value;
   });
+
+
+  // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
+  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[];
+  const DERIV_APP_ID='34TEm2Gavyti0dcVDw73V';
+  function setDerivFeedStatus(label,kind='neutral'){
+    const el=$('derivFeedStatus'); if(!el)return;
+    el.textContent=label; el.className='signal-tag '+kind;
+  }
+  function closeDerivFeed(){
+    if(derivFeedSocket){
+      try{if(derivFeedSubscription&&derivFeedSocket.readyState===WebSocket.OPEN)derivFeedSocket.send(JSON.stringify({forget:derivFeedSubscription}));}catch(e){}
+      try{derivFeedSocket.close();}catch(e){}
+    }
+    derivFeedSocket=null;derivFeedSubscription=null;
+    $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
+  }
+  function connectDerivFeed(){
+    if(!('WebSocket' in window)){ $('derivFeedMessage').textContent='Este navegador não suporta WebSocket.';return; }
+    if(derivFeedSocket&&derivFeedSocket.readyState===WebSocket.OPEN){closeDerivFeed();}
+    const symbol=$('derivFeedSymbol').value;
+    $('derivFeedConnect').disabled=true;$('derivFeedDisconnect').disabled=false;
+    $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
+    $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
+    setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
+    const ws=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id='+encodeURIComponent(DERIV_APP_ID));
+    derivFeedSocket=ws;derivFeedTicks=[];
+    ws.onopen=()=>{
+      if(derivFeedSocket!==ws)return;
+      setDerivFeedStatus('● Ligado','positive');$('derivFeedMessage').textContent='Ligado. A receber cotações públicas.';
+      ws.send(JSON.stringify({ticks:symbol,subscribe:1}));
+      ws.send(JSON.stringify({ping:1}));
+    };
+    ws.onmessage=(event)=>{
+      if(derivFeedSocket!==ws)return;
+      let data;try{data=JSON.parse(event.data);}catch(e){return;}
+      if(data.error){$('derivFeedMessage').textContent='Deriv: '+(data.error.message||'erro na resposta');setDerivFeedStatus('● Erro','negative');return;}
+      if(data.msg_type==='tick'&&data.tick){
+        const t=data.tick, quote=Number(t.quote);
+        if(!Number.isFinite(quote))return;
+        const time=new Date((Number(t.epoch)||Date.now()/1000)*1000);
+        $('derivFeedPrice').textContent=quote.toLocaleString('pt-PT',{maximumFractionDigits:8});
+        $('derivFeedTime').textContent=time.toLocaleTimeString('pt-PT');
+        derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote});
+        derivFeedTicks=derivFeedTicks.slice(0,12);
+        $('derivFeedRows').innerHTML=derivFeedTicks.map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
+        if(data.subscription?.id)derivFeedSubscription=data.subscription.id;
+      }
+    };
+    ws.onerror=()=>{
+      if(derivFeedSocket!==ws)return;
+      setDerivFeedStatus('● Falha','negative');$('derivFeedMessage').textContent='Não foi possível ligar. Verifica a internet e tenta novamente.';
+      $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    };
+    ws.onclose=()=>{
+      if(derivFeedSocket!==ws)return;
+      derivFeedSocket=null;derivFeedSubscription=null;
+      setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='A ligação foi encerrada.';
+      $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    };
+  }
+  $('derivFeedConnect')?.addEventListener('click',connectDerivFeed);
+  $('derivFeedDisconnect')?.addEventListener('click',closeDerivFeed);
+  $('derivFeedSymbol')?.addEventListener('change',()=>{if(derivFeedSocket)connectDerivFeed();});
+  window.addEventListener('beforeunload',()=>{try{derivFeedSocket?.close();}catch(e){}});
 
   $('depositBtn').addEventListener('click',()=>{});
   client.auth.getSession().then(({data})=>{if(data.session?.user)showApp(data.session.user);});

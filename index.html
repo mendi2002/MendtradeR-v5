@@ -1098,8 +1098,25 @@
     };
   }
   $('derivFeedConnect')?.addEventListener('click',connectDerivFeed);
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&derivFeedWanted&&(!derivFeedSocket||derivFeedSocket.readyState===WebSocket.CLOSED)){clearTimeout(derivReconnectTimer);derivReconnectTimer=null;connectDerivFeed(true);}});
-  window.addEventListener('pageshow',()=>{if(derivFeedWanted&&(!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN)){clearTimeout(derivReconnectTimer);derivReconnectTimer=null;connectDerivFeed(true);}});
+  // Ao regressar de segundo plano, alguns navegadores mantêm o WebSocket aberto
+  // mas deixam de entregar ticks. Verifica também a idade do último preço e renova
+  // a ligação quando o fluxo ficou congelado, sem exigir um clique manual.
+  function resumeDerivFeedIfStale(){
+    if(!derivFeedWanted || document.visibilityState==='hidden')return;
+    const socketUnavailable=!derivFeedSocket || derivFeedSocket.readyState===WebSocket.CLOSED || derivFeedSocket.readyState===WebSocket.CLOSING;
+    const priceStale=derivLastTickAt>0 && Date.now()-derivLastTickAt>20000;
+    if(socketUnavailable || priceStale){
+      clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
+      const oldSocket=derivFeedSocket;
+      derivFeedSocket=null;derivFeedSubscription=null;
+      if(oldSocket){try{oldSocket.close(4001,'Retomar fluxo após pausa');}catch(e){}}
+      clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
+      clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
+      connectDerivFeed(true);
+    }
+  }
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeDerivFeedIfStale();});
+  window.addEventListener('pageshow',()=>{resumeDerivFeedIfStale();});
   $('derivFeedDisconnect')?.addEventListener('click',closeDerivFeed);
   $('derivFeedSymbol')?.addEventListener('change',()=>{if(derivFeedSocket)connectDerivFeed();});
   window.addEventListener('beforeunload',()=>{try{derivFeedSocket?.close();}catch(e){}});

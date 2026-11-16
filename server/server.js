@@ -110,6 +110,16 @@ wss.on('connection', (ws, req, url) => {
   const stream = startStream(symbol);
   send(ws, { type: 'status', status: stream.socket && stream.socket.readyState === WebSocket.OPEN ? 'connected' : 'connecting', symbol });
   if (stream.lastTick) send(ws, { type: 'tick', symbol, tick: stream.lastTick, receivedAt: Date.now(), cached: true });
+  // O navegador envia um heartbeat periódico enquanto a plataforma está aberta.
+  // Isto mantém atividade de entrada no WebSocket do serviço gratuito.
+  ws.on('message', raw => {
+    try {
+      const message = JSON.parse(raw.toString());
+      if (message && message.type === 'ping') {
+        send(ws, { type: 'pong', at: Date.now() });
+      }
+    } catch {}
+  });
   ws.on('close', () => clients.delete(ws));
   ws.on('error', () => clients.delete(ws));
 });

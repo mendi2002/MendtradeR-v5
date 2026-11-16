@@ -385,7 +385,7 @@
           </div>
           <div class="card">
             <div class="row"><div><h2 style="margin:0">Utilizadores</h2><p class="small muted">Perfis existentes na tabela pública de perfis.</p></div><button id="ownerRefreshBtn" class="secondary right">Atualizar dados</button></div>
-            <div class="tablewrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>ID</th><th>Registo</th></tr></thead><tbody id="ownerUsersRows"><tr><td colspan="4" class="muted">A carregar…</td></tr></tbody></table></div>
+            <input id="ownerUserSearch" type="search" placeholder="Pesquisar por nome, e-mail ou ID…" aria-label="Pesquisar utilizadores" style="width:100%;margin:10px 0;padding:12px;border-radius:10px;background:#08110b;color:#effff5;border:1px solid #31533c"><div class="tablewrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>ID</th><th>Registo</th></tr></thead><tbody id="ownerUsersRows"><tr><td colspan="4" class="muted">A carregar…</td></tr></tbody></table></div>
             <p id="ownerUsersNote" class="small muted">Nota: contas Auth sem linha correspondente em profiles não aparecem nesta lista. A gestão completa de contas e suspensões exige uma função administrativa segura no servidor.</p>
           </div>
           <div class="card" style="margin-top:14px">
@@ -460,6 +460,14 @@
     if(error){console.warn('Não foi possível validar o acesso do proprietário:',error.message);return;}
     if(data===true) nav.classList.remove('hidden');
   }
+  let ownerProfileCache = [];
+  function renderOwnerUsers(filter=''){
+    const q=filter.trim().toLocaleLowerCase();
+    const rows=ownerProfileCache.filter(u=>[u.full_name,u.email,u.id].some(v=>String(v||'').toLocaleLowerCase().includes(q)));
+    $('ownerUsersRows').innerHTML=rows.length?rows.map(u=>'<tr><td>'+escapeHtml(u.full_name||'—')+'</td><td>'+escapeHtml(u.email||'—')+'</td><td><span class="small">'+escapeHtml(u.id)+'</span></td><td>'+ (u.created_at?new Date(u.created_at).toLocaleDateString('pt-PT'):'—')+'</td></tr>').join(''):'<tr><td colspan="4" class="muted">Nenhum utilizador corresponde à pesquisa.</td></tr>';
+  }
+  $('ownerUserSearch')?.addEventListener('input',e=>renderOwnerUsers(e.target.value));
+
   async function loadOwnerDashboard(){
     if(!currentUser)return;
     const msg=$('ownerPanelMsg');
@@ -476,12 +484,14 @@
       return;
     }
     const profileRows=profiles.data||[], tradeRows=trades.data||[];
+    ownerProfileCache=profileRows;
     $('ownerUsersCount').textContent=String(profileRows.length);
     $('ownerTradesCount').textContent=String(tradeRows.length);
     const totalCommission=tradeRows.reduce((sum,r)=>sum+Math.max(0,Number(r.commission)||0),0);
     $('ownerCommissionTotal').textContent=money(totalCommission);
     $('ownerBotsCount').textContent=String(bots.count??'—');
-    $('ownerUsersRows').innerHTML=profileRows.length?profileRows.map(u=>'<tr><td>'+escapeHtml(u.full_name||'—')+'</td><td>'+escapeHtml(u.email||'—')+'</td><td><span class="small">'+escapeHtml(u.id)+'</span></td><td>'+ (u.created_at?new Date(u.created_at).toLocaleDateString('pt-PT'):'—')+'</td></tr>').join(''):'<tr><td colspan="4" class="muted">Ainda não existem perfis registados na tabela profiles.</td></tr>';
+    renderOwnerUsers($('ownerUserSearch')?.value||'');
+    if(!profileRows.length) $('ownerUsersRows').innerHTML='<tr><td colspan="4" class="muted">Ainda não existem perfis registados na tabela profiles.</td></tr>';
     $('ownerTradesRows').innerHTML=tradeRows.length?tradeRows.slice(0,30).map(r=>'<tr><td>'+new Date(r.created_at).toLocaleString('pt-PT')+'</td><td><span class="small">'+escapeHtml(r.user_id||'—')+'</span></td><td>'+escapeHtml(r.asset||'—')+'</td><td>'+money(r.result)+'</td><td>'+money(r.commission)+'</td><td>'+escapeHtml(r.status||'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Ainda não existem operações registadas.</td></tr>';
     msg.textContent='Dados atualizados. A comissão total é a soma dos valores gravados nos últimos 100 registos consultados; não é prova de cobrança ou recebimento.';
   }

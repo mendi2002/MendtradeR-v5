@@ -168,6 +168,28 @@
       .payment-methods{grid-template-columns:1fr 1fr}
     }
 
+
+    /* Ajuste pedido: painel manual compacto, sem altura artificial. */
+    .ops-slide:has(.manual-panel){flex-basis:min(100%,620px)}
+    .manual-panel{max-width:620px;margin-inline:auto}
+    .manual-panel .signal-card{padding:9px;margin:7px 0}
+    .manual-panel .signal-direction{font-size:17px;margin:5px 0}
+    .manual-panel .field{margin:6px 0}
+    .manual-panel .formgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 9px}
+    .manual-panel .field input,.manual-panel .field select{padding:8px}
+    .manual-panel .manual-actions{margin:7px 0}
+    .manual-panel .manual-actions button{padding:9px}
+    .manual-panel .notice{padding:7px 9px;margin:7px 0;font-size:11px}
+    .manual-panel h3{font-size:14px;margin:9px 0 4px}
+    .manual-panel .mini-row{padding:5px 0}
+    @media(max-width:760px){
+      .ops-slide:has(.manual-panel){flex-basis:100%}
+      .manual-panel{max-width:none}
+      .manual-panel .formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .manual-panel .signal-card p{margin:5px 0}
+    }
+    @media(max-width:380px){.manual-panel .formgrid{grid-template-columns:1fr}}
+
   </style>
 </head>
 <body>
@@ -1086,8 +1108,8 @@
     ws.onerror=()=>{
       if(derivFeedSocket!==ws)return;
       setDerivFeedStatus('● Falha','negative');$('derivFeedMessage').textContent='Falha de ligação. '+(derivFeedWanted?'A tentar novamente…':'Verifica a internet e tenta novamente.');
+      try{ws.close();}catch(e){}
       $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
-      if(derivFeedWanted)scheduleDerivReconnect();
     };
     ws.onclose=()=>{
       if(derivFeedSocket!==ws)return;
@@ -1104,7 +1126,7 @@
   function resumeDerivFeedIfStale(){
     if(!derivFeedWanted || document.visibilityState==='hidden')return;
     const socketUnavailable=!derivFeedSocket || derivFeedSocket.readyState===WebSocket.CLOSED || derivFeedSocket.readyState===WebSocket.CLOSING;
-    const priceStale=derivLastTickAt>0 && Date.now()-derivLastTickAt>20000;
+    const priceStale=derivFeedSocket?.readyState===WebSocket.OPEN && (!derivLastTickAt || Date.now()-derivLastTickAt>20000);
     if(socketUnavailable || priceStale){
       clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
       const oldSocket=derivFeedSocket;
@@ -1117,6 +1139,8 @@
   }
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeDerivFeedIfStale();});
   window.addEventListener('pageshow',()=>{resumeDerivFeedIfStale();});
+  window.addEventListener('focus',()=>{resumeDerivFeedIfStale();});
+  window.addEventListener('online',()=>{if(derivFeedWanted)resumeDerivFeedIfStale();});
   $('derivFeedDisconnect')?.addEventListener('click',closeDerivFeed);
   $('derivFeedSymbol')?.addEventListener('change',()=>{if(derivFeedSocket)connectDerivFeed();});
   window.addEventListener('beforeunload',()=>{try{derivFeedSocket?.close();}catch(e){}});

@@ -133,6 +133,7 @@
     <button data-page="withdraw">↗ Levantamentos</button>
     <button data-page="support">✦ Suporte IA / Proprietário</button>
     <button data-page="account">⚙ Conta e definições</button>
+    <button data-page="owner" id="ownerNavBtn" class="hidden">👑 Área do Proprietário</button>
   </nav>
 
   <main id="appView" class="hidden">
@@ -368,6 +369,32 @@
               <div class="row" style="margin-top:12px"><span class="pill">Regra comercial definida</span><span class="pill">Resumo financeiro: integração pendente</span></div>
             </div></div>
         </section>
+
+        <section id="owner" class="section">
+          <div class="ops-hero">
+            <div class="row"><span class="ops-status"><i class="ops-dot"></i> ACESSO PRIVADO VALIDADO</span><span class="pill right">ADMINISTRAÇÃO</span></div>
+            <div class="ops-title">Área do Proprietário</div>
+            <p class="ops-sub">Painel administrativo privado do MendtradeR. O acesso é validado pelo Supabase, não apenas pelo endereço de e-mail ou por um botão escondido.</p>
+          </div>
+          <div class="notice success">Sessão autorizada como proprietário. Os dados abaixo são consultados respeitando as políticas de segurança da base de dados.</div>
+          <div class="v5-grid">
+            <div class="v5-stat"><div class="v5-kicker">Perfis registados</div><strong id="ownerUsersCount">—</strong></div>
+            <div class="v5-stat"><div class="v5-kicker">Operações registadas</div><strong id="ownerTradesCount">—</strong></div>
+            <div class="v5-stat"><div class="v5-kicker">Comissões registadas</div><strong id="ownerCommissionTotal">$0.00</strong></div>
+            <div class="v5-stat"><div class="v5-kicker">Configurações de bot</div><strong id="ownerBotsCount">—</strong></div>
+          </div>
+          <div class="card">
+            <div class="row"><div><h2 style="margin:0">Utilizadores</h2><p class="small muted">Perfis existentes na tabela pública de perfis.</p></div><button id="ownerRefreshBtn" class="secondary right">Atualizar dados</button></div>
+            <div class="tablewrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>ID</th><th>Registo</th></tr></thead><tbody id="ownerUsersRows"><tr><td colspan="4" class="muted">A carregar…</td></tr></tbody></table></div>
+            <p id="ownerUsersNote" class="small muted">Nota: contas Auth sem linha correspondente em profiles não aparecem nesta lista. A gestão completa de contas e suspensões exige uma função administrativa segura no servidor.</p>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <h2 style="margin-top:0">Últimas operações</h2>
+            <div class="tablewrap"><table><thead><tr><th>Data</th><th>Utilizador</th><th>Ativo</th><th>Resultado</th><th>Comissão registada</th><th>Estado</th></tr></thead><tbody id="ownerTradesRows"><tr><td colspan="6" class="muted">A carregar…</td></tr></tbody></table></div>
+            <p id="ownerPanelMsg" class="small muted" aria-live="polite">Os valores de comissão são apenas os que já estiverem gravados no histórico; não representam pagamentos recebidos.</p>
+          </div>
+          <div class="notice warning"><b>Limites desta versão:</b> ainda não permite suspender/eliminar contas, consultar todas as contas Auth, alterar saldos ou cobrar comissões. Essas ações serão implementadas por funções Edge seguras, sem expor chaves administrativas no navegador.</div>
+        </section>
       </div>
     </div>
   </main>
@@ -423,8 +450,42 @@
   function money(n) { return '$'+(Number(n)||0).toFixed(2); }
   function showApp(user) {
     currentUser=user; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
-    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory();
+    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); checkOwnerAccess();
   }
+  async function checkOwnerAccess(){
+    const nav=$('ownerNavBtn');
+    nav.classList.add('hidden');
+    $('owner').classList.remove('active');
+    const {data,error}=await client.rpc('is_platform_owner');
+    if(error){console.warn('Não foi possível validar o acesso do proprietário:',error.message);return;}
+    if(data===true) nav.classList.remove('hidden');
+  }
+  async function loadOwnerDashboard(){
+    if(!currentUser)return;
+    const msg=$('ownerPanelMsg');
+    msg.textContent='A atualizar os dados administrativos…';
+    $('ownerUsersRows').innerHTML='<tr><td colspan="4" class="muted">A carregar…</td></tr>';
+    $('ownerTradesRows').innerHTML='<tr><td colspan="6" class="muted">A carregar…</td></tr>';
+    const [profiles, trades, bots]=await Promise.all([
+      client.from('profiles').select('id,full_name,email,created_at').order('created_at',{ascending:false}).limit(100),
+      client.from('trade_history').select('user_id,created_at,asset,trade_type,result,commission,status').order('created_at',{ascending:false}).limit(100),
+      client.from('bot_settings').select('id',{count:'exact',head:true})
+    ]);
+    if(profiles.error||trades.error||bots.error){
+      msg.textContent='Não foi possível carregar todos os dados. '+[profiles.error,trades.error,bots.error].filter(Boolean).map(e=>e.message).join(' · ');
+      return;
+    }
+    const profileRows=profiles.data||[], tradeRows=trades.data||[];
+    $('ownerUsersCount').textContent=String(profileRows.length);
+    $('ownerTradesCount').textContent=String(tradeRows.length);
+    const totalCommission=tradeRows.reduce((sum,r)=>sum+Math.max(0,Number(r.commission)||0),0);
+    $('ownerCommissionTotal').textContent=money(totalCommission);
+    $('ownerBotsCount').textContent=String(bots.count??'—');
+    $('ownerUsersRows').innerHTML=profileRows.length?profileRows.map(u=>'<tr><td>'+escapeHtml(u.full_name||'—')+'</td><td>'+escapeHtml(u.email||'—')+'</td><td><span class="small">'+escapeHtml(u.id)+'</span></td><td>'+ (u.created_at?new Date(u.created_at).toLocaleDateString('pt-PT'):'—')+'</td></tr>').join(''):'<tr><td colspan="4" class="muted">Ainda não existem perfis registados na tabela profiles.</td></tr>';
+    $('ownerTradesRows').innerHTML=tradeRows.length?tradeRows.slice(0,30).map(r=>'<tr><td>'+new Date(r.created_at).toLocaleString('pt-PT')+'</td><td><span class="small">'+escapeHtml(r.user_id||'—')+'</span></td><td>'+escapeHtml(r.asset||'—')+'</td><td>'+money(r.result)+'</td><td>'+money(r.commission)+'</td><td>'+escapeHtml(r.status||'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Ainda não existem operações registadas.</td></tr>';
+    msg.textContent='Dados atualizados. A comissão total é a soma dos valores gravados nos últimos 100 registos consultados; não é prova de cobrança ou recebimento.';
+  }
+  $('ownerRefreshBtn')?.addEventListener('click',loadOwnerDashboard);
   function showAuth() { $('appView').classList.add('hidden'); $('authView').classList.remove('hidden'); $('logoutBtn').classList.add('hidden'); $('menuToggle').classList.add('hidden'); openMenu(false); currentUser=null; }
 
   $('loginBtn').addEventListener('click', async () => {
@@ -462,6 +523,7 @@
     document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id===btn.dataset.page));
     openMenu(false);
     if(btn.dataset.page==='history') loadHistory();
+    if(btn.dataset.page==='owner') loadOwnerDashboard();
   }));
 
   async function loadBotSettings(){

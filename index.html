@@ -212,6 +212,17 @@
               <p id="derivSignalReason" class="small muted">São necessários pelo menos 30 ticks consecutivos para uma primeira leitura.</p>
               <p id="derivSignalWarning" class="small muted">Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.</p>
             </div>
+            <div id="derivCandlePanel" class="card" style="margin-top:14px">
+              <h3>🕯️ Candles reais · 1 minuto</h3>
+              <p class="small muted">Os candles são construídos localmente a partir dos ticks recebidos. Só candles fechados entram na análise.</p>
+              <div class="formgrid">
+                <div class="field"><label>Candles fechados recolhidos</label><strong id="derivCandleCount">0</strong></div>
+                <div class="field"><label>Estado da recolha</label><strong id="derivCandleState">A aguardar ticks</strong></div>
+              </div>
+              <div class="tablewrap"><table><thead><tr><th>Hora</th><th>Abertura</th><th>Máxima</th><th>Mínima</th><th>Fecho</th></tr></thead><tbody id="derivCandleRows"><tr><td colspan="5" class="muted">Ainda sem candles fechados.</td></tr></tbody></table></div>
+              <div class="row" style="margin-top:12px"><button id="derivCandleBacktest" class="secondary">Testar estratégia em demo</button></div>
+              <p id="derivCandleTestResult" class="small muted">O teste ficará disponível após recolher pelo menos 60 candles fechados (aproximadamente 1 hora).</p>
+            </div>
             <p class="small muted">As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.</p>
           </div>
           <div class="v5-grid">
@@ -782,7 +793,7 @@
 
 
   // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
-  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null;
+  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivLiveCandles=[], derivCurrentCandle=null;
   function setDerivFeedStatus(label,kind='neutral'){
     const el=$('derivFeedStatus'); if(!el)return;
     el.textContent=label; el.className='signal-tag '+kind;
@@ -796,6 +807,55 @@
     $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
     setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
   }
+  function addDerivCandleTick(tick){
+    const epoch=Number(tick.epoch);const price=Number(tick.quote);
+    if(!Number.isFinite(epoch)||!Number.isFinite(price))return;
+    const bucket=Math.floor(epoch/60)*60;
+    if(!derivCurrentCandle){
+      derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
+    }else if(bucket===derivCurrentCandle.epoch){
+      derivCurrentCandle.high=Math.max(derivCurrentCandle.high,price);
+      derivCurrentCandle.low=Math.min(derivCurrentCandle.low,price);
+      derivCurrentCandle.close=price;
+    }else if(bucket>derivCurrentCandle.epoch){
+      derivLiveCandles.push({...derivCurrentCandle,time:new Date(derivCurrentCandle.epoch*1000).toLocaleTimeString('pt-PT')});
+      derivLiveCandles=derivLiveCandles.slice(-300);
+      derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
+      renderDerivCandles();
+      updateDerivCandleSignal();
+    }
+    $('derivCandleState').textContent='A recolher candle atual';
+  }
+  function renderDerivCandles(){
+    $('derivCandleCount').textContent=String(derivLiveCandles.length);
+    $('derivCandleRows').innerHTML=derivLiveCandles.slice(-8).reverse().map(c=>'<tr><td>'+escapeHtml(c.time)+'</td><td>'+c.open+'</td><td>'+c.high+'</td><td>'+c.low+'</td><td>'+c.close+'</td></tr>').join('')||'<tr><td colspan="5" class="muted">Ainda sem candles fechados.</td></tr>';
+    $('derivCandleTestResult').textContent=derivLiveCandles.length<60?'Faltam '+(60-derivLiveCandles.length)+' candles para o primeiro teste (aproximadamente '+(60-derivLiveCandles.length)+' minutos).':'Já existem dados suficientes para um primeiro teste histórico em demo.';
+  }
+  function updateDerivCandleSignal(){
+    const c=derivLiveCandles;if(c.length<55)return;
+    const close=c.map(x=>x.close);
+    const fast=ema(close,9),slow=ema(close,21),r=rsi(close,14),i=close.length-1;
+    const bull=fast[i]>slow[i]&&r[i]>=52&&r[i]<=68&&close[i]>close[i-1];
+    const bear=fast[i]<slow[i]&&r[i]>=32&&r[i]<=48&&close[i]<close[i-1];
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    if(bull||bear){
+      const side=bull?'COMPRA':'VENDA';tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');
+      dir.textContent=side;strength.textContent='3/3 condições';
+      reason.textContent='Análise dos candles fechados de 1 minuto: EMA 9/21 alinhadas, RSI '+r[i].toFixed(1)+' e fecho na direção do sinal. Experimental; aguardar confirmação.';
+    }else{
+      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
+      reason.textContent='Os candles fechados ainda não alinham EMA 9/21, RSI e direção. RSI atual: '+r[i].toFixed(1)+'.';
+    }
+  }
+  $('derivCandleBacktest').addEventListener('click',()=>{
+    const resultEl=$('derivCandleTestResult');
+    if(derivLiveCandles.length<60){resultEl.textContent='Ainda são necessários pelo menos 60 candles fechados. Mantém o mercado ligado.';return;}
+    try{
+      const style=$('strategyStyle')?.value||'trend',risk=$('strategyRisk')?.value||'balanced';
+      const result=runStrategy(derivLiveCandles,style,risk);
+      resultEl.textContent='TESTE DEMO · '+derivLiveCandles.length+' candles · '+result.signals+' operações simuladas · '+result.wins+' positivas · '+result.losses+' negativas · taxa positiva '+result.winRate.toFixed(1)+'% · resultado bruto '+result.equity.toFixed(5)+' pontos. Não inclui spread, custos, latência nem execução real.';
+    }catch(e){resultEl.textContent='Não foi possível executar o teste: '+e.message;}
+  });
   function updateDerivLiveSignal(){
     const prices=derivFeedTicks.slice().reverse().map(x=>x.quote);
     const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
@@ -827,7 +887,7 @@
     $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
     setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
     const ws=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
-    derivFeedSocket=ws;derivFeedTicks=[];
+    derivFeedSocket=ws;derivFeedTicks=[];derivLiveCandles=[];derivCurrentCandle=null;renderDerivCandles();$('derivCandleState').textContent='A iniciar recolha';
     ws.onopen=()=>{
       if(derivFeedSocket!==ws)return;
       setDerivFeedStatus('● Ligado','positive');$('derivFeedMessage').textContent='Ligado. A receber cotações públicas.';
@@ -850,6 +910,7 @@
         derivFeedTicks=derivFeedTicks.slice(0,120);
         $('derivFeedRows').innerHTML=derivFeedTicks.slice(0,12).map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
         updateDerivLiveSignal();
+        addDerivCandleTick(t);
         if(data.subscription?.id)derivFeedSubscription=data.subscription.id;
       }
     };

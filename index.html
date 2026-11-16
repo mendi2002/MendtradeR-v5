@@ -849,7 +849,8 @@
         derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote});
         derivFeedTicks=derivFeedTicks.slice(0,120);
         $('derivFeedRows').innerHTML=derivFeedTicks.slice(0,12).map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
-        updateDerivLiveSignal();\n        if(data.subscription?.id)derivFeedSubscription=data.subscription.id;
+        updateDerivLiveSignal();
+        if(data.subscription?.id)derivFeedSubscription=data.subscription.id;
       }
     };
     ws.onerror=()=>{

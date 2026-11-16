@@ -1010,45 +1010,87 @@
       'Instruções e técnicas de operações':'Instrucciones y técnicas de operaciones','Guia educativo para compreender o MendtradeR e preparar uma utilização responsável.':'Guía educativa para comprender MendtradeR y prepararse para un uso responsable.','Suporte IA / Proprietário':'Soporte IA / Propietario','Conta e definições':'Cuenta y ajustes','Centro de suporte':'Centro de soporte'
     }
   };
+  // Tradução resiliente: preserva o texto original e também traduz elementos
+  // criados/atualizados dinamicamente após a troca de idioma.
   const originalUiTextNodes=new WeakMap();
+  const originalUiAttributes=new WeakMap();
+  let activeLanguage='pt';
+  function translateTextNode(node){
+    if(!node || node.nodeType!==Node.TEXT_NODE || !node.parentElement) return;
+    if(node.parentElement.closest('script,style,noscript')) return;
+    if(!originalUiTextNodes.has(node)) originalUiTextNodes.set(node,node.nodeValue);
+    const original=originalUiTextNodes.get(node), trimmed=String(original||'').trim();
+    if(!trimmed) return;
+    const dictionary=uiText[activeLanguage]||{};
+    let translated=activeLanguage==='pt'?original:dictionary[trimmed];
+    if(!translated && activeLanguage!=='pt'){
+      const match=Object.keys(dictionary).find(k=>trimmed.startsWith(k+' '));
+      if(match) translated=original.replace(trimmed,dictionary[match]+trimmed.slice(match.length));
+    }
+    if(translated===undefined) translated=original;
+    else if(translated!==original && original!==trimmed) translated=original.replace(trimmed,translated);
+    if(node.nodeValue!==translated) node.nodeValue=translated;
+  }
+  function translateAttribute(el,attr){
+    const value=el.getAttribute(attr);
+    if(value===null)return;
+    let saved=originalUiAttributes.get(el);
+    if(!saved){saved={};originalUiAttributes.set(el,saved);}
+    if(!(attr in saved))saved[attr]=value;
+    const original=saved[attr],dictionary=uiText[activeLanguage]||{};
+    const translated=activeLanguage==='pt'?original:(dictionary[original]||original);
+    if(value!==translated)el.setAttribute(attr,translated);
+  }
+  function translateAddedTree(root){
+    if(root.nodeType===Node.TEXT_NODE){translateTextNode(root);return;}
+    if(root.nodeType!==Node.ELEMENT_NODE && root!==document.body)return;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    while(walker.nextNode())translateTextNode(walker.currentNode);
+    if(root.nodeType===Node.ELEMENT_NODE){
+      if(root.matches?.('input[placeholder],textarea[placeholder],[aria-label],[title]')){
+        ['placeholder','aria-label','title'].forEach(attr=>translateAttribute(root,attr));
+      }
+      root.querySelectorAll?.('input[placeholder],textarea[placeholder],[aria-label],[title]').forEach(el=>{
+        ['placeholder','aria-label','title'].forEach(attr=>translateAttribute(el,attr));
+      });
+    }
+  }
   function applyLanguage(code){
-    const key=translations[code]?code:'pt';
-    const dictionary=uiText[key]||{};
+    activeLanguage=translations[code]?code:'pt';
+    const key=activeLanguage;
+    translateAddedTree(document.body);
     const navLabels=Array.from(document.querySelectorAll('#mainNav [data-page]'));
     navLabels.forEach((button,i)=>{
       const label=translations[key].nav[i];
-      if(label){const icon=button.textContent.trim().split(' ')[0];button.textContent=icon+' '+label;}
-    });
-    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
-    const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
-    nodes.forEach(node=>{
-      if(!originalUiTextNodes.has(node))originalUiTextNodes.set(node,node.nodeValue);
-      const original=originalUiTextNodes.get(node),trimmed=original.trim();
-      if(!trimmed)return;
-      let translated=dictionary[trimmed];
-      if(!translated){
-        const match=Object.keys(dictionary).find(k=>trimmed.startsWith(k+' '));
-        if(match)translated=dictionary[match]+trimmed.slice(match.length);
+      if(label){
+        const icon=button.textContent.trim().split(' ')[0];
+        const next=icon+' '+label;
+        if(button.textContent!==next)button.textContent=next;
       }
-      if(translated)node.nodeValue=original.replace(trimmed,translated);
     });
-    document.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(el=>{
-      const t=dictionary[el.getAttribute('placeholder')];if(t)el.setAttribute('placeholder',t);
-    });
-    document.querySelectorAll('[aria-label],[title]').forEach(el=>{
-      ['aria-label','title'].forEach(attr=>{const v=el.getAttribute(attr);if(v&&dictionary[v])el.setAttribute(attr,dictionary[v]);});
-    });
-    const hint=document.querySelector('.ops-carousel-hint');if(hint)hint.textContent=translations[key].hint;
-    const connect=$('derivFeedConnect');if(connect&&!connect.disabled)connect.textContent=dictionary['Ligar mercado']||'Ligar mercado';
-    const disconnect=$('derivFeedDisconnect');if(disconnect)disconnect.textContent=dictionary['Desligar']||'Desligar';
+    const hint=document.querySelector('.ops-carousel-hint');
+    if(hint)hint.textContent=translations[key].hint;
+    const connect=$('derivFeedConnect');
+    if(connect&&!connect.disabled)connect.textContent=(uiText[key]||{})['Ligar mercado']||(key==='en'?'Connect market':key==='es'?'Conectar mercado':'Ligar mercado');
+    const disconnect=$('derivFeedDisconnect');
+    if(disconnect)disconnect.textContent=(uiText[key]||{})['Desligar']||(key==='en'?'Disconnect':key==='es'?'Desconectar':'Desligar');
     document.documentElement.lang=key;
-    localStorage.setItem('mendtrade_language',key);
+    try{localStorage.setItem('mendtrade_language',key);}catch(e){}
+    const selector=$('languageSelect');
+    if(selector && selector.value!==key)selector.value=key;
   }
   $('languageSelect')?.addEventListener('change',e=>applyLanguage(e.target.value));
   const savedLanguage=localStorage.getItem('mendtrade_language')||'pt';
-  if($('languageSelect'))$('languageSelect').value=savedLanguage;
+  if($('languageSelect'))$('languageSelect').value=translations[savedLanguage]?savedLanguage:'pt';
   applyLanguage(savedLanguage);
-
+  const languageObserver=new MutationObserver(records=>{
+    for(const record of records){
+      if(record.type==='characterData')translateTextNode(record.target);
+      record.addedNodes?.forEach(translateAddedTree);
+      if(record.type==='attributes')translateAttribute(record.target,record.attributeName);
+    }
+  });
+  languageObserver.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['placeholder','aria-label','title']});
 
   // Área de operações horizontal: BOT primeiro, restantes painéis por deslize.
   function setupOperationsCarousel(){

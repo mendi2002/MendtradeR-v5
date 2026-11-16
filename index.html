@@ -940,24 +940,105 @@
     $('ownerSupportMsg').textContent='Mensagem preparada neste dispositivo. O envio ao proprietário só ficará disponível após configurar o serviço de suporte no backend.';
   });
 
-  // Idioma persistente: aplica-se imediatamente aos principais elementos visíveis.
+  // Tradução centralizada da interface. Mantém valores, dados de mercado e conteúdo dinâmico intactos.
   const translations={
-    pt:{nav:['Área de operações','Visão geral','Histórico','Instruções e técnicas','Depósitos','Levantamentos','Suporte IA / Proprietário','Conta e definições'],support:'Centro de suporte',bot:'Operações do Bot',manual:'Operações Manuais',market:'Mercado em tempo real',connect:'Ligar mercado',disconnect:'Desligar',sound:'Ativar aviso sonoro',overview:'Visão geral',history:'Histórico',guides:'Instruções e técnicas',deposit:'Depósitos',withdraw:'Levantamentos',account:'Conta e definições',hint:'Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.'},
-    en:{nav:['Trading workspace','Overview','History','Guides & techniques','Deposits','Withdrawals','AI / Owner support','Account & settings'],support:'Support Center',bot:'Bot Operations',manual:'Manual Operations',market:'Live market',connect:'Connect market',disconnect:'Disconnect',sound:'Enable sound alert',overview:'Overview',history:'History',guides:'Guides & techniques',deposit:'Deposits',withdraw:'Withdrawals',account:'Account & settings',hint:'Swipe left to view the other panels. BOT is always first.'},
-    es:{nav:['Área de operaciones','Resumen','Historial','Instrucciones y técnicas','Depósitos','Retiros','Soporte IA / Propietario','Cuenta y ajustes'],support:'Centro de soporte',bot:'Operaciones del Bot',manual:'Operaciones manuales',market:'Mercado en tiempo real',connect:'Conectar mercado',disconnect:'Desconectar',sound:'Activar alerta sonora',overview:'Resumen',history:'Historial',guides:'Instrucciones y técnicas',deposit:'Depósitos',withdraw:'Retiros',account:'Cuenta y ajustes',hint:'Desliza hacia la izquierda para ver los otros paneles. BOT aparece primero.'}
+    pt:{nav:['Área de operações','Visão geral','Histórico','Instruções e técnicas','Depósitos','Levantamentos','Suporte IA / Proprietário','Conta e definições','Área do Proprietário'],hint:'Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.'},
+    en:{nav:['Trading workspace','Overview','History','Guides & techniques','Deposits','Withdrawals','AI / Owner support','Account & settings','Owner area'],hint:'Swipe left to view the other panels. BOT is always first.'},
+    es:{nav:['Área de operaciones','Resumen','Historial','Instrucciones y técnicas','Depósitos','Retiros','Soporte IA / Propietario','Cuenta y ajustes','Área del propietario'],hint:'Desliza hacia la izquierda para ver los otros paneles. BOT aparece primero.'}
+  };
+  const uiText={
+    en:{
+      'Bem-vindo ao MendtradeR':'Welcome to MendtradeR','Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.':'Sign in or create an account to access the dashboard. Available to users in multiple countries.',
+      'País':'Country','Palavra-passe':'Password','Entrar':'Sign in','Criar conta':'Create account','Sair':'Log out','MENU MENDTRADER':'MENDTRADER MENU','Fechar menu':'Close menu',
+      'Resumo da tua conta MendtradeR.':'Your MendtradeR account summary.','Saldo registado':'Recorded balance','Resultado registado':'Recorded result','O saldo real é consultado na Deriv quando a integração for concluída.':'The real balance will be retrieved from Deriv when integration is complete.',
+      'Estado do bot':'Bot status','Desligado':'Disconnected','Taxa de acerto':'Win rate','Aguardando operações reais':'Waiting for real trades','Lucro hoje':'Profit today','Dados não ligados':'Data not connected','Oportunidades':'Opportunities','Radar por integrar':'Radar integration pending','Risco da sessão':'Session risk','Protegido':'Protected','Controlos configuráveis':'Configurable controls',
+      'Radar inteligente · V5':'Smart radar · V5','Pré-visualização do painel de oportunidades.':'Preview of the opportunities panel.','MODO DEMO VISUAL':'VISUAL DEMO MODE','A aguardar dados de mercado':'Waiting for market data','Multimercado':'Multi-market','Melhor oportunidade':'Best opportunity','Sem sinal confirmado':'No confirmed signal','Qualidade do sinal':'Signal quality','Direção':'Direction','Mercado':'Market','Confirmações':'Confirmations','Estado':'Status','Não ligado':'Not connected',
+      'Regra de comissão da plataforma':'Platform commission rule','Aplicada apenas ao lucro positivo elegível de cada operação concluída.':'Applied only to eligible positive profit from each completed trade.','Exemplo: lucro elegível de 10 USD = 1 USD de comissão. O registo e a cobrança reais dependem do backend.':'Example: eligible profit of USD 10 = USD 1 commission. Actual recording and collection depend on the backend.',
+      'Importante:':'Important:','esta primeira versão ainda não executa operações, não movimenta dinheiro e não está ligada à conta Deriv. Use apenas como painel de configuração.':'this first version does not execute trades, move money, or connect to a Deriv account. Use it only as a configuration dashboard.','Próximas integrações':'Upcoming integrations',
+      'Ligação segura à Deriv, execução do bot com limites de risco, depósitos e levantamentos bancários confirmados por um prestador autorizado.':'Secure Deriv connection, bot execution with risk limits, and bank deposits and withdrawals confirmed by an authorized provider.',
+      'Central de operações':'Trading center','Escolhe entre operações automáticas do bot e operações manuais. Os sinais só serão apresentados quando existir uma fonte de dados validada; nesta prévia, o gráfico é ilustrativo.':'Choose between automated bot trading and manual trading. Signals will appear only when a validated data source is available; the chart in this preview is illustrative.',
+      'Janelas de gráfico':'Chart windows','＋ Abrir nova janela':'＋ Open new window','Abre um gráfico separado, ao estilo do MT5. Nesta versão é apenas visual DEMO.':'Opens a separate chart, similar to MT5. In this version it is visual DEMO only.',
+      'DERIV · DADOS PÚBLICOS':'DERIV · PUBLIC DATA','Mercado em tempo real':'Live market','Ligação apenas de leitura. Não acede à conta, saldo ou ordens.':'Read-only connection. It does not access your account, balance, or trades.',
+      'Última cotação recebida':'Latest quote received','A aguardar ligação':'Waiting for connection','Ligar mercado':'Connect market','Desligar':'Disconnect','Sem ligação à Deriv.':'Not connected to Deriv.','Ativar aviso sonoro':'Enable sound alert','Som desligado':'Sound off','Hora':'Time','Ativo':'Asset','Preço':'Price','Ainda sem cotações.':'No quotes yet.',
+      'ANÁLISE EXPERIMENTAL · SEM ORDENS':'EXPERIMENTAL ANALYSIS · NO TRADES','🧭 Sinal do mercado':'🧭 Market signal','● A aguardar dados':'● Waiting for data','Direção sugerida':'Suggested direction','Força técnica indicativa':'Indicative technical strength','A AGUARDAR':'WAITING','São necessários pelo menos 30 ticks consecutivos para uma primeira leitura.':'At least 30 consecutive ticks are required for an initial reading.',
+      'Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.':'Experimental signals based on tick movements, not candles. They are not financial advice or a guarantee of results. No trades will be executed.',
+      '🕯️ Candles reais · 1 minuto':'🕯️ Real candles · 1 minute','Os candles são construídos localmente a partir dos ticks recebidos. Só candles fechados entram na análise.':'Candles are built locally from received ticks. Only closed candles are included in the analysis.',
+      'Candles fechados recolhidos':'Closed candles collected','Estado da recolha':'Collection status','A aguardar ticks':'Waiting for ticks','Ainda sem candles fechados.':'No closed candles yet.','Testar estratégia em demo':'Test strategy in demo',
+      'O teste ficará disponível após recolher pelo menos 60 candles fechados (aproximadamente 1 hora).':'The test will be available after collecting at least 60 closed candles (approximately 1 hour).',
+      'As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.':'Quotes are provided by Deriv through a public connection. The connection does not place trades. Signals and the bot remain disabled until separately validated.',
+      'Saldo de demonstração':'Demo balance','Resultado do bot':'Bot result','Aguardando integração':'Waiting for integration','Resultado manual':'Manual result','Aguardando operações':'Waiting for trades','Estado da ligação':'Connection status','Deriv não conectada':'Deriv not connected',
+      '🤖 Operações do Bot':'🤖 Bot Operations','Gráfico do mercado':'Market chart','Ilustrativo · sem cotações ao vivo':'Illustrative · no live quotes','Sinal do motor: indisponível':'Engine signal: unavailable','Feed não ligado':'Feed not connected',
+      'Estratégia':'Strategy','Manual / por configurar':'Manual / to be configured','Conservadora (a implementar)':'Conservative (to be implemented)','Valor por entrada (USD)':'Stake per trade (USD)','Valor mínimo (USD)':'Minimum stake (USD)','Valor máximo (USD)':'Maximum stake (USD)','Tempo de expiração':'Expiry time','Meta de lucro (USD)':'Profit target (USD)','Limite de perda (USD)':'Loss limit (USD)','Máximo de operações':'Maximum number of trades','Guardar configurações':'Save settings','Iniciar Bot (indisponível)':'Start Bot (unavailable)',
+      'O bot permanece desligado até à integração segura e aos testes DEMO.':'The bot remains disabled until secure integration and DEMO testing are complete.',
+      '🎯 Operações Manuais':'🎯 Manual Trading','Execução manual':'Manual execution','📊 Sinal atual do Bot':'📊 Current Bot Signal','Aguardando feed':'Waiting for feed','Nenhum sinal confirmado':'No confirmed signal',
+      'Quando o motor receber dados reais e validar uma oportunidade, o sinal mostrará COMPRA ou VENDA, ativo, confiança e validade. Tu decides se executas.':'When the engine receives real data and validates an opportunity, the signal will show BUY or SELL, asset, confidence, and validity. You decide whether to execute.',
+      'Valor da operação (USD)':'Trade amount (USD)','↑ COMPRA':'↑ BUY','↓ VENDA':'↓ SELL','Disponível após integração segura':'Available after secure integration',
+      'Modo demonstração: os botões de compra e venda estão bloqueados. Nenhuma ordem será enviada. A execução manual será ativada apenas após integração e confirmação de segurança.':'Demo mode: buy and sell buttons are disabled. No order will be sent. Manual execution will be enabled only after integration and security confirmation.',
+      'Histórico manual':'Manual history','Ainda sem operações manuais':'No manual trades yet','Motor inteligente multimercado':'Intelligent multi-market engine','Configurações previstas para o motor do MendtradeR.':'Planned settings for the MendtradeR engine.','EM PREPARAÇÃO':'IN PREPARATION',
+      'Mercado preferencial':'Preferred market','Seleção automática pelo bot':'Automatic selection by bot','Índices sintéticos':'Synthetic indices','Índices financeiros':'Financial indices','Criptomoedas':'Cryptocurrencies','Commodities':'Commodities','Perfil de risco':'Risk profile','Equilibrado':'Balanced','Conservador':'Conservative','Agressivo':'Aggressive','Período de análise':'Analysis timeframe','Multi-timeframe automático':'Automatic multi-timeframe','Estilo de estratégia':'Strategy style','Híbrida inteligente':'Intelligent hybrid','Seguimento de tendência':'Trend following','Reversão confirmada':'Confirmed reversal',
+      'Estes seletores são uma pré-visualização: ainda não alteram a estratégia executada nem enviam ordens.':'These selectors are a preview: they do not yet change the active strategy or place trades.',
+      'Laboratório de sinais e backtest':'Signal and backtest laboratory','Testa a lógica com candles históricos antes de qualquer operação real.':'Test the logic with historical candles before any real trade.','MODO OFFLINE':'OFFLINE MODE',
+      'Importante: esta versão analisa dados históricos que forneces. Não recebe cotações ao vivo, não envia ordens e não prevê lucros.':'Important: this version analyzes historical data you provide. It does not receive live quotes, place trades, or predict profits.',
+      'Perfil de risco do teste':'Test risk profile','Lógica de entrada':'Entry logic','Híbrida (tendência + momentum)':'Hybrid (trend + momentum)','Dados históricos CSV':'Historical CSV data','Formato: timestamp,open,high,low,close. Usa dados exportados da corretora; mínimo recomendado: 200 candles.':'Format: timestamp,open,high,low,close. Use data exported from your broker; recommended minimum: 200 candles.',
+      'Executar backtest':'Run backtest','Carregar exemplo ilustrativo':'Load illustrative example','Resultado líquido (unidades)':'Net result (units)','Drawdown máximo':'Maximum drawdown','Indicador':'Indicator','Valor':'Value','O relatório do teste aparecerá aqui.':'The test report will appear here.','Ainda sem resultados.':'No results yet.',
+      'A execução automática e manual continuam desligadas até existir feed validado, ligação segura à corretora, testes DEMO e controlos de risco no servidor. Nenhum lucro é garantido.':'Automated and manual trading remain disabled until there is a validated feed, secure broker connection, DEMO tests, and server-side risk controls. No profit is guaranteed.',
+      'Histórico de operações':'Trade history','Operações guardadas na tua conta.':'Trades saved in your account.','Atualizar':'Refresh','Data':'Date','Tipo':'Type','Resultado':'Result','Comissão':'Commission','A carregar...':'Loading...',
+      'Mínimo previsto para Angola: 5.000 Kz.':'Expected minimum for Angola: 5,000 Kz.','Depósitos bancários ainda não estão ativos. Não transfiras dinheiro para contas apresentadas fora de um fluxo oficial confirmado.':'Bank deposits are not active yet. Do not transfer money to accounts shown outside a confirmed official process.',
+      'País da conta':'Account country','Valor do depósito (AOA)':'Deposit amount (AOA)','Banco / método de pagamento':'Bank / payment method','Outro banco angolano':'Other Angolan bank','Métodos disponíveis para Angola serão ativados após integração com um prestador autorizado.':'Methods available for Angola will be enabled after integration with an authorized provider.',
+      'Depósitos em preparação':'Deposits in preparation','A ativação exige contrato e integração com banco ou prestador de pagamentos autorizado, confirmação automática e reconciliação.':'Activation requires a contract and integration with an authorized bank or payment provider, automatic confirmation, and reconciliation.',
+      'Levantamentos bancários ainda não estão ativos. A plataforma não pode enviar dinheiro diretamente sem integração autorizada.':'Bank withdrawals are not active yet. The platform cannot send money directly without authorized integration.',
+      'Banco':'Bank','IBAN / número de conta':'IBAN / account number','Será recolhido apenas num formulário seguro quando a integração existir':'It will only be collected through a secure form once integration is available','Valor (AOA)':'Amount (AOA)','Levantamentos em preparação':'Withdrawals in preparation',
+      'Instruções e técnicas de operações':'Trading instructions and techniques','Guia educativo para compreender o MendtradeR e preparar uma utilização responsável.':'Educational guide to understand MendtradeR and prepare for responsible use.',
+      'Suporte IA / Proprietário':'AI / Owner support','Conta e definições':'Account & settings','Centro de suporte':'Support center'
+    },
+    es:{
+      'Bem-vindo ao MendtradeR':'Bienvenido a MendtradeR','Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.':'Inicia sesión o crea una cuenta para acceder al panel. Disponible para usuarios de varios países.',
+      'País':'País','Palavra-passe':'Contraseña','Entrar':'Entrar','Criar conta':'Crear cuenta','Sair':'Salir','MENU MENDTRADER':'MENÚ MENDTRADER','Fechar menu':'Cerrar menú',
+      'Resumo da tua conta MendtradeR.':'Resumen de tu cuenta MendtradeR.','Saldo registado':'Saldo registrado','Resultado registado':'Resultado registrado','Estado do bot':'Estado del bot','Desligado':'Desconectado',
+      'Taxa de acerto':'Tasa de aciertos','Aguardando operações reais':'Esperando operaciones reales','Lucro hoje':'Ganancia de hoy','Dados não ligados':'Datos no conectados','Oportunidades':'Oportunidades','Radar por integrar':'Radar pendiente de integración','Risco da sessão':'Riesgo de la sesión','Protegido':'Protegido',
+      'Radar inteligente · V5':'Radar inteligente · V5','Melhor oportunidade':'Mejor oportunidad','Sem sinal confirmado':'Sin señal confirmada','Qualidade do sinal':'Calidad de la señal','Direção':'Dirección','Mercado':'Mercado','Confirmações':'Confirmaciones','Estado':'Estado','Não ligado':'No conectado',
+      'Regra de comissão da plataforma':'Regla de comisión de la plataforma','Central de operações':'Centro de operaciones','Escolhe entre operações automáticas do bot e operações manuais. Os sinais só serão apresentados quando existir uma fonte de dados validada; nesta prévia, o gráfico é ilustrativo.':'Elige entre operaciones automáticas del bot y operaciones manuales. Las señales solo aparecerán cuando exista una fuente de datos validada; en esta vista previa, el gráfico es ilustrativo.',
+      'Janelas de gráfico':'Ventanas de gráficos','＋ Abrir nova janela':'＋ Abrir nueva ventana','Mercado em tempo real':'Mercado en tiempo real','Ligação apenas de leitura. Não acede à conta, saldo ou ordens.':'Conexión de solo lectura. No accede a la cuenta, saldo ni órdenes.',
+      'Última cotação recebida':'Última cotización recibida','A aguardar ligação':'Esperando conexión','Ligar mercado':'Conectar mercado','Desligar':'Desconectar','Sem ligação à Deriv.':'Sin conexión con Deriv.','Ativar aviso sonoro':'Activar alerta sonora','Som desligado':'Sonido apagado','Hora':'Hora','Ativo':'Activo','Preço':'Precio','Ainda sem cotações.':'Aún no hay cotizaciones.',
+      'Sinal do mercado':'Señal del mercado','A AGUARDAR':'ESPERANDO','Direção sugerida':'Dirección sugerida','Força técnica indicativa':'Fuerza técnica indicativa','A aguardar ticks':'Esperando ticks','Ainda sem candles fechados.':'Aún no hay velas cerradas.',
+      'Saldo de demonstração':'Saldo de demostración','Resultado do bot':'Resultado del bot','Resultado manual':'Resultado manual','Estado da ligação':'Estado de conexión','Deriv não conectada':'Deriv no conectada',
+      '🤖 Operações do Bot':'🤖 Operaciones del Bot','Gráfico do mercado':'Gráfico del mercado','Estratégia':'Estrategia','Valor por entrada (USD)':'Importe por operación (USD)','Valor mínimo (USD)':'Importe mínimo (USD)','Valor máximo (USD)':'Importe máximo (USD)','Tempo de expiração':'Tiempo de expiración','Meta de lucro (USD)':'Objetivo de beneficio (USD)','Limite de perda (USD)':'Límite de pérdida (USD)','Máximo de operações':'Máximo de operaciones','Guardar configurações':'Guardar configuración','Iniciar Bot (indisponível)':'Iniciar Bot (no disponible)',
+      '🎯 Operações Manuais':'🎯 Operaciones manuales','Execução manual':'Ejecución manual','📊 Sinal atual do Bot':'📊 Señal actual del Bot','Valor da operação (USD)':'Importe de la operación (USD)','↑ COMPRA':'↑ COMPRA','↓ VENDA':'↓ VENTA','Histórico manual':'Historial manual',
+      'Motor inteligente multimercado':'Motor inteligente multimercado','Mercado preferencial':'Mercado preferido','Perfil de risco':'Perfil de riesgo','Período de análise':'Periodo de análisis','Estilo de estratégia':'Estilo de estrategia',
+      'Laboratório de sinais e backtest':'Laboratorio de señales y backtest','Executar backtest':'Ejecutar backtest','Carregar exemplo ilustrativo':'Cargar ejemplo ilustrativo','Histórico de operações':'Historial de operaciones','Operações guardadas na tua conta.':'Operaciones guardadas en tu cuenta.','Atualizar':'Actualizar',
+      'Data':'Fecha','Tipo':'Tipo','Resultado':'Resultado','Comissão':'Comisión','A carregar...':'Cargando...','País da conta':'País de la cuenta','Valor do depósito (AOA)':'Importe del depósito (AOA)','Banco / método de pagamento':'Banco / método de pago','Banco':'Banco','IBAN / número de conta':'IBAN / número de cuenta','Valor (AOA)':'Importe (AOA)',
+      'Instruções e técnicas de operações':'Instrucciones y técnicas de operaciones','Guia educativo para compreender o MendtradeR e preparar uma utilização responsável.':'Guía educativa para comprender MendtradeR y prepararse para un uso responsable.','Suporte IA / Proprietário':'Soporte IA / Propietario','Conta e definições':'Cuenta y ajustes','Centro de suporte':'Centro de soporte'
+    }
   };
   function applyLanguage(code){
-    const key=translations[code]?code:'pt',lang=translations[key];
+    const key=translations[code]?code:'pt';
+    const dictionary=uiText[key]||{};
     const navLabels=Array.from(document.querySelectorAll('#mainNav [data-page]'));
-    navLabels.forEach((button,i)=>{if(lang.nav[i]){const icon=button.textContent.trim().split(' ')[0];button.textContent=icon+' '+lang.nav[i];}});
-    const sh=$('#support h1');if(sh)sh.textContent=lang.support;
-    const bh=document.querySelector('.bot-panel .panel-heading h2');if(bh)bh.textContent='🤖 '+lang.bot;
-    const mh=document.querySelector('.manual-panel .panel-heading h2');if(mh)mh.textContent='🎯 '+lang.manual;
-    const marketHeading=$('#derivLivePanel h2');if(marketHeading)marketHeading.textContent='📡 '+lang.market;
-    const connect=$('derivFeedConnect');if(connect&&!connect.disabled)connect.textContent=lang.connect;
-    const disconnect=$('derivFeedDisconnect');if(disconnect)disconnect.textContent=lang.disconnect;
-    const sound=$('toggleSignalSound');if(sound&&$('signalSoundStatus')?.textContent==='Som desligado')sound.textContent='🔔 '+lang.sound;
-    const hint=document.querySelector('.ops-carousel-hint');if(hint)hint.textContent=lang.hint;
+    navLabels.forEach((button,i)=>{
+      const label=translations[key].nav[i];
+      if(label){const icon=button.textContent.trim().split(' ')[0];button.textContent=icon+' '+label;}
+    });
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+    const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+    nodes.forEach(node=>{
+      const original=node.nodeValue,trimmed=original.trim();
+      if(!trimmed)return;
+      let translated=dictionary[trimmed];
+      if(!translated){
+        const match=Object.keys(dictionary).find(k=>trimmed.startsWith(k+' '));
+        if(match)translated=dictionary[match]+trimmed.slice(match.length);
+      }
+      if(translated)node.nodeValue=original.replace(trimmed,translated);
+    });
+    document.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(el=>{
+      const t=dictionary[el.getAttribute('placeholder')];if(t)el.setAttribute('placeholder',t);
+    });
+    document.querySelectorAll('[aria-label],[title]').forEach(el=>{
+      ['aria-label','title'].forEach(attr=>{const v=el.getAttribute(attr);if(v&&dictionary[v])el.setAttribute(attr,dictionary[v]);});
+    });
+    const hint=document.querySelector('.ops-carousel-hint');if(hint)hint.textContent=translations[key].hint;
+    const connect=$('derivFeedConnect');if(connect&&!connect.disabled)connect.textContent=dictionary['Ligar mercado']||'Ligar mercado';
+    const disconnect=$('derivFeedDisconnect');if(disconnect)disconnect.textContent=dictionary['Desligar']||'Desligar';
     document.documentElement.lang=key;
     localStorage.setItem('mendtrade_language',key);
   }
@@ -965,7 +1046,6 @@
   const savedLanguage=localStorage.getItem('mendtrade_language')||'pt';
   if($('languageSelect'))$('languageSelect').value=savedLanguage;
   applyLanguage(savedLanguage);
-
 
 
   // Área de operações horizontal: BOT primeiro, restantes painéis por deslize.

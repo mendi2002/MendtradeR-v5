@@ -770,8 +770,7 @@
 
 
   // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
-  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[];
-  const DERIV_APP_ID='34TEm2Gavyti0dcVDw73V';
+  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null;
   function setDerivFeedStatus(label,kind='neutral'){
     const el=$('derivFeedStatus'); if(!el)return;
     el.textContent=label; el.className='signal-tag '+kind;
@@ -781,7 +780,7 @@
       try{if(derivFeedSubscription&&derivFeedSocket.readyState===WebSocket.OPEN)derivFeedSocket.send(JSON.stringify({forget:derivFeedSubscription}));}catch(e){}
       try{derivFeedSocket.close();}catch(e){}
     }
-    derivFeedSocket=null;derivFeedSubscription=null;
+    derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
     $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
     setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
   }
@@ -793,13 +792,15 @@
     $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
     $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
     setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
-    const ws=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id='+encodeURIComponent(DERIV_APP_ID));
+    const ws=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
     derivFeedSocket=ws;derivFeedTicks=[];
     ws.onopen=()=>{
       if(derivFeedSocket!==ws)return;
       setDerivFeedStatus('● Ligado','positive');$('derivFeedMessage').textContent='Ligado. A receber cotações públicas.';
       ws.send(JSON.stringify({ticks:symbol,subscribe:1}));
       ws.send(JSON.stringify({ping:1}));
+      clearInterval(derivFeedPingTimer);
+      derivFeedPingTimer=setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({ping:1}));},30000);
     };
     ws.onmessage=(event)=>{
       if(derivFeedSocket!==ws)return;
@@ -824,8 +825,8 @@
     };
     ws.onclose=()=>{
       if(derivFeedSocket!==ws)return;
-      derivFeedSocket=null;derivFeedSubscription=null;
-      setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='A ligação foi encerrada.';
+      derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
+      setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada (código '+event.code+(event.reason?': '+event.reason:'')+'). Tenta novamente.';
       $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
     };
   }

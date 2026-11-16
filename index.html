@@ -562,6 +562,9 @@
   function showApp(user) {
     currentUser=user; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
     $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); checkOwnerAccess();
+    // Ao entrar na plataforma, ligar automaticamente ao fluxo de cotações público.
+    // O servidor mantém a subscrição Deriv independentemente desta ligação do navegador.
+    setTimeout(()=>{ if(!derivFeedWanted) connectDerivFeed(); }, 250);
   }
   async function checkOwnerAccess(){
     const nav=$('ownerNavBtn');

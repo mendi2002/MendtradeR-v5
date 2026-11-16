@@ -99,6 +99,19 @@
     .window-dock{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0;padding:12px;border:1px solid #284638;border-radius:14px;background:#08100c}
     .window-chip{background:#14251c;border:1px solid #286341;color:#dfffee;padding:9px 12px;border-radius:10px;cursor:pointer}
     .support-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.chat-box{min-height:190px;max-height:300px;overflow:auto;background:#070d09;border:1px solid #263b30;border-radius:12px;padding:12px;margin:10px 0}.chat-msg{padding:9px 11px;border-radius:10px;background:#14231a;margin:7px 0;max-width:90%}.chat-msg.user{margin-left:auto;background:#123b29}.support-actions{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:760px){.support-grid{grid-template-columns:1fr}.top-tools{flex-wrap:wrap;justify-content:flex-end}}
+  
+    /* MendtradeR: carrossel horizontal de operações, BOT em primeiro */
+    .ops-carousel{margin:14px 0 18px;min-width:0}
+    .ops-carousel-tabs{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding:4px 2px 12px;-webkit-overflow-scrolling:touch}
+    .ops-carousel-tabs button{flex:0 0 auto;background:#14251c;border:1px solid #286341;color:#dfffee;padding:10px 14px;border-radius:11px;white-space:nowrap}
+    .ops-carousel-tabs button.active{background:#00c965;color:#04150e;border-color:#00c965}
+    .ops-carousel-track{display:flex;gap:12px;overflow-x:auto;overflow-y:visible;scroll-snap-type:x mandatory;scroll-behavior:smooth;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;padding:2px 2px 14px;touch-action:pan-x pan-y;scrollbar-width:thin}
+    .ops-slide{flex:0 0 min(88%,920px);min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+    .ops-slide>.card,.ops-slide>.operation-panel{height:100%;min-width:0}
+    .ops-slide .formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .ops-carousel-hint{font-size:12px;color:var(--muted);padding:0 2px 8px}
+    @media(max-width:760px){.ops-slide{flex-basis:92%}.ops-slide .formgrid{grid-template-columns:1fr}}
+
   </style>
 </head>
 <body>
@@ -791,6 +804,40 @@
     document.documentElement.lang=e.target.value;
   });
 
+
+
+  // Área de operações horizontal: BOT primeiro, restantes painéis por deslize.
+  function setupOperationsCarousel(){
+    const page=$('bot');
+    if(!page || page.querySelector('.ops-carousel')) return;
+    const botPanel=page.querySelector('.bot-panel');
+    const marketPanel=$('derivLivePanel');
+    const manualPanel=page.querySelector('.manual-panel');
+    const strategyLab=$('strategyLab');
+    const enginePanel=Array.from(page.children).find(el=>el.classList?.contains('card') && el.textContent.includes('Motor inteligente multimercado'));
+    if(!botPanel || !marketPanel || !manualPanel || !strategyLab) return;
+    const carousel=document.createElement('div');
+    carousel.className='ops-carousel';
+    carousel.innerHTML='<div class="ops-carousel-tabs" role="tablist" aria-label="Painéis de operações"></div><div class="ops-carousel-hint">Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.</div><div class="ops-carousel-track"></div>';
+    page.querySelector('.ops-hero').insertAdjacentElement('afterend',carousel);
+    const tabs=carousel.querySelector('.ops-carousel-tabs'),track=carousel.querySelector('.ops-carousel-track');
+    const panels=[['🤖 BOT',botPanel],['📡 MERCADO',marketPanel],['🎯 MANUAL',manualPanel],['🧠 MOTOR IA',enginePanel],['🧪 ESTRATÉGIA',strategyLab]].filter(([,el])=>!!el);
+    panels.forEach(([label,panel],index)=>{
+      const slide=document.createElement('div');slide.className='ops-slide';slide.appendChild(panel);track.appendChild(slide);
+      const tab=document.createElement('button');tab.type='button';tab.textContent=label;tab.setAttribute('role','tab');tab.setAttribute('aria-selected',index===0?'true':'false');if(index===0)tab.classList.add('active');
+      tab.addEventListener('click',()=>slide.scrollIntoView({behavior:'smooth',block:'nearest',inline:'start'}));tabs.appendChild(tab);
+    });
+    page.querySelector('.ops-layout.dual-ops')?.remove();
+    const dock=page.querySelector('.window-dock');if(dock)carousel.insertAdjacentElement('afterend',dock);
+    const updateActive=()=>{
+      const slides=[...track.querySelectorAll('.ops-slide')],mid=track.getBoundingClientRect().left+track.clientWidth*.35;
+      let active=0,best=Infinity;
+      slides.forEach((slide,i)=>{const d=Math.abs(slide.getBoundingClientRect().left-mid);if(d<best){best=d;active=i;}});
+      [...tabs.children].forEach((tab,i)=>{tab.classList.toggle('active',i===active);tab.setAttribute('aria-selected',i===active?'true':'false');});
+    };
+    track.addEventListener('scroll',()=>requestAnimationFrame(updateActive),{passive:true});window.addEventListener('resize',updateActive);updateActive();
+  }
+  setupOperationsCarousel();
 
   // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
   let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;

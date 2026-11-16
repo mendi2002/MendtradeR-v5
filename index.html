@@ -905,9 +905,9 @@
     const bh=document.querySelector('.bot-panel .panel-heading h2');if(bh)bh.textContent='🤖 '+lang.bot;
     const mh=document.querySelector('.manual-panel .panel-heading h2');if(mh)mh.textContent='🎯 '+lang.manual;
     const marketHeading=$('#derivLivePanel h2');if(marketHeading)marketHeading.textContent='📡 '+lang.market;
-    const connect=$('derivFeedConnect');if(connect&&!derivFeedSocket)connect.textContent=lang.connect;
+    const connect=$('derivFeedConnect');if(connect&&!connect.disabled)connect.textContent=lang.connect;
     const disconnect=$('derivFeedDisconnect');if(disconnect)disconnect.textContent=lang.disconnect;
-    const sound=$('toggleSignalSound');if(sound&&!signalSoundEnabled)sound.textContent='🔔 '+lang.sound;
+    const sound=$('toggleSignalSound');if(sound&&$('signalSoundStatus')?.textContent==='Som desligado')sound.textContent='🔔 '+lang.sound;
     const hint=document.querySelector('.ops-carousel-hint');if(hint)hint.textContent=lang.hint;
     document.documentElement.lang=key;
     localStorage.setItem('mendtrade_language',key);
@@ -951,6 +951,7 @@
     track.addEventListener('scroll',()=>requestAnimationFrame(updateActive),{passive:true});window.addEventListener('resize',updateActive);updateActive();
   }
   setupOperationsCarousel();
+  applyLanguage(localStorage.getItem('mendtrade_language')||'pt');
 
   // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
   let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivTickWatchdogTimer=null, derivLastTickAt=0, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;

@@ -112,6 +112,62 @@
     .ops-carousel-hint{font-size:12px;color:var(--muted);padding:0 2px 8px}
     @media(max-width:760px){.ops-slide{flex-basis:92%}.ops-slide .formgrid{grid-template-columns:1fr}}
 
+  
+    /* Compactação geral: menos espaço vazio, cartões e painéis mais baixos. */
+    .wrap{max-width:1180px;padding:10px}
+    .top{margin-bottom:10px}
+    .card{padding:12px}
+    .grid,.v5-grid{gap:9px;margin:9px 0}
+    .v5-stat{padding:10px}
+    .v5-stat strong,.stat{font-size:19px;margin-top:4px}
+    .field{gap:5px;margin:8px 0}
+    .field input,.field select{padding:9px}
+    button{padding:9px 12px}
+    th,td{padding:7px;font-size:12px}
+    .ops-hero{padding:12px;margin-bottom:8px}
+    .ops-title{font-size:22px;margin:3px 0}
+    .ops-sub{line-height:1.35;margin:4px 0}
+    .ops-layout,.ops-carousel{margin:8px 0}
+    .ops-slide{flex-basis:min(100%,760px)}
+    .ops-slide>.card,.ops-slide>.operation-panel{height:auto}
+    .operation-panel{padding:10px}
+    .panel-heading{padding-bottom:8px;margin-bottom:8px}
+    .market-screen{min-height:0;padding:8px;margin-bottom:8px}
+    .market-screen svg{height:125px}
+    .signal-card{padding:10px;margin:7px 0 9px}
+    .signal-direction{font-size:19px;margin:7px 0 3px}
+    .ops-mini{padding:9px}
+    .ops-mini strong{font-size:17px;margin-top:3px}
+    .radar{gap:9px;margin-top:8px}
+    .radar-main{min-height:130px;padding:12px}
+    .radar-orb{width:66px;height:66px;font-size:20px;margin:4px auto}
+    .window-dock{margin:8px 0;padding:8px;gap:6px}
+    .window-chip{padding:7px 9px}
+    .notice,.owner-lock,.commission-box{padding:9px;margin:8px 0}
+    .commission-value{font-size:22px}
+    .chat-box{min-height:130px;margin:7px 0;padding:9px}
+    .ops-carousel-tabs{padding-bottom:7px}
+    .ops-carousel-tabs button{padding:8px 10px}
+    .ops-carousel-hint{padding-bottom:5px}
+    .ops-carousel-track{gap:8px;padding-bottom:8px}
+    @media(max-width:760px){
+      .wrap{padding:8px}
+      .card{padding:10px}
+      .brand{font-size:20px}
+      .ops-slide{flex-basis:100%}
+      .ops-slide .formgrid{grid-template-columns:1fr}
+      .market-screen svg{height:110px}
+      .ops-hero:after{width:150px;height:150px}
+      .payment-methods{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media(max-width:420px){
+      body{font-size:14px}
+      .v5-stat{padding:8px}
+      .v5-stat strong{font-size:17px}
+      .ops-title{font-size:20px}
+      .payment-methods{grid-template-columns:1fr 1fr}
+    }
+
   </style>
 </head>
 <body>

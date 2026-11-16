@@ -1,6 +1,8 @@
 'use strict';
 
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { URL } = require('url');
 const WebSocket = require('ws');
 
@@ -11,13 +13,31 @@ const MAX_CLIENTS = Number(process.env.MAX_CLIENTS || 50);
 const MAX_SYMBOLS = Number(process.env.MAX_SYMBOLS || 5);
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean);
 
+const FRONTEND_FILE = path.resolve(__dirname, '..', 'index.html');
+
 const server = http.createServer((req, res) => {
-  if (req.url === '/health') {
+  const requestUrl = new URL(req.url, 'http://localhost');
+  if (requestUrl.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-    return res.end(JSON.stringify({ ok: true, service: 'MendtradeR market stream', uptime: Math.floor(process.uptime()) }));
+    return res.end(JSON.stringify({ ok: true, service: 'MendtradeR market stream + frontend', uptime: Math.floor(process.uptime()) }));
   }
-  res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
-  res.end('MendtradeR market stream is running.\n');
+  if ((requestUrl.pathname === '/' || requestUrl.pathname === '/index.html') && (req.method === 'GET' || req.method === 'HEAD')) {
+    fs.readFile(FRONTEND_FILE, (error, html) => {
+      if (error) {
+        res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end('A interface MendtradeR ainda não está disponível.');
+      }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
+      return res.end(req.method === 'HEAD' ? undefined : html);
+    });
+    return;
+  }
+  if (requestUrl.pathname === '/favicon.ico') {
+    res.writeHead(204);
+    return res.end();
+  }
+  res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+  res.end('Não encontrado.');
 });
 
 const wss = new WebSocket.Server({ noServer: true, maxPayload: 1024 });

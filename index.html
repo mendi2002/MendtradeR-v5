@@ -1216,7 +1216,10 @@
     const max=Math.max(base,Number($('maxStake')?.value)||5);
     const pct=Math.min(20,Math.max(0,Number($('progressionPercent')?.value)||0))/100;
     const second=Math.min(max,base*(1+pct)),third=Math.min(max,second*(1+pct));
-    const fmt=n=>'
+    const fmt=n=>"USD "+n.toFixed(2);
+    const el=$('botProgressionPreview');
+    if(el)el.textContent='Exemplo após vitórias consecutivas: '+fmt(base)+' → '+fmt(second)+' → '+fmt(third)+'. Após uma perda, regressa a '+fmt(base)+'. O teto de entrada configurado é '+fmt(max)+'.';
+  }
 
   // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
   let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivTickWatchdogTimer=null, derivLastTickAt=0, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;

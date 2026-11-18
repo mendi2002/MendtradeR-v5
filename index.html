@@ -276,6 +276,10 @@
     }
 
   
+    :root[data-theme="ocean"] body{background:var(--bg)!important}
+    :root[data-theme="purple"] body{background:var(--bg)!important}
+    :root[data-theme="ocean"] .card,:root[data-theme="purple"] .card,:root[data-theme="ocean"] .operation-panel,:root[data-theme="purple"] .operation-panel{background:linear-gradient(145deg,var(--panel2),var(--panel))!important;border-color:var(--line)!important}
+    :root[data-theme="ocean"] .v5-stat,:root[data-theme="purple"] .v5-stat,:root[data-theme="ocean"] .ops-mini,:root[data-theme="purple"] .ops-mini,:root[data-theme="ocean"] .market-screen,:root[data-theme="purple"] .market-screen{background:var(--panel)!important;border-color:var(--line)!important}
     /* Aproxima o mercado em tempo real da área do gráfico. */
     #derivLivePanel{margin:6px 0 4px!important}
     .v5-grid{margin:4px 0;gap:6px}

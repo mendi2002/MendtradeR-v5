@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090d18">
-  <title>MendtradeR · Versão 5</title>
+  <title>MendtradeR · V6 Profissional</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root{--bg:#050706;--panel:#0b100e;--panel2:#111916;--line:#26332d;--text:#f1f7f3;--muted:#9aa9a0;--green:#00d66b;--red:#ff394b;--gold:#f5bd32;--blue:#63a8ff}
@@ -290,14 +290,102 @@
       .ops-layout.dual-ops{margin-top:3px}
     }
 
-  </style>
+  
+/* MENDTRADER V6 — renovação visual profissional, mantendo a lógica V5 */
+:root{
+  --bg:#050907;--panel:#0b1410;--panel2:#101d17;--line:#1d3528;
+  --text:#effaf2;--muted:#91a99a;--green:#16e083;--red:#ff5267;
+  --gold:#f5c451;--blue:#70b7ff;
+}
+html{scroll-behavior:smooth}
+body{
+  background:
+    radial-gradient(ellipse at 12% -8%,rgba(22,224,131,.13),transparent 34%),
+    radial-gradient(ellipse at 92% 8%,rgba(54,132,91,.10),transparent 30%),
+    linear-gradient(180deg,#07100b 0%,#050907 58%,#040705 100%)!important;
+  color:var(--text);letter-spacing:.01em;
+}
+.wrap{max-width:1480px;padding:22px clamp(12px,2.5vw,34px) 42px}
+.top{
+  position:relative;display:flex;align-items:center;gap:16px;
+  padding:15px 18px;margin:0 0 24px;border:1px solid rgba(103,166,125,.19);
+  border-radius:20px;background:rgba(9,20,14,.82);
+  box-shadow:0 14px 42px rgba(0,0,0,.25);backdrop-filter:blur(18px)
+}
+.brand{font-size:25px;letter-spacing:-.045em;font-weight:900}
+.brand span{color:var(--green);font-size:inherit}
+.badge{border:1px solid rgba(22,224,131,.28);background:rgba(22,224,131,.09);color:#8af0b9;padding:8px 12px;border-radius:999px;font-size:10px;letter-spacing:.12em;font-weight:800}
+.menu-toggle,.nav-close{border:1px solid var(--line);background:#102219;color:var(--green);border-radius:12px;min-width:42px;min-height:42px}
+.lang-select{background:#0d1b13;color:var(--text);border:1px solid var(--line);border-radius:11px;padding:9px 12px}
+.card,.operation-panel,.v5-stat,.ops-mini,.market-screen{
+  background:linear-gradient(145deg,rgba(16,29,22,.97),rgba(8,17,12,.98))!important;
+  border:1px solid rgba(111,165,127,.18)!important;border-radius:19px!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.025);
+}
+.card{padding:20px}
+.card h1,.section h1{font-size:clamp(23px,3vw,31px);letter-spacing:-.04em}
+.section>h1{margin:0 0 5px}
+.section>p.muted{margin:0 0 20px}
+.label,.field label,.v5-kicker{color:#9db5a5;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+.stat{font-size:clamp(25px,3vw,34px);font-weight:900;letter-spacing:-.04em}
+.grid{gap:14px}
+.grid>.card{position:relative;overflow:hidden;min-height:122px}
+.grid>.card:after{content:"";position:absolute;width:110px;height:110px;right:-42px;top:-48px;border-radius:50%;background:rgba(22,224,131,.055);pointer-events:none}
+.v5-grid{gap:12px;margin:16px 0}
+.v5-stat{padding:17px 18px}
+.v5-stat strong{font-size:24px;letter-spacing:-.04em}
+.nav{border-radius:20px!important;padding:15px;background:rgba(8,18,12,.97)!important}
+.nav-heading{color:#8ee8b3;font-size:11px;letter-spacing:.13em;font-weight:900;padding:8px 10px 14px}
+.nav button{width:100%;text-align:left;margin:4px 0;padding:12px 14px;border-radius:12px;background:transparent;color:#b9cbbf;border:1px solid transparent;transition:.2s}
+.nav button:hover,.nav button.active{background:rgba(22,224,131,.10);border-color:rgba(22,224,131,.18);color:#8af0b9}
+button{border-radius:12px;transition:transform .18s ease,filter .18s ease,box-shadow .18s ease}
+button:not(:disabled):hover{filter:brightness(1.08);transform:translateY(-1px)}
+button:not(.secondary):not(.danger){box-shadow:0 5px 18px rgba(22,224,131,.12)}
+button.secondary{background:#17271e;color:#d8e9dd;border:1px solid #294333}
+button.danger{background:#3b1b24;color:#ffc4cd;border:1px solid #71303e}
+input,select,textarea{background:#08120c!important;color:var(--text)!important;border:1px solid #294333!important;border-radius:11px!important;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(22,224,131,.10)}
+.field{margin:12px 0}
+.notice{border:1px solid rgba(22,224,131,.17);background:rgba(22,224,131,.055);border-radius:13px;padding:12px 14px;color:#b9d8c5}
+.auth{max-width:510px;margin:5vh auto;padding:clamp(22px,4vw,34px)}
+.auth h1{font-size:29px}
+.ops-hero{border:1px solid rgba(22,224,131,.2);border-radius:20px;background:linear-gradient(115deg,rgba(16,52,32,.55),rgba(8,18,12,.92));padding:20px}
+.ops-title{letter-spacing:-.035em}
+.window-dock{border:1px solid var(--line);border-radius:16px;background:#08120c;padding:10px}
+.window-chip{border:1px solid #294333;border-radius:10px;background:#102219;color:#c8e4d2}
+.operation-panel{padding:18px}
+.panel-heading{margin-bottom:12px}
+.market-screen{overflow:hidden}
+.signal-card{border:1px solid rgba(22,224,131,.18);border-radius:15px;background:rgba(22,224,131,.055)}
+.tablewrap{border:1px solid rgba(111,165,127,.15);border-radius:13px;overflow:auto}
+table{border-collapse:collapse}
+th{color:#9db5a5;text-transform:uppercase;font-size:10px;letter-spacing:.08em}
+td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
+.footer{color:#789182;border-top:1px solid rgba(111,165,127,.13);padding-top:18px;margin-top:28px}
+@media(min-width:1000px){
+  .layout{gap:22px}
+  .content{min-width:0}
+}
+@media(max-width:760px){
+  .wrap{padding:9px 9px 28px}
+  .top{padding:10px 11px;margin-bottom:13px;border-radius:15px;gap:8px}
+  .brand{font-size:20px}
+  .top-tools{gap:6px}
+  .badge{font-size:9px;padding:7px 8px}
+  .card{padding:13px}
+  .v5-stat{padding:12px}
+  .ops-hero{padding:13px}
+  .operation-panel{padding:12px}
+}
+
+</style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
     <div class="top-left">
       <button id="menuToggle" class="menu-toggle hidden" aria-label="Abrir menu" aria-expanded="false">☰</button>
-      <div class="brand">Mendtrade<span>R V5</span></div>
+      <div class="brand">Mendtrade<span>R V6</span></div>
     </div>
     <div class="top-spacer"></div>
     <div class="top-tools"><select id="languageSelect" class="lang-select" aria-label="Idioma"><option value="pt">Português</option><option value="en">English</option><option value="es">Español</option></select><span class="badge">DEMO · PREVIEW</span><button id="logoutBtn" class="secondary hidden">Sair</button></div>

@@ -1,0 +1,1734 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090d18">
+  <title>MendtradeR · Versão 5</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--bg:#050706;--panel:#0b100e;--panel2:#111916;--line:#26332d;--text:#f1f7f3;--muted:#9aa9a0;--green:#00d66b;--red:#ff394b;--gold:#f5bd32;--blue:#63a8ff}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0%,#172744 0,transparent 34%),var(--bg);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;min-height:100vh}
+    button,input,select{font:inherit}button{cursor:pointer;border:0;border-radius:12px;padding:12px 16px;font-weight:700;background:var(--green);color:#04150e}button.secondary{background:#26364e;color:var(--text)}button.danger{background:#542536;color:#ffdce3}button:disabled{opacity:.45;cursor:not-allowed}
+    .wrap{max-width:1100px;margin:auto;padding:18px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}.brand{font-size:22px;font-weight:900;letter-spacing:.3px}.brand span{color:var(--green)}.badge{font-size:12px;color:var(--gold);border:1px solid #68552c;border-radius:30px;padding:6px 10px}
+    .card{background:linear-gradient(145deg,rgba(23,34,53,.97),rgba(15,23,38,.97));border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 12px 35px #0003}.auth{max-width:440px;margin:8vh auto}.hidden{display:none!important}.muted{color:var(--muted)}.small{font-size:12px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.stat{font-size:25px;font-weight:850;margin-top:8px}.label{color:var(--muted);font-size:13px}.layout{display:grid;grid-template-columns:220px 1fr;gap:16px}.nav{display:flex;flex-direction:column;gap:8px}.nav button{background:transparent;color:var(--muted);text-align:left}.nav button.active,.nav button:hover{background:#20304a;color:var(--text)}.content{min-width:0}.section{display:none}.section.active{display:block}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.field{display:flex;flex-direction:column;gap:7px;margin:12px 0}.field input,.field select{width:100%;background:#0b1322;color:var(--text);border:1px solid var(--line);border-radius:11px;padding:12px;outline:none}.field input:focus,.field select:focus{border-color:var(--blue)}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px}.notice{padding:12px;border-radius:12px;background:#202d43;color:#c8d7ee;border:1px solid #334765;margin:12px 0}.warning{background:#3b2d17;border-color:#695022;color:#ffe4a5}.success{background:#123628;border-color:#1b6647;color:#c8ffe5}.error{background:#3b1d29;border-color:#713447;color:#ffd9e1}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:500px}th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted)}.right{margin-left:auto}.amount{font-weight:800}.footer{margin:24px 0;color:var(--muted);font-size:12px;text-align:center}
+    :root[data-theme="ocean"]{--bg:#061321;--panel:#0b1b2d;--panel2:#10263b;--line:#28506d;--text:#edf7ff;--muted:#9db7cb;--green:#22c7d9;--blue:#60a5fa}
+    :root[data-theme="purple"]{--bg:#100b1c;--panel:#1a1230;--panel2:#251a3d;--line:#493568;--text:#f7f0ff;--muted:#b8a9ca;--green:#b18cff;--blue:#d0a6ff}
+    :root[data-theme="light"]{--bg:#edf2f7;--panel:#ffffff;--panel2:#f7f9fc;--line:#d7e0ea;--text:#182230;--muted:#586779;--green:#087f5b;--blue:#1769aa}
+    :root[data-theme="ocean"] .card,:root[data-theme="purple"] .card{background:linear-gradient(145deg,var(--panel2),var(--panel));border-color:var(--line)}
+    :root[data-theme="ocean"] .v5-stat,:root[data-theme="ocean"] .ops-mini,:root[data-theme="ocean"] .market-screen,:root[data-theme="purple"] .v5-stat,:root[data-theme="purple"] .ops-mini,:root[data-theme="purple"] .market-screen{background:var(--panel);border-color:var(--line)}
+    :root[data-theme="light"] body{background:var(--bg);color:var(--text)}
+    :root[data-theme="light"] .card,:root[data-theme="light"] .v5-stat,:root[data-theme="light"] .ops-mini,:root[data-theme="light"] .market-screen,:root[data-theme="light"] .nav,:root[data-theme="light"] .operation-panel{background:#fff!important;color:var(--text);border-color:var(--line);box-shadow:0 5px 18px #172b440d}
+    :root[data-theme="light"] .ops-hero{background:linear-gradient(125deg,#e4f2ef,#eef4fb)!important;border-color:var(--line)}
+    :root[data-theme="light"] .ops-sub,:root[data-theme="light"] .muted,:root[data-theme="light"] .label{color:var(--muted)!important}
+    :root[data-theme="light"] .field input,:root[data-theme="light"] .field select,:root[data-theme="light"] textarea{background:#f8fafc!important;color:#182230!important;border-color:var(--line)!important}
+    :root[data-theme="light"] .nav button{color:#405166}
+    :root[data-theme="light"] .nav button.active,:root[data-theme="light"] .nav button:hover{background:#e5edf5;color:#182230}
+    :root[data-theme="light"] .signal-card,:root[data-theme="light"] .notice{background:#eef4f8;color:#25364a;border-color:#d2dee9}
+    .theme-preview{display:flex;gap:8px;flex-wrap:wrap}.theme-swatch{width:22px;height:22px;border-radius:50%;display:inline-block;border:2px solid #ffffff55}
+    .invite-link{overflow-wrap:anywhere;padding:12px;border:1px dashed var(--line);border-radius:12px;background:var(--panel2);font-size:13px}
+    .progression-preview{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);line-height:1.55}
+    .top{justify-content:flex-start}
+    .top-left{display:flex;align-items:center;gap:12px;min-width:0}
+    .menu-toggle{width:44px;height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:#20304a;color:var(--text);font-size:23px;border:1px solid var(--line);flex:0 0 auto}
+    .top-spacer{flex:1}
+    .layout{display:block}
+    .nav-backdrop{position:fixed;inset:0;background:#0009;z-index:20;opacity:0;visibility:hidden;transition:opacity .2s}
+    .nav-backdrop.open{opacity:1;visibility:visible}
+    .nav{position:fixed;z-index:21;top:0;left:0;bottom:0;width:min(310px,86vw);height:100dvh;overflow-y:auto;border-radius:0 18px 18px 0;padding:20px 14px;display:flex;flex-direction:column;gap:8px;transform:translateX(-105%);transition:transform .22s ease;box-shadow:18px 0 45px #0008}
+    .nav.open{transform:translateX(0)}
+    .nav-heading{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 16px;font-weight:800;letter-spacing:.08em;color:var(--muted)}
+    .nav-close{background:#26364e;color:var(--text);padding:8px 12px}
+    .nav button[data-page]{text-align:left;padding:14px 12px;font-size:15px}
+    .content{width:100%}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.formgrid{grid-template-columns:1fr}.wrap{padding:12px}.top{align-items:center}.brand{font-size:20px}}
+
+    .v5-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+    .v5-stat{background:linear-gradient(145deg,#182943,#101a2b);border:1px solid #30425d;border-radius:15px;padding:14px;min-width:0}
+    .v5-stat strong{display:block;font-size:21px;margin-top:7px}
+    .v5-kicker{font-size:11px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+    .radar{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}
+    .radar-main{background:radial-gradient(circle at 50% 45%,#173d3a 0,#102536 48%,#101a2b 100%);border:1px solid #286052;border-radius:16px;padding:18px;min-height:190px;display:flex;flex-direction:column;justify-content:space-between}
+    .radar-orb{width:94px;height:94px;border-radius:50%;border:1px solid #39c995;box-shadow:0 0 0 10px #19c37d12,0 0 0 22px #19c37d09;display:grid;place-items:center;color:#8fffd0;font-size:25px;margin:8px auto}
+    .signal-tag{display:inline-flex;align-items:center;gap:6px;border:1px solid #37634f;background:#123628;color:#a9f5d2;padding:6px 10px;border-radius:30px;font-size:12px;font-weight:800}
+    .signal-tag.neutral{border-color:#68552c;background:#3b2d17;color:#ffe4a5}
+    .meter{height:8px;border-radius:20px;background:#26364e;overflow:hidden;margin-top:8px}
+    .meter span{display:block;height:100%;width:0;background:linear-gradient(90deg,#f5c451,#19c37d);border-radius:20px}
+    .v5-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .v5-actions button{flex:1;min-width:130px}
+    .owner-lock{border:1px dashed #80652e;background:#2b2518;color:#ffe4a5;border-radius:13px;padding:13px;margin-top:14px}
+    .mini-list{display:grid;gap:9px}
+    .mini-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:8px 0;font-size:13px}
+    .pill{border-radius:30px;padding:4px 8px;font-size:11px;background:#26364e;color:#cbd9ee}
+    @media(max-width:760px){.v5-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.radar{grid-template-columns:1fr}.radar-main{min-height:170px}}
+
+
+    .ops-hero{position:relative;overflow:hidden;border:1px solid #31516a;border-radius:20px;padding:20px;background:radial-gradient(circle at 82% 18%,#1c765b55,transparent 28%),linear-gradient(125deg,#142c3c,#101a2b 58%,#17243a);margin-bottom:14px}
+    .ops-hero:after{content:"";position:absolute;width:230px;height:230px;border:1px solid #38d39a22;border-radius:50%;right:-75px;top:-95px;box-shadow:0 0 0 22px #38d39a0c,0 0 0 48px #38d39a08}
+    .ops-title{font-size:clamp(23px,4vw,32px);font-weight:900;letter-spacing:-.03em;margin:5px 0}
+    .ops-sub{color:#b3c5d9;max-width:620px;line-height:1.5}
+    .ops-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(230px,.65fr);gap:14px;margin:14px 0}
+    .market-screen{border:1px solid #2b405b;border-radius:16px;background:#091321;padding:14px;min-height:235px}
+    .market-screen svg{width:100%;height:150px;display:block}
+    .market-gridline{stroke:#26364e;stroke-width:1;stroke-dasharray:4 5}
+    .market-line{fill:none;stroke:#36d69a;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+    .market-fill{fill:url(#chartFill);opacity:.22}
+    .ops-side{display:grid;gap:10px}
+    .ops-mini{border:1px solid #2b405b;border-radius:15px;padding:14px;background:#121f32}
+    .ops-mini strong{font-size:20px;display:block;margin-top:5px}
+    .ops-status{display:inline-flex;align-items:center;gap:7px;border:1px solid #735c2b;background:#342a18;color:#ffe4a5;border-radius:30px;padding:7px 11px;font-size:12px;font-weight:800}
+    .ops-dot{width:7px;height:7px;border-radius:50%;background:#f5c451;display:inline-block}
+    .strategy-chip{border:1px solid #34516b;background:#182b41;color:#d6e7f8;border-radius:10px;padding:9px 11px;font-size:12px}
+    .commission-box{border:1px solid #6b552c;background:linear-gradient(120deg,#302817,#1c2430);border-radius:16px;padding:16px;margin-top:14px}
+    .commission-value{font-size:28px;font-weight:900;color:#ffd879}
+    .payment-methods{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0}
+    .payment-method{border:1px solid #344761;border-radius:12px;padding:12px;background:#142238;color:#dce8f8;font-size:13px}
+    .payment-method b{display:block;margin-bottom:4px}
+    .payment-method small{color:#9aabc4}
+    @media(max-width:760px){.ops-layout{grid-template-columns:1fr}.payment-methods{grid-template-columns:1fr}}
+
+
+    body{background:#050706;color:var(--text)}
+    .wrap{max-width:1500px;padding:16px}
+    .card,.v5-stat,.ops-mini,.market-screen{background:linear-gradient(145deg,#0c1210,#080b09);border-color:#26332d;border-radius:14px;box-shadow:0 8px 26px #0007}
+    .brand{font-size:27px}.brand span{color:var(--green)}
+    .ops-hero{background:linear-gradient(120deg,#07140d,#0a100d);border-color:#087b42;border-radius:14px}
+    .ops-layout.dual-ops{grid-template-columns:minmax(0,1fr) minmax(0,.92fr);align-items:start;gap:14px}
+    .operation-panel{padding:16px;min-width:0;border-color:#087b42}
+    .panel-heading{justify-content:space-between;border-bottom:1px solid #26332d;padding-bottom:12px;margin-bottom:12px}
+    .market-screen{padding:12px;margin-bottom:12px;background:#050806}
+    .market-screen svg{height:190px}
+    .signal-card{border:1px solid #087b42;background:#03150b;border-radius:13px;padding:14px;margin:10px 0 16px}
+    .signal-direction{font-size:22px;font-weight:900;color:var(--gold);margin:12px 0 4px}
+    .manual-actions{display:grid;grid-template-columns:1fr 1fr;margin:12px 0}
+    .manual-actions button{width:100%;color:#fff}
+    .buy-btn{background:#00c965}.sell-btn{background:#e52e3e}
+    .manual-actions button:disabled{opacity:.55}
+    .field input,.field select{background:#080d0a;border-color:#2a3931;color:#f1f7f3}
+    button{border-radius:10px}button.secondary{background:#202923;color:#f1f7f3}
+    .v5-stat strong{font-size:21px}
+    @media(max-width:900px){.ops-layout.dual-ops{grid-template-columns:1fr}.wrap{padding:10px}.brand{font-size:22px}}
+    @media(max-width:520px){.v5-grid{grid-template-columns:1fr 1fr}.operation-panel{padding:12px}.market-screen svg{height:145px}.manual-actions{grid-template-columns:1fr 1fr}}
+
+
+    .top-tools{display:flex;gap:8px;align-items:center}.lang-select{background:#09110d;color:#eef8f1;border:1px solid #294438;border-radius:10px;padding:9px;max-width:130px}
+    .window-dock{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0;padding:12px;border:1px solid #284638;border-radius:14px;background:#08100c}
+    .window-chip{background:#14251c;border:1px solid #286341;color:#dfffee;padding:9px 12px;border-radius:10px;cursor:pointer}
+    .support-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.chat-box{min-height:190px;max-height:300px;overflow:auto;background:#070d09;border:1px solid #263b30;border-radius:12px;padding:12px;margin:10px 0}.chat-msg{padding:9px 11px;border-radius:10px;background:#14231a;margin:7px 0;max-width:90%}.chat-msg.user{margin-left:auto;background:#123b29}.support-actions{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:760px){.support-grid{grid-template-columns:1fr}.top-tools{flex-wrap:wrap;justify-content:flex-end}}
+  
+    /* MendtradeR: carrossel horizontal de operações, BOT em primeiro */
+    .ops-carousel{margin:14px 0 18px;min-width:0}
+    .ops-carousel-tabs{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding:4px 2px 12px;-webkit-overflow-scrolling:touch}
+    .ops-carousel-tabs button{flex:0 0 auto;background:#14251c;border:1px solid #286341;color:#dfffee;padding:10px 14px;border-radius:11px;white-space:nowrap}
+    .ops-carousel-tabs button.active{background:#00c965;color:#04150e;border-color:#00c965}
+    .ops-carousel-track{display:flex;gap:12px;overflow-x:auto;overflow-y:visible;scroll-snap-type:x mandatory;scroll-behavior:smooth;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;padding:2px 2px 14px;touch-action:pan-x pan-y;scrollbar-width:thin}
+    .ops-slide{flex:0 0 min(88%,920px);min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+    .ops-slide>.card,.ops-slide>.operation-panel{height:100%;min-width:0}
+    .ops-slide .formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .ops-carousel-hint{font-size:12px;color:var(--muted);padding:0 2px 8px}
+    @media(max-width:760px){.ops-slide{flex-basis:92%}.ops-slide .formgrid{grid-template-columns:1fr}}
+
+  
+    /* Compactação geral: menos espaço vazio, cartões e painéis mais baixos. */
+    .wrap{max-width:1180px;padding:10px}
+    .top{margin-bottom:10px}
+    .card{padding:12px}
+    .grid,.v5-grid{gap:9px;margin:9px 0}
+    .v5-stat{padding:10px}
+    .v5-stat strong,.stat{font-size:19px;margin-top:4px}
+    .field{gap:5px;margin:8px 0}
+    .field input,.field select{padding:9px}
+    button{padding:9px 12px}
+    th,td{padding:7px;font-size:12px}
+    .ops-hero{padding:12px;margin-bottom:8px}
+    .ops-title{font-size:22px;margin:3px 0}
+    .ops-sub{line-height:1.35;margin:4px 0}
+    .ops-layout,.ops-carousel{margin:8px 0}
+    .ops-slide{flex-basis:min(100%,760px)}
+    .ops-slide>.card,.ops-slide>.operation-panel{height:auto}
+    .operation-panel{padding:10px}
+    .panel-heading{padding-bottom:8px;margin-bottom:8px}
+    .market-screen{min-height:0;padding:8px;margin-bottom:8px}
+    .market-screen svg{height:125px}
+    .signal-card{padding:10px;margin:7px 0 9px}
+    .signal-direction{font-size:19px;margin:7px 0 3px}
+    .ops-mini{padding:9px}
+    .ops-mini strong{font-size:17px;margin-top:3px}
+    .radar{gap:9px;margin-top:8px}
+    .radar-main{min-height:130px;padding:12px}
+    .radar-orb{width:66px;height:66px;font-size:20px;margin:4px auto}
+    .window-dock{margin:8px 0;padding:8px;gap:6px}
+    .window-chip{padding:7px 9px}
+    .notice,.owner-lock,.commission-box{padding:9px;margin:8px 0}
+    .commission-value{font-size:22px}
+    .chat-box{min-height:130px;margin:7px 0;padding:9px}
+    .ops-carousel-tabs{padding-bottom:7px}
+    .ops-carousel-tabs button{padding:8px 10px}
+    .ops-carousel-hint{padding-bottom:5px}
+    .ops-carousel-track{gap:8px;padding-bottom:8px}
+    @media(max-width:760px){
+      .wrap{padding:8px}
+      .card{padding:10px}
+      .brand{font-size:20px}
+      .ops-slide{flex-basis:100%}
+      .ops-slide .formgrid{grid-template-columns:1fr}
+      .market-screen svg{height:110px}
+      .ops-hero:after{width:150px;height:150px}
+      .payment-methods{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media(max-width:420px){
+      body{font-size:14px}
+      .v5-stat{padding:8px}
+      .v5-stat strong{font-size:17px}
+      .ops-title{font-size:20px}
+      .payment-methods{grid-template-columns:1fr 1fr}
+    }
+
+
+    /* Ajuste pedido: painel manual compacto, sem altura artificial. */
+    .ops-slide:has(.manual-panel){flex-basis:min(100%,620px)}
+    .manual-panel{max-width:620px;margin-inline:auto}
+    .manual-panel .signal-card{padding:9px;margin:7px 0}
+    .manual-panel .signal-direction{font-size:17px;margin:5px 0}
+    .manual-panel .field{margin:6px 0}
+    .manual-panel .formgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 9px}
+    .manual-panel .field input,.manual-panel .field select{padding:8px}
+    .manual-panel .manual-actions{margin:7px 0}
+    .manual-panel .manual-actions button{padding:9px}
+    .manual-panel .notice{padding:7px 9px;margin:7px 0;font-size:11px}
+    .manual-panel h3{font-size:14px;margin:9px 0 4px}
+    .manual-panel .mini-row{padding:5px 0}
+    @media(max-width:760px){
+      .ops-slide:has(.manual-panel){flex-basis:100%}
+      .manual-panel{max-width:none}
+      .manual-panel .formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .manual-panel .signal-card p{margin:5px 0}
+    }
+    @media(max-width:380px){.manual-panel .formgrid{grid-template-columns:1fr}}
+
+
+    /* Painéis operacionais compactos: rolagem interna em vez de páginas excessivamente longas. */
+    #derivLivePanel,.manual-panel,.bot-panel{max-height:72vh;overflow-y:auto;overscroll-behavior:contain}
+    #derivLivePanel .card{padding:9px;margin-top:8px!important}
+    #derivLivePanel .field{margin:5px 0}
+    #derivLivePanel .tablewrap{max-height:150px;overflow:auto}
+    #derivLivePanel h2{font-size:18px}
+    #derivLivePanel h3{font-size:14px;margin:7px 0}
+    #derivLivePanel .formgrid{gap:2px 8px}
+    #derivLivePanel .notice{padding:7px;margin:6px 0}
+    .manual-panel,.bot-panel{padding:9px}
+    .manual-panel .tablewrap,.bot-panel .tablewrap{max-height:125px;overflow:auto}
+    .ops-carousel-track{align-items:flex-start}
+    .ops-slide{align-self:flex-start}
+    @media(max-width:760px){
+      #derivLivePanel,.manual-panel,.bot-panel{max-height:68vh}
+      #derivLivePanel .tablewrap{max-height:115px}
+      .manual-panel .tablewrap,.bot-panel .tablewrap{max-height:100px}
+    }
+
+
+    /* Compactação reforçada para telemóveis: menos altura em cada janela operacional. */
+    .ops-hero{padding:9px 11px;margin-bottom:6px}
+    .ops-title{font-size:19px;line-height:1.15}
+    .ops-sub{font-size:12px;line-height:1.25}
+    .ops-carousel{margin:5px 0 8px}
+    .ops-carousel-hint{font-size:10px;padding:0 2px 4px}
+    .ops-carousel-tabs{gap:5px;padding:2px 1px 5px}
+    .ops-carousel-tabs button{font-size:12px;padding:7px 9px}
+    .ops-carousel-track{gap:6px;padding:0 1px 5px}
+    .ops-slide{flex-basis:100%;min-width:0}
+    .ops-slide>.card,.ops-slide>.operation-panel{height:auto}
+    .operation-panel,.manual-panel,.bot-panel{padding:8px}
+    .panel-heading{padding-bottom:6px;margin-bottom:6px}
+    .panel-heading h2{font-size:15px}
+    .manual-panel,.bot-panel,#derivLivePanel{max-height:58vh;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+    .manual-panel .signal-card{padding:7px;margin:5px 0}
+    .manual-panel .notice{font-size:10px;line-height:1.25;padding:6px;margin:5px 0}
+    .manual-panel .field{margin:4px 0;gap:3px}
+    .manual-panel .field label,.manual-panel .label{font-size:11px}
+    .manual-panel .field input,.manual-panel .field select{padding:7px;font-size:13px}
+    .manual-panel h3{font-size:13px;margin:6px 0 3px}
+    .manual-panel .mini-row{padding:4px 0;font-size:11px}
+    .manual-panel .tablewrap,.bot-panel .tablewrap{max-height:85px}
+    .bot-panel .market-screen{padding:6px;margin-bottom:6px}
+    .bot-panel .market-screen svg{height:88px}
+    .bot-panel .ops-mini{padding:7px}
+    .bot-panel .ops-mini strong{font-size:15px}
+    #derivLivePanel .card{padding:7px;margin-top:5px!important}
+    #derivLivePanel .field{margin:4px 0}
+    #derivLivePanel .field input,#derivLivePanel .field select{padding:7px}
+    #derivLivePanel .tablewrap{max-height:90px}
+    .window-dock{margin:5px 0;padding:6px}
+    .window-chip{font-size:11px;padding:6px 8px}
+    @media(max-width:760px){
+      .wrap{padding:6px}
+      .card{padding:8px}
+      .ops-hero{padding:8px}
+      .ops-slide{flex-basis:100%}
+      .manual-panel,.bot-panel,#derivLivePanel{max-height:54vh}
+      .manual-panel .formgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 6px}
+      .manual-panel .tablewrap,.bot-panel .tablewrap{max-height:72px}
+      .bot-panel .market-screen svg{height:76px}
+    }
+    @media(max-width:380px){
+      .manual-panel .formgrid{grid-template-columns:1fr}
+      .manual-panel,.bot-panel,#derivLivePanel{max-height:52vh}
+    }
+
+  
+    :root[data-theme="ocean"] body{background:var(--bg)!important}
+    :root[data-theme="purple"] body{background:var(--bg)!important}
+    :root[data-theme="ocean"] .card,:root[data-theme="purple"] .card,:root[data-theme="ocean"] .operation-panel,:root[data-theme="purple"] .operation-panel{background:linear-gradient(145deg,var(--panel2),var(--panel))!important;border-color:var(--line)!important}
+    :root[data-theme="ocean"] .v5-stat,:root[data-theme="purple"] .v5-stat,:root[data-theme="ocean"] .ops-mini,:root[data-theme="purple"] .ops-mini,:root[data-theme="ocean"] .market-screen,:root[data-theme="purple"] .market-screen{background:var(--panel)!important;border-color:var(--line)!important}
+    /* Aproxima o mercado em tempo real da área do gráfico. */
+    #derivLivePanel{margin:6px 0 4px!important}
+    .v5-grid{margin:4px 0;gap:6px}
+    .ops-layout.dual-ops{margin-top:4px;gap:8px}
+    @media(max-width:760px){
+      #derivLivePanel{margin-bottom:3px!important}
+      .v5-grid{margin:3px 0;gap:5px}
+      .ops-layout.dual-ops{margin-top:3px}
+    }
+
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="top-left">
+      <button id="menuToggle" class="menu-toggle hidden" aria-label="Abrir menu" aria-expanded="false">☰</button>
+      <div class="brand">Mendtrade<span>R V5</span></div>
+    </div>
+    <div class="top-spacer"></div>
+    <div class="top-tools"><select id="languageSelect" class="lang-select" aria-label="Idioma"><option value="pt">Português</option><option value="en">English</option><option value="es">Español</option></select><span class="badge">DEMO · PREVIEW</span><button id="logoutBtn" class="secondary hidden">Sair</button></div>
+  </header>
+
+  <section id="authView" class="card auth">
+    <h1 style="margin:0 0 6px">Bem-vindo ao MendtradeR</h1><p class="muted">Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.</p>
+    <div class="field"><label for="signupCountry">País</label><select id="signupCountry"></select></div>
+    <div class="field"><label for="email">E-mail</label><input id="email" type="email" autocomplete="email" placeholder="teuemail@exemplo.com"></div>
+    <div class="field"><label for="password">Palavra-passe</label><input id="password" type="password" autocomplete="current-password" placeholder="Mínimo de 6 caracteres"></div>
+    <div class="row"><button id="loginBtn">Entrar</button><button id="signupBtn" class="secondary">Criar conta</button></div>
+    <p id="authMsg" class="small muted" aria-live="polite"></p>
+    <div class="notice small">A autenticação usa o Supabase. Confirma o teu e-mail se o projeto exigir verificação.</div>
+  </section>
+
+  <div id="navBackdrop" class="nav-backdrop"></div>
+  <nav id="mainNav" class="card nav" aria-label="Menu principal">
+    <div class="nav-heading"><span>MENU MENDTRADER</span><button id="menuClose" class="nav-close" aria-label="Fechar menu">✕</button></div>
+    <button data-page="bot" class="active">◉ Área de operações</button>
+    <button data-page="overview">▦ Visão geral</button>
+    <button data-page="history">▤ Histórico</button>
+    <button data-page="instructions">ⓘ Instruções e técnicas</button>
+    <button data-page="wallet">＋ Depósitos</button>
+    <button data-page="withdraw">↗ Levantamentos</button>
+    <button data-page="support">✦ Suporte IA / Proprietário</button>
+    <button data-page="account">⚙ Conta e definições</button>
+    <button data-page="invites">🔗 Convites e indicações</button>
+    <button data-page="owner" id="ownerNavBtn" class="hidden">👑 Área do Proprietário</button>
+  </nav>
+
+  <main id="appView" class="hidden">
+    <div class="layout">
+      <div class="content">
+        <section id="overview" class="section">
+          <h1>Visão geral</h1><p class="muted">Resumo da tua conta MendtradeR.</p>
+          <div class="grid">
+            <div class="card"><div class="label">Saldo registado</div><div class="stat" id="balance">$0.00</div><div class="small muted">O saldo real é consultado na Deriv quando a integração for concluída.</div></div>
+            <div class="card"><div class="label">Resultado registado</div><div class="stat" id="profit">$0.00</div></div>
+            <div class="card"><div class="label">Estado do bot</div><div class="stat" id="botStatus">Desligado</div></div>
+          </div>
+
+          <div class="v5-grid">
+            <div class="v5-stat"><div class="v5-kicker">Taxa de acerto</div><strong>—</strong><span class="small muted">Aguardando operações reais</span></div>
+            <div class="v5-stat"><div class="v5-kicker">Lucro hoje</div><strong>$0.00</strong><span class="small muted">Dados não ligados</span></div>
+            <div class="v5-stat"><div class="v5-kicker">Oportunidades</div><strong>—</strong><span class="small muted">Radar por integrar</span></div>
+            <div class="v5-stat"><div class="v5-kicker">Risco da sessão</div><strong>Protegido</strong><span class="small muted">Controlos configuráveis</span></div>
+          </div>
+          <div class="card">
+            <div class="row"><div><h3 style="margin:0">Radar inteligente · V5</h3><p class="small muted" style="margin:5px 0 0">Pré-visualização do painel de oportunidades.</p></div><span class="pill">MODO DEMO VISUAL</span></div>
+            <div class="radar">
+              <div class="radar-main">
+                <div class="row"><span class="signal-tag neutral">● A aguardar dados de mercado</span><span class="small muted right">Multimercado</span></div>
+                <div class="radar-orb">⌁</div>
+                <div class="row"><b>Melhor oportunidade</b><span class="small muted right">Sem sinal confirmado</span></div>
+              </div>
+              <div class="v5-stat">
+                <div class="v5-kicker">Qualidade do sinal</div><strong>— / 100</strong>
+                <div class="meter"><span></span></div>
+                <div class="mini-list" style="margin-top:14px">
+                  <div class="mini-row"><span>Direção</span><b>—</b></div>
+                  <div class="mini-row"><span>Mercado</span><b>—</b></div>
+                  <div class="mini-row"><span>Confirmações</span><b>0</b></div>
+                  <div class="mini-row"><span>Estado</span><b class="muted">Não ligado</b></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="commission-box">
+            <div class="row"><div><div class="v5-kicker">Regra de comissão da plataforma</div><div class="commission-value">10%</div></div><div class="right small" style="color:#e5d6b2;max-width:230px">Aplicada apenas ao lucro positivo elegível de cada operação concluída.</div></div>
+            <p class="small" style="color:#e5d6b2;margin-bottom:0">Exemplo: lucro elegível de 10 USD = 1 USD de comissão. O registo e a cobrança reais dependem do backend.</p>
+          </div>
+          <div class="notice warning"><b>Importante:</b> esta primeira versão ainda não executa operações, não movimenta dinheiro e não está ligada à conta Deriv. Use apenas como painel de configuração.</div>
+          <div class="card"><h3>Próximas integrações</h3><p class="muted">Ligação segura à Deriv, execução do bot com limites de risco, depósitos e levantamentos bancários confirmados por um prestador autorizado.</p></div>
+        </section>
+
+        <section id="bot" class="section active">
+          <div class="ops-hero">
+            <div class="row"><span class="ops-status"><i class="ops-dot"></i> MODO DEMO · SEM ORDENS REAIS</span><span class="pill right">MENDTRADER V5</span></div>
+            <div class="ops-title">Central de operações</div>
+            <p class="ops-sub">Escolhe entre operações automáticas do bot e operações manuais. Os sinais só serão apresentados quando existir uma fonte de dados validada; nesta prévia, o gráfico é ilustrativo.</p>
+          </div>
+          <div class="window-dock"><b>Janelas de gráfico</b><button id="openChartWindow" class="window-chip">＋ Abrir nova janela</button><button class="window-chip chart-shortcut" data-symbol="EUR/USD">EUR/USD</button><button class="window-chip chart-shortcut" data-symbol="GBP/USD">GBP/USD</button><button class="window-chip chart-shortcut" data-symbol="Volatility 100 Index">Volatility 100</button><span class="small muted">Abre um gráfico separado, ao estilo do MT5. Nesta versão é apenas visual DEMO.</span></div>
+          <div class="card" id="derivLivePanel" style="margin:14px 0;border:1px solid #286052">
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <div><span class="badge">DERIV · DADOS PÚBLICOS</span><h2 style="margin:8px 0 3px">📡 Mercado em tempo real</h2><p class="small muted">Ligação apenas de leitura. Não acede à conta, saldo ou ordens.</p></div>
+              <span id="derivFeedStatus" class="signal-tag neutral">● Desligado</span>
+            </div>
+            <div class="formgrid">
+              <div class="field"><label for="derivFeedSymbol">Mercado</label><select id="derivFeedSymbol"><option value="1HZ100V">Volatility 100 (1s)</option><option value="R_100">Volatility 100</option><option value="frxEURUSD">EUR/USD</option><option value="frxGBPUSD">GBP/USD</option></select></div>
+              <div class="field"><label>Última cotação recebida</label><strong id="derivFeedPrice" style="font-size:24px">—</strong><span id="derivFeedTime" class="small muted">A aguardar ligação</span></div>
+            </div>
+            <div class="row"><button id="derivFeedConnect">Ligar mercado</button><button id="derivFeedDisconnect" class="secondary" disabled>Desligar</button><span id="derivFeedMessage" class="small muted">Sem ligação à Deriv.</span></div>
+            <div class="row" style="margin-top:8px"><button id="toggleSignalSound" class="secondary" type="button">🔔 Ativar aviso sonoro</button><span id="signalSoundStatus" class="small muted">Som desligado</span></div>
+            <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Hora</th><th>Ativo</th><th>Preço</th></tr></thead><tbody id="derivFeedRows"><tr><td colspan="3" class="muted">Ainda sem cotações.</td></tr></tbody></table></div>
+            <div id="derivSignalPanel" class="card" style="margin-top:14px;border:1px solid #42604f;background:#0a1510">
+              <div class="row" style="justify-content:space-between;align-items:center">
+                <div><span class="badge">ANÁLISE EXPERIMENTAL · SEM ORDENS</span><h3 style="margin:8px 0">🧭 Sinal do mercado</h3></div>
+                <span id="derivSignalTag" class="signal-tag neutral">● A aguardar dados</span>
+              </div>
+              <div class="formgrid">
+                <div class="field"><label>Direção sugerida</label><strong id="derivSignalDirection" style="font-size:22px">A AGUARDAR</strong></div>
+                <div class="field"><label>Força técnica indicativa</label><strong id="derivSignalStrength" style="font-size:22px">—</strong></div>
+              </div>
+              <p id="derivSignalReason" class="small muted">São necessários pelo menos 30 ticks consecutivos para uma primeira leitura.</p>
+              <p id="derivSignalWarning" class="small muted">Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.</p>
+            </div>
+            <div id="derivCandlePanel" class="card" style="margin-top:14px">
+              <h3>🕯️ Candles reais · 1 minuto</h3>
+              <p class="small muted">Os candles são construídos localmente a partir dos ticks recebidos. Só candles fechados entram na análise.</p>
+              <div class="formgrid">
+                <div class="field"><label>Candles fechados recolhidos</label><strong id="derivCandleCount">0</strong></div>
+                <div class="field"><label>Estado da recolha</label><strong id="derivCandleState">A aguardar ticks</strong></div>
+              </div>
+              <div class="tablewrap"><table><thead><tr><th>Hora</th><th>Abertura</th><th>Máxima</th><th>Mínima</th><th>Fecho</th></tr></thead><tbody id="derivCandleRows"><tr><td colspan="5" class="muted">Ainda sem candles fechados.</td></tr></tbody></table></div>
+              <div class="row" style="margin-top:12px"><button id="derivCandleBacktest" class="secondary">Testar estratégia em demo</button></div>
+              <p id="derivCandleTestResult" class="small muted">O teste ficará disponível após recolher pelo menos 60 candles fechados (aproximadamente 1 hora).</p>
+            </div>
+            <p class="small muted">As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.</p>
+          </div>
+          <div class="v5-grid">
+            <div class="v5-stat"><div class="v5-kicker">Saldo de demonstração</div><strong>25.000,00 Kz</strong></div>
+            <div class="v5-stat"><div class="v5-kicker">Resultado do bot</div><strong style="color:var(--green)">—</strong><span class="small muted">Aguardando integração</span></div>
+            <div class="v5-stat"><div class="v5-kicker">Resultado manual</div><strong>—</strong><span class="small muted">Aguardando operações</span></div>
+            <div class="v5-stat"><div class="v5-kicker">Estado da ligação</div><strong style="color:var(--gold)">Demo</strong><span class="small muted">Deriv não conectada</span></div>
+          </div>
+          <div class="ops-layout dual-ops">
+            <div class="card operation-panel bot-panel">
+              <div class="row panel-heading"><h2 style="margin:0">🤖 Operações do Bot</h2><span class="signal-tag neutral">● Desligado</span></div>
+              <div class="market-screen">
+                <div class="row"><div><b>Gráfico do mercado</b><div class="small muted">Ilustrativo · sem cotações ao vivo</div></div><span class="pill right">DEMO</span></div>
+                <svg viewBox="0 0 620 160" preserveAspectRatio="none" role="img" aria-label="Gráfico ilustrativo, sem dados de mercado em tempo real">
+                  <defs><linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#36d69a"/><stop offset="1" stop-color="#36d69a" stop-opacity="0"/></linearGradient></defs>
+                  <path class="market-gridline" d="M0 25H620 M0 65H620 M0 105H620 M0 145H620"/>
+                  <path class="market-fill" d="M0 119 L35 110 L70 120 L105 86 L140 96 L175 71 L210 83 L245 52 L280 68 L315 45 L350 61 L385 35 L420 54 L455 30 L490 48 L525 23 L560 39 L590 18 L620 28 L620 160 L0 160Z"/>
+                  <path class="market-line" d="M0 119 L35 110 L70 120 L105 86 L140 96 L175 71 L210 83 L245 52 L280 68 L315 45 L350 61 L385 35 L420 54 L455 30 L490 48 L525 23 L560 39 L590 18 L620 28"/>
+                </svg>
+                <div class="row"><span class="small muted">Sinal do motor: indisponível</span><span class="small muted right">Feed não ligado</span></div>
+              </div>
+              <div class="formgrid">
+                <div class="field"><label>Ativo</label><input id="asset" value="Volatility 100 Index" maxlength="80"></div>
+                <div class="field"><label>Estratégia</label><select id="strategy"><option value="manual">Manual / por configurar</option><option value="conservative">Conservadora (a implementar)</option></select></div>
+                <div class="field"><label>Valor por entrada (USD)</label><input id="entryAmount" type="number" min="0.35" step="0.01" value="1"></div>
+                <div class="field"><label>Valor mínimo (USD)</label><input id="minStake" type="number" min="0.35" step="0.01" value="0.35"></div>
+                <div class="field"><label>Valor máximo (USD)</label><input id="maxStake" type="number" min="0.35" step="0.01" value="5"></div>
+                <div class="field"><label>Tempo de expiração</label><select id="botExpiry"><option>1 minuto</option><option>5 minutos</option><option>15 minutos</option></select></div>
+                <div class="field"><label>Meta de lucro (USD)</label><input id="targetAmount" type="number" min="0" step="0.01" value="10"></div>
+                <div class="field"><label>Limite de perda (USD)</label><input id="lossLimit" type="number" min="0" step="0.01" value="5"></div>
+                <div class="field"><label>Máximo de operações</label><input id="maxTrades" type="number" min="1" max="100" step="1" value="10"></div>
+                <div class="field"><label for="sessionDuration">Duração da sessão automática</label><select id="sessionDuration"><option value="60">1 hora</option><option value="120">2 horas</option><option value="240">4 horas</option><option value="480">8 horas</option><option value="720">12 horas</option><option value="1440">24 horas</option><option value="2880">2 dias</option><option value="4320">3 dias</option></select></div>
+                <div class="field"><label for="progressionPercent">Aumento após operação vencedora</label><input id="progressionPercent" type="number" min="0" max="20" step="1" value="20"></div>
+              </div>
+              <div class="progression-preview">
+                <b>Progressão selecionada: apenas após vitória · 20%</b>
+                <div id="botProgressionPreview" class="small muted">Exemplo: $1,00 → $1,20 → $1,44. Após uma perda, regressa ao valor inicial. O limite máximo por entrada continua a prevalecer.</div>
+                <p class="small muted" style="margin:7px 0 0">O bot deve parar ao atingir a duração, a meta de lucro, o limite de perda ou o número máximo de operações. A configuração não ativa ordens: a execução automática real permanece bloqueada até à integração de negociação e aos testes de segurança.</p>
+              </div>
+              <div class="row"><button id="saveBotBtn">Guardar configurações</button><button id="botToggleBtn" class="secondary" disabled>Iniciar Bot (indisponível)</button></div>
+              <p id="botMsg" class="small muted" aria-live="polite">O bot permanece desligado até à integração segura e aos testes DEMO.</p>
+            </div>
+            <div class="card operation-panel manual-panel">
+              <div class="row panel-heading"><h2 style="margin:0">🎯 Operações Manuais</h2><span class="signal-tag neutral">Execução manual</span></div>
+              <div class="signal-card">
+                <div class="row"><b>📊 Sinal atual do Bot</b><span class="pill right">Aguardando feed</span></div>
+                <div class="signal-direction">— <span class="muted">Nenhum sinal confirmado</span></div>
+                <p class="small muted">Quando o motor receber dados reais e validar uma oportunidade, o sinal mostrará COMPRA ou VENDA, ativo, confiança e validade. Tu decides se executas.</p>
+              </div>
+              <div class="field"><label>Ativo</label><select id="manualAsset"><option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option><option>Volatility 100 Index</option></select></div>
+              <div class="field"><label>Valor da operação (USD)</label><input id="manualAmount" type="number" min="0.35" step="0.01" value="1"></div>
+              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option>1 minuto</option><option>5 minutos</option><option>15 minutos</option></select></div>
+              <div class="row manual-actions"><button class="buy-btn" disabled title="Disponível após integração segura">↑ COMPRA</button><button class="sell-btn" disabled title="Disponível após integração segura">↓ VENDA</button></div>
+              <div class="notice warning small">Modo demonstração: os botões de compra e venda estão bloqueados. Nenhuma ordem será enviada. A execução manual será ativada apenas após integração e confirmação de segurança.</div>
+              <h3>Histórico manual</h3><div class="mini-list"><div class="mini-row"><span class="muted">Ainda sem operações manuais</span><span class="pill">DEMO</span></div></div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <div class="row"><div><h3 style="margin:0">Motor inteligente multimercado</h3><p class="small muted" style="margin:5px 0 0">Configurações previstas para o motor do MendtradeR.</p></div><span class="pill">EM PREPARAÇÃO</span></div>
+            <div class="formgrid">
+              <div class="field"><label for="v5Market">Mercado preferencial</label><select id="v5Market"><option>Seleção automática pelo bot</option><option>Forex</option><option>Índices sintéticos</option><option>Índices financeiros</option><option>Criptomoedas</option><option>Commodities</option></select></div>
+              <div class="field"><label for="v5Risk">Perfil de risco</label><select id="v5Risk"><option>Equilibrado</option><option>Conservador</option><option>Agressivo</option></select></div>
+              <div class="field"><label for="v5Timeframe">Período de análise</label><select id="v5Timeframe"><option>Multi-timeframe automático</option><option>M1</option><option>M5</option><option>M15</option><option>H1</option></select></div>
+              <div class="field"><label for="v5Signal">Estilo de estratégia</label><select id="v5Signal"><option>Híbrida inteligente</option><option>Seguimento de tendência</option><option>Reversão confirmada</option></select></div>
+            </div>
+            <div class="notice warning small">Estes seletores são uma pré-visualização: ainda não alteram a estratégia executada nem enviam ordens.</div>
+          </div>
+          <div class="card" id="strategyLab" style="margin-top:16px">
+            <div class="row" style="justify-content:space-between"><div><span class="badge">MOTOR DE ESTRATÉGIA</span><h2 style="margin:10px 0 4px">Laboratório de sinais e backtest</h2><p class="muted small">Testa a lógica com candles históricos antes de qualquer operação real.</p></div><div class="badge">MODO OFFLINE</div></div>
+            <div class="notice warning small"><b>Importante:</b> esta versão analisa dados históricos que forneces. Não recebe cotações ao vivo, não envia ordens e não prevê lucros.</div>
+            <div class="formgrid"><div class="field"><label for="strategyRisk">Perfil de risco do teste</label><select id="strategyRisk"><option value="conservative">Conservador</option><option value="balanced" selected>Equilibrado</option><option value="aggressive">Agressivo</option></select></div><div class="field"><label for="strategyStyle">Lógica de entrada</label><select id="strategyStyle"><option value="hybrid" selected>Híbrida (tendência + momentum)</option><option value="trend">Seguimento de tendência</option><option value="reversal">Reversão confirmada</option></select></div></div>
+            <div class="field"><label for="candleCsv">Dados históricos CSV</label><textarea id="candleCsv" rows="6" style="width:100%;background:#0b1322;color:var(--text);border:1px solid var(--line);border-radius:11px;padding:12px" placeholder="timestamp,open,high,low,close&#10;2026-01-01 10:00,100,102,99,101&#10;2026-01-01 10:05,101,103,100,102"></textarea></div>
+            <p class="small muted">Formato: timestamp,open,high,low,close. Usa dados exportados da corretora; mínimo recomendado: 200 candles.</p>
+            <div class="row"><button id="runBacktestBtn">Executar backtest</button><button id="loadExampleBtn" class="secondary">Carregar exemplo ilustrativo</button><span id="backtestStatus" class="small muted"></span></div>
+            <div id="backtestResults" class="grid" style="margin-top:16px"><div class="card"><div class="label">Taxa de acerto</div><div class="stat" id="btWinRate">—</div></div><div class="card"><div class="label">Resultado líquido (unidades)</div><div class="stat" id="btNet">—</div></div><div class="card"><div class="label">Drawdown máximo</div><div class="stat" id="btDrawdown">—</div></div></div>
+            <div class="notice small" id="btDetails">O relatório do teste aparecerá aqui.</div><div class="tablewrap"><table><thead><tr><th>Indicador</th><th>Valor</th></tr></thead><tbody id="btMetrics"><tr><td colspan="2" class="muted">Ainda sem resultados.</td></tr></tbody></table></div>
+          </div>
+          <div class="notice warning">A execução automática e manual continuam desligadas até existir feed validado, ligação segura à corretora, testes DEMO e controlos de risco no servidor. Nenhum lucro é garantido.</div>
+        </section>
+
+        <section id="history" class="section">
+          <h1>Histórico de operações</h1><div class="card"><div class="row"><p class="muted">Operações guardadas na tua conta.</p><button id="refreshHistory" class="secondary right">Atualizar</button></div><div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Tipo</th><th>Resultado</th><th>Comissão</th><th>Estado</th></tr></thead><tbody id="historyRows"><tr><td colspan="6" class="muted">A carregar...</td></tr></tbody></table></div><p id="historyMsg" class="small muted"></p></div>
+        </section>
+
+        <section id="wallet" class="section">
+          <h1>Depósitos</h1><div class="card"><div class="notice warning"><b>Mínimo previsto para Angola: 5.000 Kz.</b> Depósitos bancários ainda não estão ativos. Não transfiras dinheiro para contas apresentadas fora de um fluxo oficial confirmado.</div>
+            <div class="field"><label for="walletCountry">País da conta</label><select id="walletCountry"></select></div>
+            <div class="field"><label id="depositAmountLabel">Valor do depósito (AOA)</label><input id="depositAmount" type="number" min="5000" step="1" placeholder="Mínimo 5000"></div>
+            <div class="field"><label>Banco / método de pagamento</label><select id="depositBank"><option>BAI</option><option>BFA</option><option>BPC</option><option>Banco Económico</option><option>Outro banco angolano</option></select></div>
+            <div id="paymentMethodsInfo" class="notice small">Métodos disponíveis para Angola serão ativados após integração com um prestador autorizado.</div>
+            <button id="depositBtn" class="secondary" disabled>Depósitos em preparação</button>
+            <p class="small muted">A ativação exige contrato e integração com banco ou prestador de pagamentos autorizado, confirmação automática e reconciliação.</p>
+          </div>
+        </section>
+
+        <section id="withdraw" class="section">
+          <h1>Levantamentos</h1><div class="card"><div class="notice warning">Levantamentos bancários ainda não estão ativos. A plataforma não pode enviar dinheiro diretamente sem integração autorizada.</div>
+            <div class="field"><label>Banco</label><select id="withdrawBank"><option>BAI</option><option>BFA</option><option>BPC</option><option>Banco Económico</option><option>Outro banco angolano</option></select></div>
+            <div class="field"><label>IBAN / número de conta</label><input id="bankAccount" placeholder="Será recolhido apenas num formulário seguro quando a integração existir"></div>
+            <div class="field"><label>Valor (AOA)</label><input id="withdrawAmount" type="number" min="1" placeholder="Valor"></div>
+            <button class="secondary" disabled>Levantamentos em preparação</button>
+          </div>
+        </section>
+
+
+        <section id="instructions" class="section">
+          <h1>Instruções e técnicas de operações</h1>
+          <p class="muted">Guia educativo para compreender o MendtradeR e preparar uma utilização responsável.</p>
+
+          <div class="card">
+            <h3>1. Como o bot deverá funcionar</h3>
+            <ol>
+              <li>Escolhes o ativo e verificas se a conta está em modo DEMO.</li>
+              <li>Defines o valor por entrada, o limite máximo por operação, a meta de lucro e o limite de perda.</li>
+              <li>Confirmas o número máximo de operações da sessão.</li>
+              <li>Quando a integração com a Deriv estiver concluída, o bot poderá analisar as condições configuradas e enviar ordens autorizadas.</li>
+              <li>O bot deverá parar ao atingir a meta, o limite de perda ou o número máximo de operações — o que acontecer primeiro.</li>
+            </ol>
+            <div class="notice warning"><b>Estado atual:</b> este protótipo ainda não analisa o mercado nem executa ordens. Guardar configurações não liga o bot à Deriv. Não deposites dinheiro para testar esta versão.</div>
+          </div>
+
+          <div class="card">
+            <h3>2. Técnicas de análise</h3>
+            <h4>Tendência</h4>
+            <p>Observa se o preço está a formar máximos e mínimos ascendentes (possível tendência de alta) ou descendentes (possível tendência de baixa). Evita assumir que uma tendência continuará para sempre.</p>
+            <h4>Suporte e resistência</h4>
+            <p>Suporte é uma zona onde o preço já encontrou procura; resistência é uma zona onde já encontrou pressão vendedora. São zonas de observação, não garantias de reversão.</p>
+            <h4>Média móvel de 21 períodos</h4>
+            <p>Pode ajudar a visualizar a direção e o ritmo recente do preço. O preço acima ou abaixo da média, isoladamente, não constitui um sinal suficiente para entrar.</p>
+            <h4>RSI</h4>
+            <p>O RSI mede o impulso. Leituras tradicionalmente acima de 70 ou abaixo de 30 podem indicar condições de sobrecompra ou sobrevenda, mas podem persistir durante tendências fortes.</p>
+            <h4>Confirmação por velas</h4>
+            <p>Observa o fecho da vela e o contexto: rejeição de uma zona, corpo da vela e sequência de máximos e mínimos. Não tomes decisões apenas pela aparência de uma vela isolada.</p>
+          </div>
+
+          <div class="card">
+            <h3>3. Exemplo de sequência de análise</h3>
+            <ol>
+              <li>Identificar a tendência num período gráfico mais amplo.</li>
+              <li>Marcar zonas relevantes de suporte e resistência.</li>
+              <li>Esperar que o preço chegue a uma dessas zonas.</li>
+              <li>Procurar confirmação adicional, por exemplo, comportamento das velas e contexto da média móvel/RSI.</li>
+              <li>Se as condições não forem claras, não operar. A opção de ficar fora do mercado também é uma decisão.</li>
+            </ol>
+            <p class="small muted">Esta sequência é apenas material de estudo. Não é um sinal de compra/venda nem uma estratégia testada ou implementada no bot.</p>
+          </div>
+
+          <div class="card">
+            <h3>4. Gestão de risco</h3>
+            <ul>
+              <li>Começa sempre em conta DEMO e testa durante tempo suficiente.</li>
+              <li>Arrisca apenas um valor que possas suportar perder; não aumentes a entrada para recuperar perdas.</li>
+              <li>Define limites de perda e de operações antes de iniciar uma sessão.</li>
+              <li>Não uses progressão automática de apostas ou Martingale para tentar recuperar prejuízos.</li>
+              <li>Interrompe a sessão se estiveres cansado, frustrado ou a agir por impulso.</li>
+              <li>Resultados passados não garantem resultados futuros. É possível perder parte ou todo o capital.</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <h3>5. Antes de ativar o bot</h3>
+            <p>Confirma que a ligação oficial à Deriv, as permissões da API, os limites de risco, o registo das ordens e os mecanismos de paragem foram implementados e testados. Nunca partilhes a tua palavra-passe, chave secreta ou token privado da Deriv.</p>
+          </div>
+        </section>
+
+        <section id="support" class="section">
+          <h1>Centro de suporte</h1><p class="muted">Escolhe se queres ajuda imediata da IA ou enviar uma mensagem diretamente ao proprietário da plataforma.</p>
+          <div class="support-grid">
+            <div class="card"><div class="row"><h2>✦ Assistente IA</h2><span class="pill">Ajuda automática</span></div><p class="small muted">Pergunta sobre a plataforma, configurações, risco ou utilização do painel.</p>
+              <div id="aiChat" class="chat-box" aria-live="polite"><div class="chat-msg">Olá! Sou o assistente do MendtradeR. Como posso ajudar?</div></div>
+              <div class="field"><label for="aiQuestion">A tua pergunta</label><input id="aiQuestion" placeholder="Ex.: Como configuro o bot?"></div><button id="sendAiQuestion">Enviar pergunta</button><p class="small muted">Assistente demonstrativo local; respostas avançadas exigem ligação segura a um serviço de IA.</p>
+            </div>
+            <div class="card"><div class="row"><h2>👑 Falar com o proprietário</h2><span class="pill">Suporte humano</span></div><p class="small muted">Envia uma dúvida, sugestão ou reclamação ao proprietário do MendtradeR.</p>
+              <div class="field"><label for="ownerTopic">Assunto</label><select id="ownerTopic"><option>Dúvida</option><option>Problema técnico</option><option>Pagamento / carteira</option><option>Sugestão</option><option>Reclamação</option></select></div>
+              <div class="field"><label for="ownerMessage">Mensagem</label><textarea id="ownerMessage" rows="5" placeholder="Escreve a tua mensagem..."></textarea></div><button id="sendOwnerMessage">Preparar mensagem</button><p id="ownerSupportMsg" class="small muted" aria-live="polite">O envio real será ativado quando o backend de suporte estiver configurado.</p>
+            </div>
+          </div>
+          <div class="card" style="margin-top:14px"><h2>👑 Área do proprietário</h2><p>Gestão de utilizadores, controlo de cadastros, suspensões, métricas e acompanhamento dos pedidos de suporte.</p><div class="notice warning">A área administrativa deve ser liberada exclusivamente por uma função de proprietário validada no servidor. O painel visual pode ser preparado agora, mas não vamos fingir que a proteção está ativa sem configurar a autorização no backend.</div><div class="row"><span class="pill">Acesso administrativo: pendente de validação segura</span><span class="pill">Não visível como ferramenta de utilizador comum</span></div></div>
+        </section>
+
+        <section id="account" class="section">
+          <h1>Conta e aparência</h1><div class="card"><p class="label">E-mail autenticado</p><p id="userEmail" class="amount">—</p><p class="label">País e moeda</p><p id="userCountry" class="amount">Angola · AOA</p><p class="label">ID do utilizador</p><p id="userId" class="small muted" style="overflow-wrap:anywhere">—</p><div class="notice"><b>Comissão da plataforma: 10%</b> sobre o lucro líquido positivo de cada operação concluída de cada utilizador. Exemplo: se uma operação fechar com 10 USD de lucro elegível, a comissão prevista é 1 USD. Em operações sem lucro positivo, a comissão é 0 USD. A cobrança só poderá ocorrer após implementação e validação no backend.</div>
+            <div class="commission-box">
+              <div class="v5-kicker">Painel do proprietário · receitas de comissão</div>
+              <div class="commission-value">10% por lucro positivo</div>
+              <p class="small" style="color:#e5d6b2;margin:5px 0 0">A área de receitas por utilizador será privada e só poderá mostrar valores reais quando existir uma função de proprietário validada no servidor. Não é seguro calcular ou revelar a receita global apenas no navegador.</p>
+              <div class="row" style="margin-top:12px"><span class="pill">Regra comercial definida</span><span class="pill">Resumo financeiro: integração pendente</span></div>
+            </div></div>
+          <div class="card" style="margin-top:14px">
+            <h2>🎨 Aparência da plataforma</h2>
+            <p class="small muted">Escolhe uma cor visual. A preferência fica guardada neste dispositivo.</p>
+            <div class="field"><label for="themeSelect">Tema</label><select id="themeSelect"><option value="emerald">Preto e verde</option><option value="ocean">Azul tecnológico</option><option value="purple">Roxo</option><option value="light">Claro</option></select></div>
+            <div class="theme-preview"><span class="theme-swatch" style="background:#00d66b"></span><span class="theme-swatch" style="background:#22c7d9"></span><span class="theme-swatch" style="background:#b18cff"></span><span class="theme-swatch" style="background:#edf2f7"></span></div>
+          </div>
+        </section>
+
+        <section id="invites" class="section">
+          <div class="ops-hero"><span class="ops-status"><i class="ops-dot"></i> CONVITES MENDTRADER</span><div class="ops-title">Convida outras pessoas</div><p class="ops-sub">Partilha o teu link pessoal. Quando alguém criar uma conta através dele, a indicação ficará associada ao teu perfil.</p></div>
+          <div class="card">
+            <h2>🔗 O teu link de convite</h2>
+            <p class="small muted">Este link é exclusivo da tua conta. Copia ou partilha para convidar novos utilizadores.</p>
+            <div id="inviteLink" class="invite-link">A preparar o teu link...</div>
+            <div class="row" style="margin-top:12px"><button id="copyInviteBtn">Copiar link</button><button id="shareInviteBtn" class="secondary">Partilhar</button></div>
+            <div class="v5-grid" style="margin-top:16px">
+              <div class="v5-stat"><div class="v5-kicker">Pessoas registadas pelo teu link</div><strong id="inviteCount">—</strong></div>
+              <div class="v5-stat"><div class="v5-kicker">Estado do convite</div><strong style="font-size:17px">Ativo</strong></div>
+            </div>
+            <h3>Registos associados</h3>
+            <div class="tablewrap"><table><thead><tr><th>Data do registo</th><th>Estado</th></tr></thead><tbody id="inviteRows"><tr><td colspan="2" class="muted">A carregar indicações...</td></tr></tbody></table></div>
+            <p id="inviteMsg" class="small muted">Não existe programa de recompensas configurado. Esta área serve para partilhar e acompanhar convites.</p>
+          </div>
+        </section>
+
+        <section id="owner" class="section">
+          <div class="ops-hero">
+            <div class="row"><span class="ops-status"><i class="ops-dot"></i> ACESSO PRIVADO VALIDADO</span><span class="pill right">ADMINISTRAÇÃO</span></div>
+            <div class="ops-title">Área do Proprietário</div>
+            <p class="ops-sub">Painel administrativo privado do MendtradeR. O acesso é validado pelo Supabase, não apenas pelo endereço de e-mail ou por um botão escondido.</p>
+          </div>
+          <div class="notice success">Sessão autorizada como proprietário. Os dados abaixo são consultados respeitando as políticas de segurança da base de dados.</div>
+          <div class="v5-grid">
+            <div class="v5-stat"><div class="v5-kicker">Perfis registados</div><strong id="ownerUsersCount">—</strong></div>
+            <div class="v5-stat"><div class="v5-kicker">Operações registadas</div><strong id="ownerTradesCount">—</strong></div>
+            <div class="v5-stat"><div class="v5-kicker">Comissões registadas</div><strong id="ownerCommissionTotal">$0.00</strong></div>
+            <div class="v5-stat"><div class="v5-kicker">Configurações de bot</div><strong id="ownerBotsCount">—</strong></div>
+          </div>
+          <div class="card">
+            <div class="row"><div><h2 style="margin:0">Utilizadores</h2><p class="small muted">Perfis existentes na tabela pública de perfis.</p></div><button id="ownerRefreshBtn" class="secondary right">Atualizar dados</button></div>
+            <input id="ownerUserSearch" type="search" placeholder="Pesquisar por nome, e-mail ou ID…" aria-label="Pesquisar utilizadores" style="width:100%;margin:10px 0;padding:12px;border-radius:10px;background:#08110b;color:#effff5;border:1px solid #31533c"><div class="tablewrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>ID</th><th>Estado</th><th>Registo</th><th>Ações</th></tr></thead><tbody id="ownerUsersRows"><tr><td colspan="6" class="muted">A carregar…</td></tr></tbody></table></div>
+            <p id="ownerUsersNote" class="small muted">Suspender bloqueia temporariamente o início de sessão. Reativar devolve o acesso. A conta do proprietário está protegida e não pode ser suspensa por este painel. Nenhuma conta é apagada.</p>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <h2 style="margin-top:0">Últimas operações</h2>
+            <div class="tablewrap"><table><thead><tr><th>Data</th><th>Utilizador</th><th>Ativo</th><th>Resultado</th><th>Comissão registada</th><th>Estado</th></tr></thead><tbody id="ownerTradesRows"><tr><td colspan="6" class="muted">A carregar…</td></tr></tbody></table></div>
+            <p id="ownerPanelMsg" class="small muted" aria-live="polite">Os valores de comissão são apenas os que já estiverem gravados no histórico; não representam pagamentos recebidos.</p>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <div class="row"><div><h2 style="margin:0">Registo de auditoria</h2><p class="small muted">Histórico das ações de suspensão e reativação realizadas no painel.</p></div><span class="pill right">ÚLTIMAS 100 AÇÕES</span></div>
+            <div class="tablewrap"><table><thead><tr><th>Data e hora</th><th>Ação</th><th>Conta afetada</th><th>Responsável</th></tr></thead><tbody id="ownerAuditRows"><tr><td colspan="4" class="muted">A carregar…</td></tr></tbody></table></div>
+            <p class="small muted">O registo é guardado no servidor e não pode ser alterado pelos utilizadores comuns.</p>
+          </div>
+          <div class="notice warning"><b>Limites desta versão:</b> não permite apagar contas, alterar saldos ou cobrar comissões. As ações administrativas são executadas no servidor, sem expor chaves administrativas no navegador.</div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <div class="footer">MendtradeR · V5 Preview · Negociação envolve risco de perda.</div>
+</div>
+<script>
+(() => {
+  // A URL e a chave publicável identificam o projeto. A chave publicável pode estar no frontend.
+  // Nunca colocar aqui service_role, secret key, senha bancária ou token privado da Deriv.
+  const SUPABASE_URL = 'https://rfgcsprgcbravydlnnuc.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_kF7ycrRT90LwZCW532E3Jg_MHE03QKf';
+  const $ = (id) => document.getElementById(id);
+  const COUNTRIES = [{"code":"AF","name":"Afeganistão","currency":"AFN"},{"code":"AL","name":"Albânia","currency":"ALL"},{"code":"DE","name":"Alemanha","currency":"EUR"},{"code":"AD","name":"Andorra","currency":"EUR"},{"code":"AO","name":"Angola","currency":"AOA"},{"code":"AI","name":"Anguila","currency":"XCD"},{"code":"AG","name":"Antígua e Barbuda","currency":"XCD"},{"code":"AR","name":"Argentina","currency":"ARS"},{"code":"DZ","name":"Argélia","currency":"DZD"},{"code":"AM","name":"Armênia","currency":"AMD"},{"code":"AW","name":"Aruba","currency":"AWG"},{"code":"SA","name":"Arábia Saudita","currency":"SAR"},{"code":"AU","name":"Austrália","currency":"AUD"},{"code":"AZ","name":"Azerbaijão","currency":"AZN"},{"code":"BS","name":"Bahamas","currency":"BSD"},{"code":"BD","name":"Bangladesh","currency":"BDT"},{"code":"BB","name":"Barbados","currency":"BBD"},{"code":"BH","name":"Barein","currency":"BHD"},{"code":"BZ","name":"Belize","currency":"BZD"},{"code":"BJ","name":"Benin","currency":"XOF"},{"code":"BM","name":"Bermudas","currency":"BMD"},{"code":"BY","name":"Bielorrússia","currency":"BYN"},{"code":"BO","name":"Bolívia","currency":"BOB"},{"code":"BW","name":"Botsuana","currency":"BWP"},{"code":"BR","name":"Brasil","currency":"BRL"},{"code":"BN","name":"Brunei","currency":"BND"},{"code":"BG","name":"Bulgária","currency":"BGN"},{"code":"BF","name":"Burquina Faso","currency":"XOF"},{"code":"BI","name":"Burundi","currency":"BIF"},{"code":"BT","name":"Butão","currency":"INR"},{"code":"BE","name":"Bélgica","currency":"EUR"},{"code":"BA","name":"Bósnia e Herzegovina","currency":"BAM"},{"code":"CV","name":"Cabo Verde","currency":"CVE"},{"code":"CM","name":"Camarões","currency":"XAF"},{"code":"KH","name":"Camboja","currency":"KHR"},{"code":"CA","name":"Canadá","currency":"CAD"},{"code":"QA","name":"Catar","currency":"QAR"},{"code":"KZ","name":"Cazaquistão","currency":"KZT"},{"code":"TD","name":"Chade","currency":"XAF"},{"code":"CL","name":"Chile","currency":"CLP"},{"code":"CN","name":"China","currency":"CNY"},{"code":"CY","name":"Chipre","currency":"EUR"},{"code":"VA","name":"Cidade do Vaticano","currency":"EUR"},{"code":"CO","name":"Colômbia","currency":"COP"},{"code":"KM","name":"Comores","currency":"KMF"},{"code":"CD","name":"Congo - Kinshasa","currency":"CDF"},{"code":"KP","name":"Coreia do Norte","currency":"KPW"},{"code":"KR","name":"Coreia do Sul","currency":"KRW"},{"code":"CR","name":"Costa Rica","currency":"CRC"},{"code":"CI","name":"Costa do Marfim","currency":"XOF"},{"code":"HR","name":"Croácia","currency":"EUR"},{"code":"CU","name":"Cuba","currency":"CUP"},{"code":"CW","name":"Curaçao","currency":"XCG"},{"code":"DK","name":"Dinamarca","currency":"DKK"},{"code":"DJ","name":"Djibuti","currency":"DJF"},{"code":"DM","name":"Dominica","currency":"XCD"},{"code":"EG","name":"Egito","currency":"EGP"},{"code":"SV","name":"El Salvador","currency":"USD"},{"code":"AE","name":"Emirados Árabes Unidos","currency":"AED"},{"code":"EC","name":"Equador","currency":"USD"},{"code":"ER","name":"Eritreia","currency":"ERN"},{"code":"SK","name":"Eslováquia","currency":"EUR"},{"code":"SI","name":"Eslovênia","currency":"EUR"},{"code":"ES","name":"Espanha","currency":"EUR"},{"code":"SZ","name":"Essuatíni","currency":"SZL"},{"code":"US","name":"Estados Unidos","currency":"USD"},{"code":"EE","name":"Estônia","currency":"EUR"},{"code":"ET","name":"Etiópia","currency":"ETB"},{"code":"FJ","name":"Fiji","currency":"FJD"},{"code":"PH","name":"Filipinas","currency":"PHP"},{"code":"FI","name":"Finlândia","currency":"EUR"},{"code":"FR","name":"França","currency":"EUR"},{"code":"GA","name":"Gabão","currency":"XAF"},{"code":"GH","name":"Gana","currency":"GHS"},{"code":"GE","name":"Geórgia","currency":"GEL"},{"code":"GI","name":"Gibraltar","currency":"GIP"},{"code":"GD","name":"Granada","currency":"XCD"},{"code":"GL","name":"Groenlândia","currency":"DKK"},{"code":"GR","name":"Grécia","currency":"EUR"},{"code":"GP","name":"Guadalupe","currency":"EUR"},{"code":"GU","name":"Guam","currency":"USD"},{"code":"GT","name":"Guatemala","currency":"GTQ"},{"code":"GG","name":"Guernsey","currency":"GBP"},{"code":"GY","name":"Guiana","currency":"GYD"},{"code":"GF","name":"Guiana Francesa","currency":"EUR"},{"code":"GN","name":"Guiné","currency":"GNF"},{"code":"GQ","name":"Guiné Equatorial","currency":"XAF"},{"code":"GW","name":"Guiné-Bissau","currency":"XOF"},{"code":"GM","name":"Gâmbia","currency":"GMD"},{"code":"HT","name":"Haiti","currency":"HTG"},{"code":"HN","name":"Honduras","currency":"HNL"},{"code":"HK","name":"Hong Kong, RAE da China","currency":"HKD"},{"code":"HU","name":"Hungria","currency":"HUF"},{"code":"BV","name":"Ilha Bouvet","currency":"NOK"},{"code":"CX","name":"Ilha Christmas","currency":"AUD"},{"code":"NF","name":"Ilha Norfolk","currency":"AUD"},{"code":"IM","name":"Ilha de Man","currency":"GBP"},{"code":"AX","name":"Ilhas Aland","currency":"EUR"},{"code":"KY","name":"Ilhas Cayman","currency":"KYD"},{"code":"CC","name":"Ilhas Cocos (Keeling)","currency":"AUD"},{"code":"CK","name":"Ilhas Cook","currency":"NZD"},{"code":"FO","name":"Ilhas Faroé","currency":"DKK"},{"code":"GS","name":"Ilhas Geórgia do Sul e Sandwich do Sul","currency":"GBP"},{"code":"HM","name":"Ilhas Heard e McDonald","currency":"AUD"},{"code":"FK","name":"Ilhas Malvinas","currency":"FKP"},{"code":"MP","name":"Ilhas Marianas do Norte","currency":"USD"},{"code":"MH","name":"Ilhas Marshall","currency":"USD"},{"code":"UM","name":"Ilhas Menores Distantes dos EUA","currency":"USD"},{"code":"PN","name":"Ilhas Pitcairn","currency":"NZD"},{"code":"SB","name":"Ilhas Salomão","currency":"SBD"},{"code":"TC","name":"Ilhas Turcas e Caicos","currency":"USD"},{"code":"VI","name":"Ilhas Virgens Americanas","currency":"USD"},{"code":"VG","name":"Ilhas Virgens Britânicas","currency":"USD"},{"code":"ID","name":"Indonésia","currency":"IDR"},{"code":"IQ","name":"Iraque","currency":"IQD"},{"code":"IE","name":"Irlanda","currency":"EUR"},{"code":"IR","name":"Irã","currency":"IRR"},{"code":"IS","name":"Islândia","currency":"ISK"},{"code":"IL","name":"Israel","currency":"ILS"},{"code":"IT","name":"Itália","currency":"EUR"},{"code":"YE","name":"Iêmen","currency":"YER"},{"code":"JM","name":"Jamaica","currency":"JMD"},{"code":"JP","name":"Japão","currency":"JPY"},{"code":"JE","name":"Jersey","currency":"GBP"},{"code":"JO","name":"Jordânia","currency":"JOD"},{"code":"KW","name":"Kuwait","currency":"KWD"},{"code":"LA","name":"Laos","currency":"LAK"},{"code":"LS","name":"Lesoto","currency":"ZAR"},{"code":"LV","name":"Letônia","currency":"EUR"},{"code":"LR","name":"Libéria","currency":"LRD"},{"code":"LI","name":"Liechtenstein","currency":"CHF"},{"code":"LT","name":"Lituânia","currency":"EUR"},{"code":"LU","name":"Luxemburgo","currency":"EUR"},{"code":"LB","name":"Líbano","currency":"LBP"},{"code":"LY","name":"Líbia","currency":"LYD"},{"code":"MO","name":"Macau, RAE da China","currency":"MOP"},{"code":"MK","name":"Macedônia do Norte","currency":"MKD"},{"code":"MG","name":"Madagascar","currency":"MGA"},{"code":"MW","name":"Malaui","currency":"MWK"},{"code":"MV","name":"Maldivas","currency":"MVR"},{"code":"ML","name":"Mali","currency":"XOF"},{"code":"MT","name":"Malta","currency":"EUR"},{"code":"MY","name":"Malásia","currency":"MYR"},{"code":"MA","name":"Marrocos","currency":"MAD"},{"code":"MQ","name":"Martinica","currency":"EUR"},{"code":"MR","name":"Mauritânia","currency":"MRU"},{"code":"MU","name":"Maurício","currency":"MUR"},{"code":"YT","name":"Mayotte","currency":"EUR"},{"code":"MM","name":"Mianmar (Birmânia)","currency":"MMK"},{"code":"FM","name":"Micronésia","currency":"USD"},{"code":"MD","name":"Moldávia","currency":"MDL"},{"code":"MN","name":"Mongólia","currency":"MNT"},{"code":"ME","name":"Montenegro","currency":"EUR"},{"code":"MS","name":"Montserrat","currency":"XCD"},{"code":"MZ","name":"Moçambique","currency":"MZN"},{"code":"MX","name":"México","currency":"MXN"},{"code":"MC","name":"Mônaco","currency":"EUR"},{"code":"NA","name":"Namíbia","currency":"ZAR"},{"code":"NR","name":"Nauru","currency":"AUD"},{"code":"NP","name":"Nepal","currency":"NPR"},{"code":"NI","name":"Nicarágua","currency":"NIO"},{"code":"NG","name":"Nigéria","currency":"NGN"},{"code":"NU","name":"Niue","currency":"NZD"},{"code":"NO","name":"Noruega","currency":"NOK"},{"code":"NC","name":"Nova Caledônia","currency":"XPF"},{"code":"NZ","name":"Nova Zelândia","currency":"NZD"},{"code":"NE","name":"Níger","currency":"XOF"},{"code":"OM","name":"Omã","currency":"OMR"},{"code":"PW","name":"Palau","currency":"USD"},{"code":"PA","name":"Panamá","currency":"PAB"},{"code":"PG","name":"Papua-Nova Guiné","currency":"PGK"},{"code":"PK","name":"Paquistão","currency":"PKR"},{"code":"PY","name":"Paraguai","currency":"PYG"},{"code":"NL","name":"Países Baixos","currency":"EUR"},{"code":"BQ","name":"Países Baixos Caribenhos","currency":"USD"},{"code":"PE","name":"Peru","currency":"PEN"},{"code":"PF","name":"Polinésia Francesa","currency":"XPF"},{"code":"PL","name":"Polônia","currency":"PLN"},{"code":"PR","name":"Porto Rico","currency":"USD"},{"code":"PT","name":"Portugal","currency":"EUR"},{"code":"KG","name":"Quirguistão","currency":"KGS"},{"code":"KI","name":"Quiribati","currency":"AUD"},{"code":"KE","name":"Quênia","currency":"KES"},{"code":"GB","name":"Reino Unido","currency":"GBP"},{"code":"CF","name":"República Centro-Africana","currency":"XAF"},{"code":"DO","name":"República Dominicana","currency":"DOP"},{"code":"CG","name":"República do Congo","currency":"XAF"},{"code":"RE","name":"Reunião","currency":"EUR"},{"code":"RO","name":"Romênia","currency":"RON"},{"code":"RW","name":"Ruanda","currency":"RWF"},{"code":"RU","name":"Rússia","currency":"RUB"},{"code":"EH","name":"Saara Ocidental","currency":"MAD"},{"code":"WS","name":"Samoa","currency":"WST"},{"code":"AS","name":"Samoa Americana","currency":"USD"},{"code":"SM","name":"San Marino","currency":"EUR"},{"code":"SH","name":"Santa Helena","currency":"SHP"},{"code":"LC","name":"Santa Lúcia","currency":"XCD"},{"code":"SC","name":"Seicheles","currency":"SCR"},{"code":"SN","name":"Senegal","currency":"XOF"},{"code":"SL","name":"Serra Leoa","currency":"SLE"},{"code":"SG","name":"Singapura","currency":"SGD"},{"code":"SX","name":"Sint Maarten","currency":"XCG"},{"code":"SO","name":"Somália","currency":"SOS"},{"code":"LK","name":"Sri Lanka","currency":"LKR"},{"code":"SD","name":"Sudão","currency":"SDG"},{"code":"SS","name":"Sudão do Sul","currency":"SSP"},{"code":"SR","name":"Suriname","currency":"SRD"},{"code":"SE","name":"Suécia","currency":"SEK"},{"code":"CH","name":"Suíça","currency":"CHF"},{"code":"SJ","name":"Svalbard e Jan Mayen","currency":"NOK"},{"code":"BL","name":"São Bartolomeu","currency":"EUR"},{"code":"KN","name":"São Cristóvão e Névis","currency":"XCD"},{"code":"MF","name":"São Martinho","currency":"EUR"},{"code":"PM","name":"São Pedro e Miquelão","currency":"EUR"},{"code":"ST","name":"São Tomé e Príncipe","currency":"STN"},{"code":"VC","name":"São Vicente e Granadinas","currency":"XCD"},{"code":"RS","name":"Sérvia","currency":"RSD"},{"code":"SY","name":"Síria","currency":"SYP"},{"code":"TJ","name":"Tadjiquistão","currency":"TJS"},{"code":"TH","name":"Tailândia","currency":"THB"},{"code":"TW","name":"Taiwan","currency":"TWD"},{"code":"TZ","name":"Tanzânia","currency":"TZS"},{"code":"CZ","name":"Tchéquia","currency":"CZK"},{"code":"IO","name":"Território Britânico do Oceano Índico","currency":"USD"},{"code":"TF","name":"Territórios Franceses do Sul","currency":"EUR"},{"code":"PS","name":"Territórios palestinos","currency":"ILS"},{"code":"TL","name":"Timor-Leste","currency":"USD"},{"code":"TG","name":"Togo","currency":"XOF"},{"code":"TK","name":"Tokelau","currency":"NZD"},{"code":"TO","name":"Tonga","currency":"TOP"},{"code":"TT","name":"Trinidad e Tobago","currency":"TTD"},{"code":"TN","name":"Tunísia","currency":"TND"},{"code":"TM","name":"Turcomenistão","currency":"TMT"},{"code":"TR","name":"Turquia","currency":"TRY"},{"code":"TV","name":"Tuvalu","currency":"AUD"},{"code":"UA","name":"Ucrânia","currency":"UAH"},{"code":"UG","name":"Uganda","currency":"UGX"},{"code":"UY","name":"Uruguai","currency":"UYU"},{"code":"UZ","name":"Uzbequistão","currency":"UZS"},{"code":"VU","name":"Vanuatu","currency":"VUV"},{"code":"VE","name":"Venezuela","currency":"VES"},{"code":"VN","name":"Vietnã","currency":"VND"},{"code":"WF","name":"Wallis e Futuna","currency":"XPF"},{"code":"ZW","name":"Zimbábue","currency":"USD"},{"code":"ZM","name":"Zâmbia","currency":"ZMW"},{"code":"ZA","name":"África do Sul","currency":"ZAR"},{"code":"AT","name":"Áustria","currency":"EUR"},{"code":"IN","name":"Índia","currency":"INR"}];
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  let currentUser = null;
+  let currentCountry = 'AO';
+  function countryInfo(code) { return COUNTRIES.find(c => c.code === code) || COUNTRIES.find(c => c.code === 'AO'); }
+  function fillCountrySelect(select) {
+    select.innerHTML = COUNTRIES.map(c => `<option value="${c.code}">${c.name} (${c.currency})</option>`).join('');
+    select.value = currentCountry;
+  }
+  function updateCountry(code, save=true) {
+    currentCountry = countryInfo(code).code;
+    const info = countryInfo(currentCountry);
+    $('signupCountry').value = currentCountry;
+    $('walletCountry').value = currentCountry;
+    $('userCountry').textContent = `${info.name} · ${info.currency}`;
+    $('depositAmountLabel').textContent = `Valor do depósito (${info.currency})`;
+    const angola = currentCountry === 'AO';
+    $('depositAmount').min = angola ? '5000' : '1';
+    $('depositAmount').placeholder = angola ? 'Mínimo 5.000 Kz' : 'Valor';
+    $('depositBank').disabled = false;
+    $('depositBank').innerHTML = angola
+      ? '<option>BAI</option><option>BFA</option><option>BPC</option><option>Banco Económico</option><option>Transferência bancária (outro banco)</option>'
+      : '<option>Cartão Visa / Mastercard (integração pendente)</option><option>Transferência bancária local (integração pendente)</option><option>Carteira móvel / método local (integração pendente)</option>';
+    $('paymentMethodsInfo').textContent = angola
+      ? 'Angola: BAI, BFA, BPC, Banco Económico e transferência bancária. Os métodos aparecem para configuração, mas nenhum depósito está ativo até existir integração e confirmação segura.'
+      : info.name + ': cartão, transferência bancária local e carteira móvel são apresentados como opções previstas. A disponibilidade real depende de um prestador autorizado no país; ainda não estão ativos.';
+    const notice = document.querySelector('#wallet .notice');
+    notice.innerHTML = angola
+      ? '<b>Mínimo previsto para Angola: 5.000 Kz.</b> Depósitos bancários ainda não estão ativos. Não transfiras dinheiro para contas apresentadas fora de um fluxo oficial confirmado.'
+      : '<b>País selecionado: ' + info.name + '.</b> A moeda de referência é ' + info.currency + '. Opções previstas: cartão, transferência bancária local e carteira móvel. A disponibilidade depende de integração com prestador autorizado neste país. Não envies dinheiro nesta versão.';
+    if(save) localStorage.setItem('mendtrader_country', currentCountry);
+    if(currentUser && save) client.auth.updateUser({data:{country:currentCountry,currency:info.currency}}).catch(()=>{});
+  }
+  fillCountrySelect($('signupCountry'));
+  fillCountrySelect($('walletCountry'));
+  updateCountry(localStorage.getItem('mendtrader_country') || 'AO', false);
+  $('signupCountry').addEventListener('change', e => updateCountry(e.target.value));
+  $('walletCountry').addEventListener('change', e => updateCountry(e.target.value));
+
+  function message(id, text, kind='') { const el=$(id); el.textContent=text; el.className='small '+(kind || 'muted'); }
+  function money(n) { return '$'+(Number(n)||0).toFixed(2); }
+  function showApp(user) {
+    currentUser=user; ensureReferralAttribution(user); $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
+    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); checkOwnerAccess();
+    // Ao entrar na plataforma, ligar automaticamente ao fluxo de cotações público.
+    // O servidor mantém a subscrição Deriv independentemente desta ligação do navegador.
+    setTimeout(()=>{ if(!derivFeedWanted) connectDerivFeed(); }, 250);
+  }
+  async function checkOwnerAccess(){
+    const nav=$('ownerNavBtn');
+    nav.classList.add('hidden');
+    $('owner').classList.remove('active');
+    const {data,error}=await client.rpc('is_platform_owner');
+    if(error){console.warn('Não foi possível validar o acesso do proprietário:',error.message);return;}
+    if(data===true) nav.classList.remove('hidden');
+  }
+  let ownerProfileCache = [];
+  function renderOwnerUsers(filter=''){
+    const q=filter.trim().toLocaleLowerCase();
+    const rows=ownerProfileCache.filter(u=>[u.full_name,u.email,u.id].some(v=>String(v||'').toLocaleLowerCase().includes(q)));
+    $('ownerUsersRows').innerHTML=rows.length?rows.map(u=>{
+      const status=u.suspended?'<span class="pill" style="color:#ff9b9b;border-color:#8b4545">Suspenso</span>':'<span class="pill" style="color:#9be8b2;border-color:#39734b">Ativo</span>';
+      const action=u.id===currentUser?.id?'<span class="small muted">Protegido</span>':u.suspended
+        ?'<button class="secondary owner-user-action" data-action="reactivate" data-user-id="'+escapeHtml(u.id)+'">Reativar</button>'
+        :'<button class="secondary owner-user-action" data-action="suspend" data-user-id="'+escapeHtml(u.id)+'" style="border-color:#8b4545;color:#ffb0b0">Suspender</button>';
+      return '<tr><td>'+escapeHtml(u.full_name||'—')+'</td><td>'+escapeHtml(u.email||'—')+'</td><td><span class="small">'+escapeHtml(u.id)+'</span></td><td>'+status+'</td><td>'+(u.created_at?new Date(u.created_at).toLocaleDateString('pt-PT'):'—')+'</td><td>'+action+'</td></tr>';
+    }).join(''):'<tr><td colspan="6" class="muted">Nenhum utilizador corresponde à pesquisa.</td></tr>';
+  }
+  $('ownerUserSearch')?.addEventListener('input',e=>renderOwnerUsers(e.target.value));
+  $('ownerUsersRows')?.addEventListener('click',async e=>{
+    const button=e.target.closest('.owner-user-action');
+    if(!button)return;
+    const action=button.dataset.action, userId=button.dataset.userId;
+    const target=ownerProfileCache.find(u=>u.id===userId);
+    if(!target)return;
+    const verb=action==='suspend'?'suspender':'reativar';
+    if(!confirm('Confirmas que pretendes '+verb+' a conta '+(target.email||userId)+'?'))return;
+    button.disabled=true;
+    const {data,error}=await client.functions.invoke('owner-user-management',{body:{action,user_id:userId}});
+    if(error||!data?.ok){
+      alert(data?.error||error?.message||'Não foi possível concluir a ação.');
+      button.disabled=false;
+      return;
+    }
+    alert(data.message||'Estado da conta atualizado.');
+    await loadOwnerDashboard();
+  });
+
+  async function loadOwnerDashboard(){
+    if(!currentUser)return;
+    const msg=$('ownerPanelMsg');
+    msg.textContent='A atualizar os dados administrativos…';
+    $('ownerUsersRows').innerHTML='<tr><td colspan="6" class="muted">A carregar…</td></tr>';
+    $('ownerTradesRows').innerHTML='<tr><td colspan="6" class="muted">A carregar…</td></tr>';
+    const [accounts, trades, bots]=await Promise.all([
+      client.functions.invoke('owner-user-management',{body:{action:'list'}}),
+      client.from('trade_history').select('user_id,created_at,asset,trade_type,result,commission,status').order('created_at',{ascending:false}).limit(100),
+      client.from('bot_settings').select('id',{count:'exact',head:true})
+    ]);
+    if(accounts.error||accounts.data?.error||trades.error||bots.error){
+      msg.textContent='Não foi possível carregar todos os dados. '+(accounts.data?.error||accounts.error?.message||trades.error?.message||bots.error?.message||'Erro desconhecido.');
+      return;
+    }
+    const profileRows=accounts.data?.users||[], tradeRows=trades.data||[];
+    ownerProfileCache=profileRows;
+    const auditRows=accounts.data?.audit_logs||[];
+    $('ownerAuditRows').innerHTML=auditRows.length?auditRows.map(a=>{
+      const label=a.action==='suspend'?'Suspensão':'Reativação';
+      const color=a.action==='suspend'?'#ffb0b0':'#9be8b2';
+      return '<tr><td>'+new Date(a.created_at).toLocaleString('pt-PT')+'</td><td><b style="color:'+color+'">'+label+'</b></td><td>'+escapeHtml(a.target_email||a.target_user_id||'—')+'</td><td>'+escapeHtml(a.actor_email||'Proprietário')+'</td></tr>';
+    }).join(''):'<tr><td colspan="4" class="muted">Ainda não existem ações administrativas registadas.</td></tr>';
+    $('ownerUsersCount').textContent=String(profileRows.length);
+    $('ownerTradesCount').textContent=String(tradeRows.length);
+    const totalCommission=tradeRows.reduce((sum,r)=>sum+Math.max(0,Number(r.commission)||0),0);
+    $('ownerCommissionTotal').textContent=money(totalCommission);
+    $('ownerBotsCount').textContent=String(bots.count??'—');
+    renderOwnerUsers($('ownerUserSearch')?.value||'');
+    if(!profileRows.length) $('ownerUsersRows').innerHTML='<tr><td colspan="6" class="muted">Ainda não existem contas registadas.</td></tr>';
+    $('ownerTradesRows').innerHTML=tradeRows.length?tradeRows.slice(0,30).map(r=>'<tr><td>'+new Date(r.created_at).toLocaleString('pt-PT')+'</td><td><span class="small">'+escapeHtml(r.user_id||'—')+'</span></td><td>'+escapeHtml(r.asset||'—')+'</td><td>'+money(r.result)+'</td><td>'+money(r.commission)+'</td><td>'+escapeHtml(r.status||'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Ainda não existem operações registadas.</td></tr>';
+    msg.textContent='Dados atualizados. A comissão total é a soma dos valores gravados nos últimos 100 registos consultados; não é prova de cobrança ou recebimento.';
+  }
+  $('ownerRefreshBtn')?.addEventListener('click',loadOwnerDashboard);
+  function showAuth() { $('appView').classList.add('hidden'); $('authView').classList.remove('hidden'); $('logoutBtn').classList.add('hidden'); $('menuToggle').classList.add('hidden'); openMenu(false); currentUser=null; }
+
+  $('loginBtn').addEventListener('click', async () => {
+    const email=$('email').value.trim(), password=$('password').value;
+    if(!email || !password) return message('authMsg','Preenche o e-mail e a palavra-passe.','error');
+    $('loginBtn').disabled=true; message('authMsg','A entrar...');
+    const {data,error}=await client.auth.signInWithPassword({email,password}); $('loginBtn').disabled=false;
+    if(error) return message('authMsg',error.message,'error'); showApp(data.user);
+  });
+  $('signupBtn').addEventListener('click', async () => {
+    const email=$('email').value.trim(), password=$('password').value;
+    if(!email || password.length<6) return message('authMsg','Introduz um e-mail válido e uma palavra-passe com pelo menos 6 caracteres.','error');
+    $('signupBtn').disabled=true; message('authMsg','A criar conta...');
+    const selected=countryInfo(currentCountry); const ref=new URLSearchParams(window.location.search).get('ref'); const validRef=ref&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ref)?ref:null; const {data,error}=await client.auth.signUp({email,password,options:{data:{country:selected.code,currency:selected.currency,...(validRef?{referred_by:validRef}:{})}}}); $('signupBtn').disabled=false;
+    if(error) return message('authMsg',error.message,'error');
+    if(data.session) showApp(data.user); else message('authMsg','Conta criada. Verifica o teu e-mail para confirmar o registo.','success');
+  });
+  $('logoutBtn').addEventListener('click', async()=>{await client.auth.signOut();showAuth();});
+
+  const mainNav = $('mainNav');
+  const navBackdrop = $('navBackdrop');
+  const menuToggle = $('menuToggle');
+  function openMenu(open=true){
+    mainNav.classList.toggle('open',open);
+    navBackdrop.classList.toggle('open',open);
+    menuToggle.setAttribute('aria-expanded',String(open));
+  }
+  menuToggle.addEventListener('click',()=>openMenu(!mainNav.classList.contains('open')));
+  $('menuClose').addEventListener('click',()=>openMenu(false));
+  navBackdrop.addEventListener('click',()=>openMenu(false));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')openMenu(false);});
+
+  document.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b===btn));
+    document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id===btn.dataset.page));
+    openMenu(false);
+    if(btn.dataset.page==='history') loadHistory();
+    if(btn.dataset.page==='invites') loadInvites();
+    if(btn.dataset.page==='owner') loadOwnerDashboard();
+  }));
+
+  async function loadBotSettings(){
+    if(!currentUser)return;
+    const {data,error}=await client.from('bot_settings').select('*').eq('user_id',currentUser.id).order('updated_at',{ascending:false}).limit(1).maybeSingle();
+    if(error){message('botMsg','Não foi possível ler as configurações: '+error.message,'error');return;}
+    if(!data)return;
+    $('asset').value=data.asset||'Volatility 100 Index'; $('strategy').value=data.strategy||'manual';
+    $('entryAmount').value=data.entry_amount??1; $('minStake').value=data.min_stake??0.35; $('maxStake').value=data.max_stake??5;
+    $('targetAmount').value=data.target_amount??10; $('lossLimit').value=data.loss_limit??5; $('maxTrades').value=data.max_trades??10;
+    $('sessionDuration').value=String(data.session_duration_minutes??60); $('progressionPercent').value=data.progression_percent??20; updateProgressionPreview();
+    $('botStatus').textContent=data.bot_enabled?'Configurado':'Desligado';
+  }
+  $('saveBotBtn').addEventListener('click',async()=>{
+    if(!currentUser)return;
+    const entry=Number($('entryAmount').value), min=Number($('minStake').value), max=Number($('maxStake').value), target=Number($('targetAmount').value), loss=Number($('lossLimit').value), trades=Number($('maxTrades').value);
+    if(![entry,min,max,target,loss,trades].every(Number.isFinite)||entry<=0||min<=0||max<min||entry<min||entry>max||target<0||loss<0||!Number.isInteger(trades)||trades<1||trades>100){return message('botMsg','Verifica os valores. A entrada deve ficar entre o mínimo e o máximo.','error');}
+    const duration=Number($('sessionDuration').value), progression=Number($('progressionPercent').value);
+    if(!Number.isInteger(duration)||duration<1||duration>4320||!Number.isFinite(progression)||progression<0||progression>20)return message('botMsg','A duração deve ser até 3 dias e a progressão entre 0% e 20%.','error');
+    const payload={user_id:currentUser.id,asset:$('asset').value.trim()||'Volatility 100 Index',strategy:$('strategy').value,entry_amount:entry,min_stake:min,max_stake:max,target_amount:target,profit_target:target,loss_limit:loss,stop_loss:loss,max_trades:trades,session_duration_minutes:duration,progression_enabled:true,progression_mode:'win',progression_percent:progression,bot_enabled:false,updated_at:new Date().toISOString()};
+    $('saveBotBtn').disabled=true; message('botMsg','A guardar...');
+    // Usa update se já existir uma linha; caso contrário, cria uma. A política RLS deve permitir apenas o próprio user_id.
+    const {data:existing}=await client.from('bot_settings').select('id').eq('user_id',currentUser.id).limit(1).maybeSingle();
+    let result;
+    if(existing) result=await client.from('bot_settings').update(payload).eq('id',existing.id).select().single();
+    else result=await client.from('bot_settings').insert(payload).select().single();
+    $('saveBotBtn').disabled=false;
+    if(result.error)return message('botMsg','Não foi possível guardar. Verifica a política RLS da tabela bot_settings: '+result.error.message,'error');
+    $('botStatus').textContent='Desligado'; message('botMsg','Configurações guardadas. O bot continua desligado até a integração Deriv ser implementada.','success');
+  });
+
+
+  // Laboratório offline: EMA, RSI, MACD simplificado, ATR e backtest candle-a-candle.
+  const csvBox = $('candleCsv');
+  $('loadExampleBtn').addEventListener('click',()=>{
+    // Série sintética apenas para demonstrar a interface; não representa um ativo real.
+    let rows=['timestamp,open,high,low,close'], price=100;
+    for(let i=0;i<260;i++){
+      const drift=Math.sin(i/13)*0.18 + (i%70<38?0.07:-0.055);
+      const open=price, close=Math.max(1,open+drift+(Math.sin(i*2.1)*0.32));
+      const high=Math.max(open,close)+0.12+Math.abs(Math.sin(i))*0.18;
+      const low=Math.min(open,close)-0.12-Math.abs(Math.cos(i))*0.18;
+      rows.push(`2026-01-${String(1+Math.floor(i/48)).padStart(2,'0')} ${String(Math.floor((i%48)*5/60)).padStart(2,'0')}:${String((i%12)*5).padStart(2,'0')},${open.toFixed(4)},${high.toFixed(4)},${low.toFixed(4)},${close.toFixed(4)}`);
+      price=close;
+    }
+    csvBox.value=rows.join('\n');
+    $('backtestStatus').textContent='Exemplo sintético carregado — não é cotação real.';
+  });
+  function parseCandles(text){
+    const lines=text.trim().split(/\r?\n/).filter(Boolean);
+    if(lines.length<3) throw Error('Insere o cabeçalho e pelo menos 2 linhas de candles.');
+    const start=/open/i.test(lines[0])?1:0, out=[];
+    for(let i=start;i<lines.length;i++){
+      const p=lines[i].split(/[;,]/).map(x=>x.trim());
+      if(p.length<5) continue;
+      const vals=p.slice(-4).map(Number);
+      if(vals.some(v=>!Number.isFinite(v))||vals[0]<=0||vals[1]<Math.max(vals[0],vals[3])||vals[2]>Math.min(vals[0],vals[3])) {
+        // A validação abaixo é permissiva quanto à ordem OHLC, mas rejeita números impossíveis.
+        const [o,h,l,c]=vals;
+        if(![o,h,l,c].every(Number.isFinite)||h<Math.max(o,c)||l>Math.min(o,c)||l<=0) continue;
+      }
+      const [open,high,low,close]=vals;
+      if(high<Math.max(open,close)||low>Math.min(open,close)||low<=0) continue;
+      out.push({time:p.slice(0,p.length-4).join(' '),open,high,low,close});
+    }
+    if(out.length<60) throw Error('Dados válidos insuficientes. Fornece pelo menos 60 candles (ideal: 200 ou mais).');
+    return out;
+  }
+  function ema(values,period){
+    const k=2/(period+1), a=Array(values.length).fill(null);
+    let seed=values.slice(0,period).reduce((x,y)=>x+y,0)/period;
+    a[period-1]=seed;
+    for(let i=period;i<values.length;i++) a[i]=values[i]*k+a[i-1]*(1-k);
+    return a;
+  }
+  function rsi(values,period=14){
+    const out=Array(values.length).fill(null); let gains=0,losses=0;
+    for(let i=1;i<=period;i++){const d=values[i]-values[i-1];gains+=Math.max(d,0);losses+=Math.max(-d,0);}
+    let ag=gains/period, al=losses/period;
+    out[period]=al===0?100:100-100/(1+ag/al);
+    for(let i=period+1;i<values.length;i++){
+      const d=values[i]-values[i-1];ag=(ag*(period-1)+Math.max(d,0))/period;al=(al*(period-1)+Math.max(-d,0))/period;
+      out[i]=al===0?100:100-100/(1+ag/al);
+    } return out;
+  }
+  function runStrategy(c,style,risk){
+    const close=c.map(x=>x.close), fast=ema(close,9), slow=ema(close,21), long=ema(close,50), mom=rsi(close,14), macdLine=ema(close,12).map((v,i)=>v===null||ema(close,26)[i]===null?null:v-ema(close,26)[i]);
+    const minScore=risk==='conservative'?4:risk==='aggressive'?2:3;
+    let equity=0,peak=0,maxDD=0,wins=0,losses=0,signals=0, skipped=0, sumWin=0,sumLoss=0;
+    const trades=[];
+    for(let i=55;i<c.length-1;i++){
+      const bull=fast[i]>slow[i]&&slow[i]>long[i], bear=fast[i]<slow[i]&&slow[i]<long[i];
+      const r=mom[i], m=macdLine[i], prev=macdLine[i-1];
+      if(r===null||m===null||prev===null) continue;
+      let side=null,score=0;
+      if(style==='trend'){
+        if(bull){side='COMPRA';score=2+(r>50&&r<72?1:0)+(m>0?1:0);}
+        if(bear){side='VENDA';score=2+(r<50&&r>28?1:0)+(m<0?1:0);}
+      } else if(style==='reversal'){
+        if(r<30&&m>prev){side='COMPRA';score=2+(close[i]>close[i-1]?1:0)+(m>0?1:0);}
+        if(r>70&&m<prev){side='VENDA';score=2+(close[i]<close[i-1]?1:0)+(m<0?1:0);}
+      } else {
+        if(bull&&r>50&&r<70&&m>prev){side='COMPRA';score=2+(m>0?1:0)+(close[i]>fast[i]?1:0);}
+        if(bear&&r<50&&r>30&&m<prev){side='VENDA';score=2+(m<0?1:0)+(close[i]<fast[i]?1:0);}
+      }
+      if(!side||score<minScore){skipped++;continue;}
+      const entry=c[i+1].open, exit=c[i+1].close;
+      const result=side==='COMPRA'?exit-entry:entry-exit;
+      equity+=result;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);
+      signals++;
+      if(result>0){wins++;sumWin+=result;}else{losses++;sumLoss+=Math.abs(result);}
+      trades.push({time:c[i+1].time,side,result,score});
+    }
+    return {signals,wins,losses,skipped,equity,maxDD,winRate:signals?wins/signals*100:0,profitFactor:sumLoss?sumWin/sumLoss:(sumWin?Infinity:0),trades};
+  }
+  $('runBacktestBtn').addEventListener('click',()=>{
+    try{
+      $('runBacktestBtn').disabled=true;$('backtestStatus').textContent='A calcular…';
+      const candles=parseCandles(csvBox.value), result=runStrategy(candles,$('strategyStyle').value,$('strategyRisk').value);
+      $('btWinRate').textContent=result.signals?result.winRate.toFixed(1)+'%':'—';
+      $('btNet').textContent=result.equity.toFixed(4);
+      $('btDrawdown').textContent=result.maxDD.toFixed(4);
+      $('btDetails').textContent=`${candles.length} candles analisados · ${result.signals} sinais testados · ${result.wins} positivos · ${result.losses} negativos · ${result.skipped} candles sem entrada. O resultado usa a variação do candle seguinte, sem spreads, comissões, slippage ou latência; por isso é apenas uma primeira triagem e pode sobrestimar o desempenho.`;
+      const pf=Number.isFinite(result.profitFactor)?result.profitFactor.toFixed(2):'∞';
+      $('btMetrics').innerHTML=[
+        ['Total de candles',candles.length],['Operações simuladas',result.signals],['Operações vencedoras',result.wins],['Operações perdedoras',result.losses],['Profit factor bruto',pf],['Perfil de risco',$('strategyRisk').selectedOptions[0].text],['Estratégia',$('strategyStyle').selectedOptions[0].text]
+      ].map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+      $('backtestStatus').textContent='Teste concluído.';
+    }catch(e){$('backtestStatus').textContent='';$('btDetails').textContent=e.message;}
+    finally{$('runBacktestBtn').disabled=false;}
+  });
+
+  async function loadHistory(){
+    if(!currentUser)return; $('historyRows').innerHTML='<tr><td colspan="6" class="muted">A carregar...</td></tr>';
+    const {data,error}=await client.from('trade_history').select('created_at,asset,trade_type,result,commission,status').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50);
+    if(error){$('historyRows').innerHTML='<tr><td colspan="6">Não foi possível carregar o histórico.</td></tr>';return message('historyMsg','Verifica a política RLS: '+error.message,'error');}
+    if(!data?.length){$('historyRows').innerHTML='<tr><td colspan="6" class="muted">Ainda não existem operações registadas.</td></tr>';return message('historyMsg','As operações aparecerão aqui depois da integração.');}
+    $('historyRows').innerHTML=data.map(r=>`<tr><td>${new Date(r.created_at).toLocaleString('pt-PT')}</td><td>${escapeHtml(r.asset||'—')}</td><td>${escapeHtml(r.trade_type||'—')}</td><td>${money(r.result)}</td><td>${money(r.commission)}</td><td>${escapeHtml(r.status||'—')}</td></tr>`).join('');
+    message('historyMsg','A mostrar até 50 operações.');
+  }
+  function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  $('refreshHistory').addEventListener('click',loadHistory);
+
+  // Janelas de gráfico separadas: abre uma janela do navegador a partir do clique do utilizador.
+  let chartWindowCount=0;
+  function openChartWindow(symbol){
+    const asset=symbol||$('manualAsset')?.value||$('asset')?.value||'EUR/USD';
+    const win=window.open('',`mendtrade_chart_${++chartWindowCount}`,'width=1050,height=700,resizable=yes,scrollbars=yes');
+    if(!win){message('botMsg','O navegador bloqueou a janela. Permite pop-ups para este ficheiro e tenta novamente.','error');return;}
+    const safe=escapeHtml(asset);
+    win.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MendtradeR · ${safe}</title><style>body{margin:0;background:#050806;color:#effff5;font:16px system-ui;padding:22px}header,.panel{background:#0d1711;border:1px solid #245438;border-radius:14px;padding:16px;margin-bottom:14px}.green{color:#00df75}svg{width:100%;height:420px;background:#070c09;border-radius:10px}.muted{color:#9eb0a4}
+  </style></head><body><header><h2 class="green">MendtradeR · Janela de gráfico</h2><b>${safe}</b> <span class="muted">· MODO DEMO</span></header><div class="panel"><b>Gráfico independente</b><p class="muted">Área preparada para gráfico e dados de mercado. O desenho abaixo é ilustrativo e não representa cotações ao vivo.</p><svg viewBox="0 0 900 400" preserveAspectRatio="none"><path d="M0 80H900M0 160H900M0 240H900M0 320H900" stroke="#23382c"/><path d="M10 300 L70 250 L130 270 L190 190 L250 220 L310 145 L370 175 L430 110 L490 155 L550 90 L610 125 L670 70 L730 120 L790 60 L890 85" fill="none" stroke="#00d978" stroke-width="4"/></svg><p class="muted">Quando a integração de cotações for concluída, esta janela poderá apresentar candles, indicadores e períodos selecionáveis.</p></div></body></html>`);
+    win.document.close();
+  }
+  $('openChartWindow')?.addEventListener('click',()=>openChartWindow());
+  document.querySelectorAll('.chart-shortcut').forEach(b=>b.addEventListener('click',()=>openChartWindow(b.dataset.symbol)));
+
+  // Centro de suporte: respostas locais de orientação e preparação de pedido ao proprietário.
+  $('sendAiQuestion')?.addEventListener('click',()=>{
+    const input=$('aiQuestion'), q=input.value.trim(); if(!q)return;
+    const box=$('aiChat'); const user=document.createElement('div');user.className='chat-msg user';user.textContent=q;box.appendChild(user);
+    const t=q.toLowerCase();let answer='Posso orientar sobre as áreas do MendtradeR. Para questões específicas da conta, usa também “Falar com o proprietário”.';
+    if(/bot|estrat|entrada|risco/.test(t)) answer='Na área Operações do Bot podes escolher o ativo, estratégia, valor por entrada, limites de perda e meta. Nesta prévia o bot permanece desligado e não envia ordens.';
+    else if(/manual|compra|venda|sinal/.test(t)) answer='Na janela Operações Manuais podes acompanhar sinais quando houver uma fonte de mercado validada. A decisão de executar manualmente continua contigo; nesta prévia os botões estão bloqueados.';
+    else if(/deriv|ligar|conectar/.test(t)) answer='A ligação à Deriv ainda precisa de OAuth seguro, callback HTTPS e validação em DEMO. Nunca coloques tokens privados no navegador ou os partilhes no chat.';
+    else if(/idioma|língua|language/.test(t)) answer='Usa o seletor de idioma no topo para alternar entre Português, English e Español.';
+    const bot=document.createElement('div');bot.className='chat-msg';bot.textContent=answer;box.appendChild(bot);box.scrollTop=box.scrollHeight;input.value='';
+  });
+  $('aiQuestion')?.addEventListener('keydown',e=>{if(e.key==='Enter')$('sendAiQuestion').click();});
+  $('sendOwnerMessage')?.addEventListener('click',()=>{
+    const msg=$('ownerMessage').value.trim(); if(!msg){$('ownerSupportMsg').textContent='Escreve a mensagem antes de continuar.';return;}
+    localStorage.setItem('mendtrade_owner_support_draft',JSON.stringify({topic:$('ownerTopic').value,message:msg,createdAt:new Date().toISOString(),user:currentUser?.email||'visitante'}));
+    $('ownerSupportMsg').textContent='Mensagem preparada neste dispositivo. O envio ao proprietário só ficará disponível após configurar o serviço de suporte no backend.';
+  });
+
+  // Tradução centralizada da interface. Mantém valores, dados de mercado e conteúdo dinâmico intactos.
+  const translations={
+    pt:{nav:['Área de operações','Visão geral','Histórico','Instruções e técnicas','Depósitos','Levantamentos','Suporte IA / Proprietário','Conta e definições','Área do Proprietário'],hint:'Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.'},
+    en:{nav:['Trading workspace','Overview','History','Guides & techniques','Deposits','Withdrawals','AI / Owner support','Account & settings','Owner area'],hint:'Swipe left to view the other panels. BOT is always first.'},
+    es:{nav:['Área de operaciones','Resumen','Historial','Instrucciones y técnicas','Depósitos','Retiros','Soporte IA / Propietario','Cuenta y ajustes','Área del propietario'],hint:'Desliza hacia la izquierda para ver los otros paneles. BOT aparece primero.'}
+  };
+  const uiText={
+    en:{
+      'Bem-vindo ao MendtradeR':'Welcome to MendtradeR','Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.':'Sign in or create an account to access the dashboard. Available to users in multiple countries.',
+      'País':'Country','Palavra-passe':'Password','Entrar':'Sign in','Criar conta':'Create account','Sair':'Log out','MENU MENDTRADER':'MENDTRADER MENU','Fechar menu':'Close menu',
+      'Resumo da tua conta MendtradeR.':'Your MendtradeR account summary.','Saldo registado':'Recorded balance','Resultado registado':'Recorded result','O saldo real é consultado na Deriv quando a integração for concluída.':'The real balance will be retrieved from Deriv when integration is complete.',
+      'Estado do bot':'Bot status','Desligado':'Disconnected','Taxa de acerto':'Win rate','Aguardando operações reais':'Waiting for real trades','Lucro hoje':'Profit today','Dados não ligados':'Data not connected','Oportunidades':'Opportunities','Radar por integrar':'Radar integration pending','Risco da sessão':'Session risk','Protegido':'Protected','Controlos configuráveis':'Configurable controls',
+      'Radar inteligente · V5':'Smart radar · V5','Pré-visualização do painel de oportunidades.':'Preview of the opportunities panel.','MODO DEMO VISUAL':'VISUAL DEMO MODE','A aguardar dados de mercado':'Waiting for market data','Multimercado':'Multi-market','Melhor oportunidade':'Best opportunity','Sem sinal confirmado':'No confirmed signal','Qualidade do sinal':'Signal quality','Direção':'Direction','Mercado':'Market','Confirmações':'Confirmations','Estado':'Status','Não ligado':'Not connected',
+      'Regra de comissão da plataforma':'Platform commission rule','Aplicada apenas ao lucro positivo elegível de cada operação concluída.':'Applied only to eligible positive profit from each completed trade.','Exemplo: lucro elegível de 10 USD = 1 USD de comissão. O registo e a cobrança reais dependem do backend.':'Example: eligible profit of USD 10 = USD 1 commission. Actual recording and collection depend on the backend.',
+      'Importante:':'Important:','esta primeira versão ainda não executa operações, não movimenta dinheiro e não está ligada à conta Deriv. Use apenas como painel de configuração.':'this first version does not execute trades, move money, or connect to a Deriv account. Use it only as a configuration dashboard.','Próximas integrações':'Upcoming integrations',
+      'Ligação segura à Deriv, execução do bot com limites de risco, depósitos e levantamentos bancários confirmados por um prestador autorizado.':'Secure Deriv connection, bot execution with risk limits, and bank deposits and withdrawals confirmed by an authorized provider.',
+      'Central de operações':'Trading center','Escolhe entre operações automáticas do bot e operações manuais. Os sinais só serão apresentados quando existir uma fonte de dados validada; nesta prévia, o gráfico é ilustrativo.':'Choose between automated bot trading and manual trading. Signals will appear only when a validated data source is available; the chart in this preview is illustrative.',
+      'Janelas de gráfico':'Chart windows','＋ Abrir nova janela':'＋ Open new window','Abre um gráfico separado, ao estilo do MT5. Nesta versão é apenas visual DEMO.':'Opens a separate chart, similar to MT5. In this version it is visual DEMO only.',
+      'DERIV · DADOS PÚBLICOS':'DERIV · PUBLIC DATA','Mercado em tempo real':'Live market','Ligação apenas de leitura. Não acede à conta, saldo ou ordens.':'Read-only connection. It does not access your account, balance, or trades.',
+      'Última cotação recebida':'Latest quote received','A aguardar ligação':'Waiting for connection','Ligar mercado':'Connect market','Desligar':'Disconnect','Sem ligação à Deriv.':'Not connected to Deriv.','Ativar aviso sonoro':'Enable sound alert','Som desligado':'Sound off','Hora':'Time','Ativo':'Asset','Preço':'Price','Ainda sem cotações.':'No quotes yet.',
+      'ANÁLISE EXPERIMENTAL · SEM ORDENS':'EXPERIMENTAL ANALYSIS · NO TRADES','🧭 Sinal do mercado':'🧭 Market signal','● A aguardar dados':'● Waiting for data','Direção sugerida':'Suggested direction','Força técnica indicativa':'Indicative technical strength','A AGUARDAR':'WAITING','São necessários pelo menos 30 ticks consecutivos para uma primeira leitura.':'At least 30 consecutive ticks are required for an initial reading.',
+      'Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.':'Experimental signals based on tick movements, not candles. They are not financial advice or a guarantee of results. No trades will be executed.',
+      '🕯️ Candles reais · 1 minuto':'🕯️ Real candles · 1 minute','Os candles são construídos localmente a partir dos ticks recebidos. Só candles fechados entram na análise.':'Candles are built locally from received ticks. Only closed candles are included in the analysis.',
+      'Candles fechados recolhidos':'Closed candles collected','Estado da recolha':'Collection status','A aguardar ticks':'Waiting for ticks','Ainda sem candles fechados.':'No closed candles yet.','Testar estratégia em demo':'Test strategy in demo',
+      'O teste ficará disponível após recolher pelo menos 60 candles fechados (aproximadamente 1 hora).':'The test will be available after collecting at least 60 closed candles (approximately 1 hour).',
+      'As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.':'Quotes are provided by Deriv through a public connection. The connection does not place trades. Signals and the bot remain disabled until separately validated.',
+      'Saldo de demonstração':'Demo balance','Resultado do bot':'Bot result','Aguardando integração':'Waiting for integration','Resultado manual':'Manual result','Aguardando operações':'Waiting for trades','Estado da ligação':'Connection status','Deriv não conectada':'Deriv not connected',
+      '🤖 Operações do Bot':'🤖 Bot Operations','Gráfico do mercado':'Market chart','Ilustrativo · sem cotações ao vivo':'Illustrative · no live quotes','Sinal do motor: indisponível':'Engine signal: unavailable','Feed não ligado':'Feed not connected',
+      'Estratégia':'Strategy','Manual / por configurar':'Manual / to be configured','Conservadora (a implementar)':'Conservative (to be implemented)','Valor por entrada (USD)':'Stake per trade (USD)','Valor mínimo (USD)':'Minimum stake (USD)','Valor máximo (USD)':'Maximum stake (USD)','Tempo de expiração':'Expiry time','Meta de lucro (USD)':'Profit target (USD)','Limite de perda (USD)':'Loss limit (USD)','Máximo de operações':'Maximum number of trades','Guardar configurações':'Save settings','Iniciar Bot (indisponível)':'Start Bot (unavailable)',
+      'O bot permanece desligado até à integração segura e aos testes DEMO.':'The bot remains disabled until secure integration and DEMO testing are complete.',
+      '🎯 Operações Manuais':'🎯 Manual Trading','Execução manual':'Manual execution','📊 Sinal atual do Bot':'📊 Current Bot Signal','Aguardando feed':'Waiting for feed','Nenhum sinal confirmado':'No confirmed signal',
+      'Quando o motor receber dados reais e validar uma oportunidade, o sinal mostrará COMPRA ou VENDA, ativo, confiança e validade. Tu decides se executas.':'When the engine receives real data and validates an opportunity, the signal will show BUY or SELL, asset, confidence, and validity. You decide whether to execute.',
+      'Valor da operação (USD)':'Trade amount (USD)','↑ COMPRA':'↑ BUY','↓ VENDA':'↓ SELL','Disponível após integração segura':'Available after secure integration',
+      'Modo demonstração: os botões de compra e venda estão bloqueados. Nenhuma ordem será enviada. A execução manual será ativada apenas após integração e confirmação de segurança.':'Demo mode: buy and sell buttons are disabled. No order will be sent. Manual execution will be enabled only after integration and security confirmation.',
+      'Histórico manual':'Manual history','Ainda sem operações manuais':'No manual trades yet','Motor inteligente multimercado':'Intelligent multi-market engine','Configurações previstas para o motor do MendtradeR.':'Planned settings for the MendtradeR engine.','EM PREPARAÇÃO':'IN PREPARATION',
+      'Mercado preferencial':'Preferred market','Seleção automática pelo bot':'Automatic selection by bot','Índices sintéticos':'Synthetic indices','Índices financeiros':'Financial indices','Criptomoedas':'Cryptocurrencies','Commodities':'Commodities','Perfil de risco':'Risk profile','Equilibrado':'Balanced','Conservador':'Conservative','Agressivo':'Aggressive','Período de análise':'Analysis timeframe','Multi-timeframe automático':'Automatic multi-timeframe','Estilo de estratégia':'Strategy style','Híbrida inteligente':'Intelligent hybrid','Seguimento de tendência':'Trend following','Reversão confirmada':'Confirmed reversal',
+      'Estes seletores são uma pré-visualização: ainda não alteram a estratégia executada nem enviam ordens.':'These selectors are a preview: they do not yet change the active strategy or place trades.',
+      'Laboratório de sinais e backtest':'Signal and backtest laboratory','Testa a lógica com candles históricos antes de qualquer operação real.':'Test the logic with historical candles before any real trade.','MODO OFFLINE':'OFFLINE MODE',
+      'Importante: esta versão analisa dados históricos que forneces. Não recebe cotações ao vivo, não envia ordens e não prevê lucros.':'Important: this version analyzes historical data you provide. It does not receive live quotes, place trades, or predict profits.',
+      'Perfil de risco do teste':'Test risk profile','Lógica de entrada':'Entry logic','Híbrida (tendência + momentum)':'Hybrid (trend + momentum)','Dados históricos CSV':'Historical CSV data','Formato: timestamp,open,high,low,close. Usa dados exportados da corretora; mínimo recomendado: 200 candles.':'Format: timestamp,open,high,low,close. Use data exported from your broker; recommended minimum: 200 candles.',
+      'Executar backtest':'Run backtest','Carregar exemplo ilustrativo':'Load illustrative example','Resultado líquido (unidades)':'Net result (units)','Drawdown máximo':'Maximum drawdown','Indicador':'Indicator','Valor':'Value','O relatório do teste aparecerá aqui.':'The test report will appear here.','Ainda sem resultados.':'No results yet.',
+      'A execução automática e manual continuam desligadas até existir feed validado, ligação segura à corretora, testes DEMO e controlos de risco no servidor. Nenhum lucro é garantido.':'Automated and manual trading remain disabled until there is a validated feed, secure broker connection, DEMO tests, and server-side risk controls. No profit is guaranteed.',
+      'Histórico de operações':'Trade history','Operações guardadas na tua conta.':'Trades saved in your account.','Atualizar':'Refresh','Data':'Date','Tipo':'Type','Resultado':'Result','Comissão':'Commission','A carregar...':'Loading...',
+      'Mínimo previsto para Angola: 5.000 Kz.':'Expected minimum for Angola: 5,000 Kz.','Depósitos bancários ainda não estão ativos. Não transfiras dinheiro para contas apresentadas fora de um fluxo oficial confirmado.':'Bank deposits are not active yet. Do not transfer money to accounts shown outside a confirmed official process.',
+      'País da conta':'Account country','Valor do depósito (AOA)':'Deposit amount (AOA)','Banco / método de pagamento':'Bank / payment method','Outro banco angolano':'Other Angolan bank','Métodos disponíveis para Angola serão ativados após integração com um prestador autorizado.':'Methods available for Angola will be enabled after integration with an authorized provider.',
+      'Depósitos em preparação':'Deposits in preparation','A ativação exige contrato e integração com banco ou prestador de pagamentos autorizado, confirmação automática e reconciliação.':'Activation requires a contract and integration with an authorized bank or payment provider, automatic confirmation, and reconciliation.',
+      'Levantamentos bancários ainda não estão ativos. A plataforma não pode enviar dinheiro diretamente sem integração autorizada.':'Bank withdrawals are not active yet. The platform cannot send money directly without authorized integration.',
+      'Banco':'Bank','IBAN / número de conta':'IBAN / account number','Será recolhido apenas num formulário seguro quando a integração existir':'It will only be collected through a secure form once integration is available','Valor (AOA)':'Amount (AOA)','Levantamentos em preparação':'Withdrawals in preparation',
+      'Instruções e técnicas de operações':'Trading instructions and techniques','Guia educativo para compreender o MendtradeR e preparar uma utilização responsável.':'Educational guide to understand MendtradeR and prepare for responsible use.',
+      'Suporte IA / Proprietário':'AI / Owner support','Conta e definições':'Account & settings','Centro de suporte':'Support center'
+    },
+    es:{
+      'Bem-vindo ao MendtradeR':'Bienvenido a MendtradeR','Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.':'Inicia sesión o crea una cuenta para acceder al panel. Disponible para usuarios de varios países.',
+      'País':'País','Palavra-passe':'Contraseña','Entrar':'Entrar','Criar conta':'Crear cuenta','Sair':'Salir','MENU MENDTRADER':'MENÚ MENDTRADER','Fechar menu':'Cerrar menú',
+      'Resumo da tua conta MendtradeR.':'Resumen de tu cuenta MendtradeR.','Saldo registado':'Saldo registrado','Resultado registado':'Resultado registrado','Estado do bot':'Estado del bot','Desligado':'Desconectado',
+      'Taxa de acerto':'Tasa de aciertos','Aguardando operações reais':'Esperando operaciones reales','Lucro hoje':'Ganancia de hoy','Dados não ligados':'Datos no conectados','Oportunidades':'Oportunidades','Radar por integrar':'Radar pendiente de integración','Risco da sessão':'Riesgo de la sesión','Protegido':'Protegido',
+      'Radar inteligente · V5':'Radar inteligente · V5','Melhor oportunidade':'Mejor oportunidad','Sem sinal confirmado':'Sin señal confirmada','Qualidade do sinal':'Calidad de la señal','Direção':'Dirección','Mercado':'Mercado','Confirmações':'Confirmaciones','Estado':'Estado','Não ligado':'No conectado',
+      'Regra de comissão da plataforma':'Regla de comisión de la plataforma','Central de operações':'Centro de operaciones','Escolhe entre operações automáticas do bot e operações manuais. Os sinais só serão apresentados quando existir uma fonte de dados validada; nesta prévia, o gráfico é ilustrativo.':'Elige entre operaciones automáticas del bot y operaciones manuales. Las señales solo aparecerán cuando exista una fuente de datos validada; en esta vista previa, el gráfico es ilustrativo.',
+      'Janelas de gráfico':'Ventanas de gráficos','＋ Abrir nova janela':'＋ Abrir nueva ventana','Mercado em tempo real':'Mercado en tiempo real','Ligação apenas de leitura. Não acede à conta, saldo ou ordens.':'Conexión de solo lectura. No accede a la cuenta, saldo ni órdenes.',
+      'Última cotação recebida':'Última cotización recibida','A aguardar ligação':'Esperando conexión','Ligar mercado':'Conectar mercado','Desligar':'Desconectar','Sem ligação à Deriv.':'Sin conexión con Deriv.','Ativar aviso sonoro':'Activar alerta sonora','Som desligado':'Sonido apagado','Hora':'Hora','Ativo':'Activo','Preço':'Precio','Ainda sem cotações.':'Aún no hay cotizaciones.',
+      'Sinal do mercado':'Señal del mercado','A AGUARDAR':'ESPERANDO','Direção sugerida':'Dirección sugerida','Força técnica indicativa':'Fuerza técnica indicativa','A aguardar ticks':'Esperando ticks','Ainda sem candles fechados.':'Aún no hay velas cerradas.',
+      'Saldo de demonstração':'Saldo de demostración','Resultado do bot':'Resultado del bot','Resultado manual':'Resultado manual','Estado da ligação':'Estado de conexión','Deriv não conectada':'Deriv no conectada',
+      '🤖 Operações do Bot':'🤖 Operaciones del Bot','Gráfico do mercado':'Gráfico del mercado','Estratégia':'Estrategia','Valor por entrada (USD)':'Importe por operación (USD)','Valor mínimo (USD)':'Importe mínimo (USD)','Valor máximo (USD)':'Importe máximo (USD)','Tempo de expiração':'Tiempo de expiración','Meta de lucro (USD)':'Objetivo de beneficio (USD)','Limite de perda (USD)':'Límite de pérdida (USD)','Máximo de operações':'Máximo de operaciones','Guardar configurações':'Guardar configuración','Iniciar Bot (indisponível)':'Iniciar Bot (no disponible)',
+      '🎯 Operações Manuais':'🎯 Operaciones manuales','Execução manual':'Ejecución manual','📊 Sinal atual do Bot':'📊 Señal actual del Bot','Valor da operação (USD)':'Importe de la operación (USD)','↑ COMPRA':'↑ COMPRA','↓ VENDA':'↓ VENTA','Histórico manual':'Historial manual',
+      'Motor inteligente multimercado':'Motor inteligente multimercado','Mercado preferencial':'Mercado preferido','Perfil de risco':'Perfil de riesgo','Período de análise':'Periodo de análisis','Estilo de estratégia':'Estilo de estrategia',
+      'Laboratório de sinais e backtest':'Laboratorio de señales y backtest','Executar backtest':'Ejecutar backtest','Carregar exemplo ilustrativo':'Cargar ejemplo ilustrativo','Histórico de operações':'Historial de operaciones','Operações guardadas na tua conta.':'Operaciones guardadas en tu cuenta.','Atualizar':'Actualizar',
+      'Data':'Fecha','Tipo':'Tipo','Resultado':'Resultado','Comissão':'Comisión','A carregar...':'Cargando...','País da conta':'País de la cuenta','Valor do depósito (AOA)':'Importe del depósito (AOA)','Banco / método de pagamento':'Banco / método de pago','Banco':'Banco','IBAN / número de conta':'IBAN / número de cuenta','Valor (AOA)':'Importe (AOA)',
+      'Instruções e técnicas de operações':'Instrucciones y técnicas de operaciones','Guia educativo para compreender o MendtradeR e preparar uma utilização responsável.':'Guía educativa para comprender MendtradeR y prepararse para un uso responsable.','Suporte IA / Proprietário':'Soporte IA / Propietario','Conta e definições':'Cuenta y ajustes','Centro de suporte':'Centro de soporte'
+    }
+  };
+  // Tradução resiliente: preserva o texto original e também traduz elementos
+  // criados/atualizados dinamicamente após a troca de idioma.
+  const originalUiTextNodes=new WeakMap();
+  const originalUiAttributes=new WeakMap();
+  let activeLanguage='pt';
+  function translateTextNode(node){
+    if(!node || node.nodeType!==Node.TEXT_NODE || !node.parentElement) return;
+    if(node.parentElement.closest('script,style,noscript')) return;
+    if(!originalUiTextNodes.has(node)) originalUiTextNodes.set(node,node.nodeValue);
+    const original=originalUiTextNodes.get(node), trimmed=String(original||'').trim();
+    if(!trimmed) return;
+    const dictionary=uiText[activeLanguage]||{};
+    let translated=activeLanguage==='pt'?original:dictionary[trimmed];
+    if(!translated && activeLanguage!=='pt'){
+      const match=Object.keys(dictionary).find(k=>trimmed.startsWith(k+' '));
+      if(match) translated=original.replace(trimmed,dictionary[match]+trimmed.slice(match.length));
+    }
+    if(translated===undefined) translated=original;
+    else if(translated!==original && original!==trimmed) translated=original.replace(trimmed,translated);
+    if(node.nodeValue!==translated) node.nodeValue=translated;
+  }
+  function translateAttribute(el,attr){
+    const value=el.getAttribute(attr);
+    if(value===null)return;
+    let saved=originalUiAttributes.get(el);
+    if(!saved){saved={};originalUiAttributes.set(el,saved);}
+    if(!(attr in saved))saved[attr]=value;
+    const original=saved[attr],dictionary=uiText[activeLanguage]||{};
+    const translated=activeLanguage==='pt'?original:(dictionary[original]||original);
+    if(value!==translated)el.setAttribute(attr,translated);
+  }
+  function translateAddedTree(root){
+    if(root.nodeType===Node.TEXT_NODE){translateTextNode(root);return;}
+    if(root.nodeType!==Node.ELEMENT_NODE && root!==document.body)return;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    while(walker.nextNode())translateTextNode(walker.currentNode);
+    if(root.nodeType===Node.ELEMENT_NODE){
+      if(root.matches?.('input[placeholder],textarea[placeholder],[aria-label],[title]')){
+        ['placeholder','aria-label','title'].forEach(attr=>translateAttribute(root,attr));
+      }
+      root.querySelectorAll?.('input[placeholder],textarea[placeholder],[aria-label],[title]').forEach(el=>{
+        ['placeholder','aria-label','title'].forEach(attr=>translateAttribute(el,attr));
+      });
+    }
+  }
+  function applyLanguage(code){
+    activeLanguage=translations[code]?code:'pt';
+    const key=activeLanguage;
+    translateAddedTree(document.body);
+    const navLabels=Array.from(document.querySelectorAll('#mainNav [data-page]'));
+    navLabels.forEach((button,i)=>{
+      const label=translations[key].nav[i];
+      if(label){
+        const icon=button.textContent.trim().split(' ')[0];
+        const next=icon+' '+label;
+        if(button.textContent!==next)button.textContent=next;
+      }
+    });
+    const hint=document.querySelector('.ops-carousel-hint');
+    if(hint)hint.textContent=translations[key].hint;
+    const connect=$('derivFeedConnect');
+    if(connect&&!connect.disabled)connect.textContent=(uiText[key]||{})['Ligar mercado']||(key==='en'?'Connect market':key==='es'?'Conectar mercado':'Ligar mercado');
+    const disconnect=$('derivFeedDisconnect');
+    if(disconnect)disconnect.textContent=(uiText[key]||{})['Desligar']||(key==='en'?'Disconnect':key==='es'?'Desconectar':'Desligar');
+    document.documentElement.lang=key;
+    try{localStorage.setItem('mendtrade_language',key);}catch(e){}
+    const selector=$('languageSelect');
+    if(selector && selector.value!==key)selector.value=key;
+  }
+  // Seletor de idioma: aplica a tradução imediatamente e volta a aplicá-la
+  // após a atualização do DOM, para incluir painéis criados dinamicamente.
+  const languageSelector=$('languageSelect');
+  if(languageSelector){
+    const changeLanguage=()=>{
+      const selected=translations[languageSelector.value]?languageSelector.value:'pt';
+      applyLanguage(selected);
+      requestAnimationFrame(()=>applyLanguage(selected));
+      setTimeout(()=>applyLanguage(selected),120);
+    };
+    languageSelector.addEventListener('change',changeLanguage);
+    languageSelector.addEventListener('input',changeLanguage);
+  }
+  const savedLanguage=localStorage.getItem('mendtrade_language')||'pt';
+  if($('languageSelect'))$('languageSelect').value=translations[savedLanguage]?savedLanguage:'pt';
+  applyLanguage(savedLanguage);
+  const languageObserver=new MutationObserver(records=>{
+    for(const record of records){
+      if(record.type==='characterData')translateTextNode(record.target);
+      record.addedNodes?.forEach(translateAddedTree);
+      if(record.type==='attributes')translateAttribute(record.target,record.attributeName);
+    }
+  });
+  languageObserver.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['placeholder','aria-label','title']});
+
+  // Área de operações horizontal: BOT primeiro, restantes painéis por deslize.
+  function setupOperationsCarousel(){
+    const page=$('bot');
+    if(!page || page.querySelector('.ops-carousel')) return;
+    const botPanel=page.querySelector('.bot-panel');
+    const marketPanel=$('derivLivePanel');
+    const manualPanel=page.querySelector('.manual-panel');
+    const strategyLab=$('strategyLab');
+    const enginePanel=Array.from(page.children).find(el=>el.classList?.contains('card') && el.textContent.includes('Motor inteligente multimercado'));
+    if(!botPanel || !marketPanel || !manualPanel || !strategyLab) return;
+    const carousel=document.createElement('div');
+    carousel.className='ops-carousel';
+    carousel.innerHTML='<div class="ops-carousel-tabs" role="tablist" aria-label="Painéis de operações"></div><div class="ops-carousel-hint">Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.</div><div class="ops-carousel-track"></div>';
+    page.querySelector('.ops-hero').insertAdjacentElement('afterend',carousel);
+    const tabs=carousel.querySelector('.ops-carousel-tabs'),track=carousel.querySelector('.ops-carousel-track');
+    const panels=[['🤖 BOT',botPanel],['📡 MERCADO',marketPanel],['🎯 MANUAL',manualPanel],['🧠 MOTOR',enginePanel],['🧪 ESTRATÉGIA',strategyLab]].filter(([,el])=>!!el);
+    panels.forEach(([label,panel],index)=>{
+      const slide=document.createElement('div');slide.className='ops-slide';slide.appendChild(panel);track.appendChild(slide);
+      const tab=document.createElement('button');tab.type='button';tab.textContent=label;tab.setAttribute('role','tab');tab.setAttribute('aria-selected',index===0?'true':'false');if(index===0)tab.classList.add('active');
+      tab.addEventListener('click',()=>slide.scrollIntoView({behavior:'smooth',block:'nearest',inline:'start'}));tabs.appendChild(tab);
+    });
+    page.querySelector('.ops-layout.dual-ops')?.remove();
+    const dock=page.querySelector('.window-dock');if(dock)carousel.insertAdjacentElement('afterend',dock);
+    const updateActive=()=>{
+      const slides=[...track.querySelectorAll('.ops-slide')],mid=track.getBoundingClientRect().left+track.clientWidth*.35;
+      let active=0,best=Infinity;
+      slides.forEach((slide,i)=>{const d=Math.abs(slide.getBoundingClientRect().left-mid);if(d<best){best=d;active=i;}});
+      [...tabs.children].forEach((tab,i)=>{tab.classList.toggle('active',i===active);tab.setAttribute('aria-selected',i===active?'true':'false');});
+    };
+    track.addEventListener('scroll',()=>requestAnimationFrame(updateActive),{passive:true});window.addEventListener('resize',updateActive);updateActive();
+  }
+  setupOperationsCarousel();
+  applyLanguage(localStorage.getItem('mendtrade_language')||'pt');
+
+  function applyTheme(theme){
+    const allowed=['emerald','ocean','purple','light'];
+    const selected=allowed.includes(theme)?theme:'emerald';
+    document.documentElement.dataset.theme=selected;
+    if($('themeSelect'))$('themeSelect').value=selected;
+    try{localStorage.setItem('mendtrade_theme',selected);}catch(e){}
+  }
+  applyTheme(localStorage.getItem('mendtrade_theme')||'emerald');
+  $('themeSelect')?.addEventListener('change',e=>applyTheme(e.target.value));
+
+  function updateProgressionPreview(){
+    const base=Math.max(0,Number($('entryAmount')?.value)||1);
+    const max=Math.max(base,Number($('maxStake')?.value)||5);
+    const pct=Math.min(20,Math.max(0,Number($('progressionPercent')?.value)||0))/100;
+    const second=Math.min(max,base*(1+pct)),third=Math.min(max,second*(1+pct));
+    const fmt=n=>"USD "+n.toFixed(2);
+    const el=$('botProgressionPreview');
+    if(el)el.textContent='Exemplo após vitórias consecutivas: '+fmt(base)+' → '+fmt(second)+' → '+fmt(third)+'. Após uma perda, regressa a '+fmt(base)+'. O teto de entrada configurado é '+fmt(max)+'.';
+  }
+
+  // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
+  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivTickWatchdogTimer=null, derivLastTickAt=0, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;
+  const DERIV_CANDLES_KEY='mendtrader_deriv_candles_v1';
+  try{derivLiveCandles=JSON.parse(localStorage.getItem(DERIV_CANDLES_KEY)||'[]').slice(-300);}catch(e){derivLiveCandles=[];}
+  function setDerivFeedStatus(label,kind='neutral'){
+    const el=$('derivFeedStatus'); if(!el)return;
+    el.textContent=label; el.className='signal-tag '+kind;
+  }
+  function closeDerivFeed(){
+    derivFeedWanted=false;clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
+    if(derivFeedSocket){
+      try{if(derivFeedSubscription&&derivFeedSocket.readyState===WebSocket.OPEN)derivFeedSocket.send(JSON.stringify({forget:derivFeedSubscription}));}catch(e){}
+      try{derivFeedSocket.close();}catch(e){}
+    }
+    derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
+    $('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Ligar mercado';$('derivFeedDisconnect').disabled=true;
+    setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
+  }
+  function addDerivCandleTick(tick){
+    const epoch=Number(tick.epoch);const price=Number(tick.quote);
+    if(!Number.isFinite(epoch)||!Number.isFinite(price))return;
+    const bucket=Math.floor(epoch/60)*60;
+    if(!derivCurrentCandle){
+      derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
+    }else if(bucket===derivCurrentCandle.epoch){
+      derivCurrentCandle.high=Math.max(derivCurrentCandle.high,price);
+      derivCurrentCandle.low=Math.min(derivCurrentCandle.low,price);
+      derivCurrentCandle.close=price;
+    }else if(bucket>derivCurrentCandle.epoch){
+      derivLiveCandles.push({...derivCurrentCandle,time:new Date(derivCurrentCandle.epoch*1000).toLocaleTimeString('pt-PT')});
+      derivLiveCandles=derivLiveCandles.slice(-300);
+      try{localStorage.setItem(DERIV_CANDLES_KEY,JSON.stringify(derivLiveCandles));}catch(e){}
+      derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
+      renderDerivCandles();
+      updateDerivCandleSignal();
+    }
+    $('derivCandleState').textContent='A recolher candle atual';
+  }
+  function renderDerivCandles(){
+    $('derivCandleCount').textContent=String(derivLiveCandles.length);
+    $('derivCandleRows').innerHTML=derivLiveCandles.slice(-8).reverse().map(c=>'<tr><td>'+escapeHtml(c.time)+'</td><td>'+c.open+'</td><td>'+c.high+'</td><td>'+c.low+'</td><td>'+c.close+'</td></tr>').join('')||'<tr><td colspan="5" class="muted">Ainda sem candles fechados.</td></tr>';
+    $('derivCandleTestResult').textContent=derivLiveCandles.length<60?'Faltam '+(60-derivLiveCandles.length)+' candles para o primeiro teste (aproximadamente '+(60-derivLiveCandles.length)+' minutos).':'Já existem dados suficientes para um primeiro teste histórico em demo.';
+  }
+  function updateDerivCandleSignal(){
+    const c=derivLiveCandles;if(c.length<55)return;
+    const close=c.map(x=>x.close);
+    const fast=ema(close,9),slow=ema(close,21),r=rsi(close,14),i=close.length-1;
+    const bull=fast[i]>slow[i]&&r[i]>=52&&r[i]<=68&&close[i]>close[i-1];
+    const bear=fast[i]<slow[i]&&r[i]>=32&&r[i]<=48&&close[i]<close[i-1];
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    if(bull||bear){
+      const side=bull?'COMPRA':'VENDA';tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');
+      dir.textContent=side;strength.textContent='3/3 condições';
+      reason.textContent='Análise dos candles fechados de 1 minuto: EMA 9/21 alinhadas, RSI '+r[i].toFixed(1)+' e fecho na direção do sinal. Experimental; aguardar confirmação.';
+    }else{
+      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
+      reason.textContent='Os candles fechados ainda não alinham EMA 9/21, RSI e direção. RSI atual: '+r[i].toFixed(1)+'.';
+    }
+  }
+  $('derivCandleBacktest').addEventListener('click',()=>{
+    const resultEl=$('derivCandleTestResult');
+    if(derivLiveCandles.length<60){resultEl.textContent='Ainda são necessários pelo menos 60 candles fechados. Mantém o mercado ligado.';return;}
+    try{
+      const style=$('strategyStyle')?.value||'trend',risk=$('strategyRisk')?.value||'balanced';
+      const result=runStrategy(derivLiveCandles,style,risk);
+      resultEl.textContent='TESTE DEMO · '+derivLiveCandles.length+' candles · '+result.signals+' operações simuladas · '+result.wins+' positivas · '+result.losses+' negativas · taxa positiva '+result.winRate.toFixed(1)+'% · resultado bruto '+result.equity.toFixed(5)+' pontos. Não inclui spread, custos, latência nem execução real.';
+    }catch(e){resultEl.textContent='Não foi possível executar o teste: '+e.message;}
+  });
+
+  // Aviso sonoro ao surgir um novo sinal técnico. Não indica lucro realizado.
+  let signalSoundEnabled=false, signalAudioContext=null, lastSoundSignal='neutral';
+  function playSignalAlert(){
+    if(!signalSoundEnabled)return;
+    try{
+      const AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx)return;
+      signalAudioContext=signalAudioContext||new AudioCtx();
+      if(signalAudioContext.state==='suspended')signalAudioContext.resume();
+      const now=signalAudioContext.currentTime;
+      [0,0.18].forEach((offset,index)=>{
+        const osc=signalAudioContext.createOscillator(),gain=signalAudioContext.createGain();
+        osc.type='sine';osc.frequency.value=index===0?880:1175;
+        gain.gain.setValueAtTime(0.0001,now+offset);
+        gain.gain.exponentialRampToValueAtTime(0.16,now+offset+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001,now+offset+0.13);
+        osc.connect(gain);gain.connect(signalAudioContext.destination);
+        osc.start(now+offset);osc.stop(now+offset+0.14);
+      });
+    }catch(e){}
+  }
+  $('toggleSignalSound')?.addEventListener('click',async()=>{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx){$('signalSoundStatus').textContent='Áudio não suportado neste navegador.';return;}
+    try{
+      signalAudioContext=signalAudioContext||new AudioCtx();
+      await signalAudioContext.resume();
+      signalSoundEnabled=!signalSoundEnabled;
+      $('toggleSignalSound').textContent=signalSoundEnabled?'🔕 Desativar aviso sonoro':'🔔 Ativar aviso sonoro';
+      $('signalSoundStatus').textContent=signalSoundEnabled?'Som ativo · alerta em novo sinal':'Som desligado';
+      if(signalSoundEnabled)playSignalAlert();
+    }catch(e){$('signalSoundStatus').textContent='Não foi possível ativar o áudio.';}
+  });
+  function updateDerivLiveSignal(){
+    const prices=derivFeedTicks.slice().reverse().map(x=>x.quote);
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    if(!tag||!dir||!strength||!reason)return;
+    const wait=(msg)=>{tag.textContent='● A aguardar';tag.className='signal-tag neutral';dir.textContent='A AGUARDAR';strength.textContent='—';reason.textContent=msg;};
+    if(prices.length<30){wait('A recolher dados: '+prices.length+'/30 ticks. Aguarda alguns instantes com o mercado ligado.');return;}
+    const ema=(arr,p)=>{const k=2/(p+1);let v=arr.slice(0,p).reduce((a,b)=>a+b,0)/p;for(let i=p;i<arr.length;i++)v=arr[i]*k+v*(1-k);return v;};
+    const last=prices[prices.length-1], fast=ema(prices.slice(-30),9), slow=ema(prices.slice(-30),21);
+    let gains=0,losses=0;for(let i=prices.length-14;i<prices.length;i++){const d=prices[i]-prices[i-1];gains+=Math.max(d,0);losses+=Math.max(-d,0);}
+    const avgGain=gains/14,avgLoss=losses/14,rsi=avgLoss===0?100:100-100/(1+avgGain/avgLoss);
+    const rising=last>prices[prices.length-4],falling=last<prices[prices.length-4];
+    const bull=fast>slow&&rsi>=52&&rsi<=68&&rising;
+    const bear=fast<slow&&rsi>=32&&rsi<=48&&falling;
+    if(bull||bear){
+      const signalKey=bull?'COMPRA':'VENDA';
+      if(signalKey!==lastSoundSignal){playSignalAlert();lastSoundSignal=signalKey;}
+      const side=bull?'COMPRA':'VENDA',score=[bull?fast>slow:fast<slow,bull?rsi>=52&&rsi<=68:rsi>=32&&rsi<=48,bull?rising:falling].filter(Boolean).length;
+      tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');dir.textContent=side;strength.textContent=Math.round(score/3*100)+'%';
+      reason.textContent='Condições técnicas alinhadas nos últimos ticks. RSI: '+rsi.toFixed(1)+' · EMA 9/21: '+(bull?'cruzamento relativo favorável à subida':'cruzamento relativo favorável à descida')+'.';
+    }else{
+      lastSoundSignal='neutral';
+      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
+      reason.textContent='Sem alinhamento suficiente entre EMA 9/21, RSI e direção recente. RSI: '+rsi.toFixed(1)+'.';
+    }
+  }
+  function scheduleDerivReconnect(){
+    if(!derivFeedWanted||derivReconnectTimer)return;
+    const delay=Math.min(30000,1500*Math.pow(2,Math.min(derivReconnectAttempts,4)));
+    derivReconnectAttempts++;
+    derivReconnectTimer=setTimeout(()=>{derivReconnectTimer=null;if(derivFeedWanted&&document.visibilityState!=='hidden')connectDerivFeed(true);},delay);
+  }
+  function connectDerivFeed(isReconnect=false){
+    if(!isReconnect){derivFeedWanted=true;derivReconnectAttempts=0;}
+    if(!('WebSocket' in window)){ $('derivFeedMessage').textContent='Este navegador não suporta WebSocket.';return; }
+    if(derivFeedSocket&&derivFeedSocket.readyState===WebSocket.OPEN){setDerivFeedStatus('● Ligado','positive');$('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='Mercado ligado';$('derivFeedDisconnect').disabled=false;return;}
+    const symbol=$('derivFeedSymbol').value;
+    $('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='A ligar…';$('derivFeedDisconnect').disabled=false;
+    $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
+    $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
+    setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
+    const ws=new WebSocket('wss://mendtrader-market-stream-j9w5.onrender.com/stream?symbol='+encodeURIComponent(symbol));
+    derivFeedSocket=ws;derivFeedTicks=[];renderDerivCandles();$('derivCandleState').textContent='A iniciar/reiniciar recolha';
+    ws.onopen=()=>{
+      if(derivFeedSocket!==ws)return;
+      derivReconnectAttempts=0;setDerivFeedStatus('● Ligado','positive');$('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='Mercado ligado';$('derivFeedDisconnect').disabled=false;$('derivFeedMessage').textContent='Ligado ao servidor MendtradeR. A receber cotações públicas da Deriv.';
+      clearInterval(derivFeedPingTimer);
+      derivFeedPingTimer=setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'ping'}));},15000);
+      derivLastTickAt=Date.now();clearInterval(derivTickWatchdogTimer);
+      derivTickWatchdogTimer=setInterval(()=>{
+        if(derivFeedSocket!==ws||ws.readyState!==WebSocket.OPEN)return;
+        if(Date.now()-derivLastTickAt>25000){
+          setDerivFeedStatus('● Preço parado','negative');
+          $('derivFeedMessage').textContent='Sem novas cotações há mais de 25 segundos. A reiniciar a ligação…';
+          try{ws.close(4000,'Sem atualização de preços');}catch(e){}
+        }
+      },5000);
+    };
+    ws.onmessage=(event)=>{
+      if(derivFeedSocket!==ws)return;
+      let data;try{data=JSON.parse(event.data);}catch(e){return;}
+      if(data.type==='status'){
+        if(data.status==='connected'){setDerivFeedStatus('● Deriv ligada','positive');$('derivFeedMessage').textContent='Servidor ligado à Deriv; a aguardar cotações…';}
+        else if(data.status==='connecting'||data.status==='reconnecting'){setDerivFeedStatus('● A ligar à Deriv','neutral');$('derivFeedMessage').textContent='O servidor está a estabelecer/repor a ligação à Deriv…';}
+        else if(data.status==='stale'){setDerivFeedStatus('● Preço parado','negative');$('derivFeedMessage').textContent='O servidor detetou ausência de cotações. A reconectar automaticamente…';}
+        else if(data.status==='upstream_error'){$('derivFeedMessage').textContent='Deriv: '+(data.message||'erro na resposta');setDerivFeedStatus('● Erro','negative');}
+        return;
+      }
+      if(data.type==='tick'&&data.tick){
+        derivLastTickAt=Date.now();
+        const t=data.tick, quote=Number(t.quote);
+        if(!Number.isFinite(quote))return;
+        const time=new Date((Number(t.epoch)||Date.now()/1000)*1000);
+        $('derivFeedPrice').textContent=quote.toLocaleString('pt-PT',{maximumFractionDigits:8});
+        $('derivFeedTime').textContent=time.toLocaleTimeString('pt-PT');
+        derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote});
+        derivFeedTicks=derivFeedTicks.slice(0,120);
+        $('derivFeedRows').innerHTML=derivFeedTicks.slice(0,12).map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
+        updateDerivLiveSignal();
+        addDerivCandleTick(t);
+        if(data.subscription?.id)derivFeedSubscription=data.subscription.id;
+      }
+    };
+    ws.onerror=()=>{
+      if(derivFeedSocket!==ws)return;
+      setDerivFeedStatus('● Falha','negative');$('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Tentar ligar novamente';$('derivFeedMessage').textContent='Falha de ligação. '+(derivFeedWanted?'A tentar novamente…':'Verifica a internet e tenta novamente.');
+      try{ws.close();}catch(e){}
+      $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    };
+    ws.onclose=()=>{
+      if(derivFeedSocket!==ws)return;
+      derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
+      if(derivFeedWanted){$('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Reconectar mercado';$('derivFeedDisconnect').disabled=false;setDerivFeedStatus('● A reconectar','neutral');$('derivFeedMessage').textContent='Ligação interrompida. A tentar reconectar automaticamente…';scheduleDerivReconnect();return;}
+      setDerivFeedStatus('● Desligado');$('derivFeedConnect').textContent='Ligar mercado';$('derivFeedMessage').textContent='Ligação encerrada (código '+event.code+(event.reason?': '+event.reason:'')+'). Tenta novamente.';
+      $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    };
+  }
+  $('derivFeedConnect')?.addEventListener('click',connectDerivFeed);
+  // Ao regressar de segundo plano, alguns navegadores mantêm o WebSocket aberto
+  // mas deixam de entregar ticks. Verifica também a idade do último preço e renova
+  // a ligação quando o fluxo ficou congelado, sem exigir um clique manual.
+  function resumeDerivFeedIfStale(){
+    if(!derivFeedWanted || document.visibilityState==='hidden')return;
+    const socketUnavailable=!derivFeedSocket || derivFeedSocket.readyState===WebSocket.CLOSED || derivFeedSocket.readyState===WebSocket.CLOSING;
+    const priceStale=derivFeedSocket?.readyState===WebSocket.OPEN && (!derivLastTickAt || Date.now()-derivLastTickAt>20000);
+    if(socketUnavailable || priceStale){
+      clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
+      const oldSocket=derivFeedSocket;
+      derivFeedSocket=null;derivFeedSubscription=null;
+      if(oldSocket){try{oldSocket.close(4001,'Retomar fluxo após pausa');}catch(e){}}
+      clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
+      clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
+      connectDerivFeed(true);
+    }
+  }
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeDerivFeedIfStale();});
+  window.addEventListener('pageshow',()=>{resumeDerivFeedIfStale();});
+  window.addEventListener('focus',()=>{resumeDerivFeedIfStale();});
+  window.addEventListener('online',()=>{if(derivFeedWanted)resumeDerivFeedIfStale();});
+  $('derivFeedDisconnect')?.addEventListener('click',closeDerivFeed);
+  $('derivFeedSymbol')?.addEventListener('change',()=>{if(derivFeedSocket||derivFeedWanted){closeDerivFeed();connectDerivFeed();}});
+  window.addEventListener('beforeunload',()=>{try{derivFeedSocket?.close();}catch(e){}});
+
+  $('depositBtn').addEventListener('click',()=>{});
+  client.auth.getSession().then(({data})=>{if(data.session?.user)showApp(data.session.user);});
+  client.auth.onAuthStateChange((_event,session)=>{if(session?.user&&!currentUser)showApp(session.user);else if(!session)showAuth();});
+})();
+</script>
+</body>
+</html>+n.toFixed(2);
+    const el=$('botProgressionPreview');
+    if(el)el.textContent='Exemplo após vitórias consecutivas: '+fmt(base)+' → '+fmt(second)+' → '+fmt(third)+'. Após uma perda, regressa a '+fmt(base)+'. O teto de entrada configurado é '+fmt(max)+'.';
+  }
+  ['entryAmount','maxStake','progressionPercent'].forEach(id=>$(id)?.addEventListener('input',updateProgressionPreview));
+  updateProgressionPreview();
+
+  function getPendingReferralId(user){
+    const fromUrl=new URLSearchParams(window.location.search).get('ref');
+    const fromMetadata=user?.user_metadata?.referred_by;
+    const candidate=fromUrl||fromMetadata||'';
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate)?candidate:null;
+  }
+  async function ensureReferralAttribution(user){
+    if(!user?.id)return;
+    const referrerId=getPendingReferralId(user);
+    if(!referrerId||referrerId===user.id)return;
+    const {error}=await client.from('user_referrals').insert({referrer_user_id:referrerId,referred_user_id:user.id});
+    if(error && !String(error.code||'').startsWith('23'))console.warn('A indicação não pôde ser registada:',error.message);
+  }
+  function inviteUrl(){
+    return window.location.origin+window.location.pathname+'?ref='+encodeURIComponent(currentUser.id);
+  }
+  async function loadInvites(){
+    if(!currentUser)return;
+    $('inviteLink').textContent=inviteUrl();
+    $('inviteRows').innerHTML='<tr><td colspan="2" class="muted">A carregar...</td></tr>';
+    const {data,error,count}=await client.from('user_referrals').select('id,created_at',{count:'exact'}).eq('referrer_user_id',currentUser.id).order('created_at',{ascending:false}).limit(25);
+    if(error){$('inviteCount').textContent='—';$('inviteRows').innerHTML='<tr><td colspan="2" class="muted">Não foi possível carregar os convites: '+escapeHtml(error.message)+'</td></tr>';return;}
+    $('inviteCount').textContent=String(count??data?.length??0);
+    $('inviteRows').innerHTML=(data||[]).map(row=>'<tr><td>'+new Date(row.created_at).toLocaleString('pt-PT')+'</td><td><span class="pill">Registado</span></td></tr>').join('')||'<tr><td colspan="2" class="muted">Ainda não existem registos através do teu link.</td></tr>';
+    $('inviteMsg').textContent='São apresentados apenas os registos associados ao teu link. Não há recompensas financeiras configuradas.';
+  }
+  $('copyInviteBtn')?.addEventListener('click',async()=>{
+    if(!currentUser)return;
+    const link=inviteUrl();
+    try{await navigator.clipboard.writeText(link);$('inviteMsg').textContent='Link copiado. Já podes partilhá-lo.';}
+    catch(e){$('inviteMsg').textContent='Não foi possível copiar automaticamente. Seleciona e copia o link acima.';}
+  });
+  $('shareInviteBtn')?.addEventListener('click',async()=>{
+    if(!currentUser)return;
+    const link=inviteUrl();
+    if(navigator.share){try{await navigator.share({title:'Convite MendtradeR',text:'Entra na MendtradeR através do meu convite:',url:link});}catch(e){}}
+    else{try{await navigator.clipboard.writeText(link);$('inviteMsg').textContent='O teu navegador não suporta partilha direta. Link copiado.';}catch(e){$('inviteMsg').textContent='Copia o link manualmente para partilhar.';}}
+  });
+
+  // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
+  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivTickWatchdogTimer=null, derivLastTickAt=0, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;
+  const DERIV_CANDLES_KEY='mendtrader_deriv_candles_v1';
+  try{derivLiveCandles=JSON.parse(localStorage.getItem(DERIV_CANDLES_KEY)||'[]').slice(-300);}catch(e){derivLiveCandles=[];}
+  function setDerivFeedStatus(label,kind='neutral'){
+    const el=$('derivFeedStatus'); if(!el)return;
+    el.textContent=label; el.className='signal-tag '+kind;
+  }
+  function closeDerivFeed(){
+    derivFeedWanted=false;clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
+    if(derivFeedSocket){
+      try{if(derivFeedSubscription&&derivFeedSocket.readyState===WebSocket.OPEN)derivFeedSocket.send(JSON.stringify({forget:derivFeedSubscription}));}catch(e){}
+      try{derivFeedSocket.close();}catch(e){}
+    }
+    derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
+    $('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Ligar mercado';$('derivFeedDisconnect').disabled=true;
+    setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
+  }
+  function addDerivCandleTick(tick){
+    const epoch=Number(tick.epoch);const price=Number(tick.quote);
+    if(!Number.isFinite(epoch)||!Number.isFinite(price))return;
+    const bucket=Math.floor(epoch/60)*60;
+    if(!derivCurrentCandle){
+      derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
+    }else if(bucket===derivCurrentCandle.epoch){
+      derivCurrentCandle.high=Math.max(derivCurrentCandle.high,price);
+      derivCurrentCandle.low=Math.min(derivCurrentCandle.low,price);
+      derivCurrentCandle.close=price;
+    }else if(bucket>derivCurrentCandle.epoch){
+      derivLiveCandles.push({...derivCurrentCandle,time:new Date(derivCurrentCandle.epoch*1000).toLocaleTimeString('pt-PT')});
+      derivLiveCandles=derivLiveCandles.slice(-300);
+      try{localStorage.setItem(DERIV_CANDLES_KEY,JSON.stringify(derivLiveCandles));}catch(e){}
+      derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
+      renderDerivCandles();
+      updateDerivCandleSignal();
+    }
+    $('derivCandleState').textContent='A recolher candle atual';
+  }
+  function renderDerivCandles(){
+    $('derivCandleCount').textContent=String(derivLiveCandles.length);
+    $('derivCandleRows').innerHTML=derivLiveCandles.slice(-8).reverse().map(c=>'<tr><td>'+escapeHtml(c.time)+'</td><td>'+c.open+'</td><td>'+c.high+'</td><td>'+c.low+'</td><td>'+c.close+'</td></tr>').join('')||'<tr><td colspan="5" class="muted">Ainda sem candles fechados.</td></tr>';
+    $('derivCandleTestResult').textContent=derivLiveCandles.length<60?'Faltam '+(60-derivLiveCandles.length)+' candles para o primeiro teste (aproximadamente '+(60-derivLiveCandles.length)+' minutos).':'Já existem dados suficientes para um primeiro teste histórico em demo.';
+  }
+  function updateDerivCandleSignal(){
+    const c=derivLiveCandles;if(c.length<55)return;
+    const close=c.map(x=>x.close);
+    const fast=ema(close,9),slow=ema(close,21),r=rsi(close,14),i=close.length-1;
+    const bull=fast[i]>slow[i]&&r[i]>=52&&r[i]<=68&&close[i]>close[i-1];
+    const bear=fast[i]<slow[i]&&r[i]>=32&&r[i]<=48&&close[i]<close[i-1];
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    if(bull||bear){
+      const side=bull?'COMPRA':'VENDA';tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');
+      dir.textContent=side;strength.textContent='3/3 condições';
+      reason.textContent='Análise dos candles fechados de 1 minuto: EMA 9/21 alinhadas, RSI '+r[i].toFixed(1)+' e fecho na direção do sinal. Experimental; aguardar confirmação.';
+    }else{
+      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
+      reason.textContent='Os candles fechados ainda não alinham EMA 9/21, RSI e direção. RSI atual: '+r[i].toFixed(1)+'.';
+    }
+  }
+  $('derivCandleBacktest').addEventListener('click',()=>{
+    const resultEl=$('derivCandleTestResult');
+    if(derivLiveCandles.length<60){resultEl.textContent='Ainda são necessários pelo menos 60 candles fechados. Mantém o mercado ligado.';return;}
+    try{
+      const style=$('strategyStyle')?.value||'trend',risk=$('strategyRisk')?.value||'balanced';
+      const result=runStrategy(derivLiveCandles,style,risk);
+      resultEl.textContent='TESTE DEMO · '+derivLiveCandles.length+' candles · '+result.signals+' operações simuladas · '+result.wins+' positivas · '+result.losses+' negativas · taxa positiva '+result.winRate.toFixed(1)+'% · resultado bruto '+result.equity.toFixed(5)+' pontos. Não inclui spread, custos, latência nem execução real.';
+    }catch(e){resultEl.textContent='Não foi possível executar o teste: '+e.message;}
+  });
+
+  // Aviso sonoro ao surgir um novo sinal técnico. Não indica lucro realizado.
+  let signalSoundEnabled=false, signalAudioContext=null, lastSoundSignal='neutral';
+  function playSignalAlert(){
+    if(!signalSoundEnabled)return;
+    try{
+      const AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx)return;
+      signalAudioContext=signalAudioContext||new AudioCtx();
+      if(signalAudioContext.state==='suspended')signalAudioContext.resume();
+      const now=signalAudioContext.currentTime;
+      [0,0.18].forEach((offset,index)=>{
+        const osc=signalAudioContext.createOscillator(),gain=signalAudioContext.createGain();
+        osc.type='sine';osc.frequency.value=index===0?880:1175;
+        gain.gain.setValueAtTime(0.0001,now+offset);
+        gain.gain.exponentialRampToValueAtTime(0.16,now+offset+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001,now+offset+0.13);
+        osc.connect(gain);gain.connect(signalAudioContext.destination);
+        osc.start(now+offset);osc.stop(now+offset+0.14);
+      });
+    }catch(e){}
+  }
+  $('toggleSignalSound')?.addEventListener('click',async()=>{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx){$('signalSoundStatus').textContent='Áudio não suportado neste navegador.';return;}
+    try{
+      signalAudioContext=signalAudioContext||new AudioCtx();
+      await signalAudioContext.resume();
+      signalSoundEnabled=!signalSoundEnabled;
+      $('toggleSignalSound').textContent=signalSoundEnabled?'🔕 Desativar aviso sonoro':'🔔 Ativar aviso sonoro';
+      $('signalSoundStatus').textContent=signalSoundEnabled?'Som ativo · alerta em novo sinal':'Som desligado';
+      if(signalSoundEnabled)playSignalAlert();
+    }catch(e){$('signalSoundStatus').textContent='Não foi possível ativar o áudio.';}
+  });
+  function updateDerivLiveSignal(){
+    const prices=derivFeedTicks.slice().reverse().map(x=>x.quote);
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    if(!tag||!dir||!strength||!reason)return;
+    const wait=(msg)=>{tag.textContent='● A aguardar';tag.className='signal-tag neutral';dir.textContent='A AGUARDAR';strength.textContent='—';reason.textContent=msg;};
+    if(prices.length<30){wait('A recolher dados: '+prices.length+'/30 ticks. Aguarda alguns instantes com o mercado ligado.');return;}
+    const ema=(arr,p)=>{const k=2/(p+1);let v=arr.slice(0,p).reduce((a,b)=>a+b,0)/p;for(let i=p;i<arr.length;i++)v=arr[i]*k+v*(1-k);return v;};
+    const last=prices[prices.length-1], fast=ema(prices.slice(-30),9), slow=ema(prices.slice(-30),21);
+    let gains=0,losses=0;for(let i=prices.length-14;i<prices.length;i++){const d=prices[i]-prices[i-1];gains+=Math.max(d,0);losses+=Math.max(-d,0);}
+    const avgGain=gains/14,avgLoss=losses/14,rsi=avgLoss===0?100:100-100/(1+avgGain/avgLoss);
+    const rising=last>prices[prices.length-4],falling=last<prices[prices.length-4];
+    const bull=fast>slow&&rsi>=52&&rsi<=68&&rising;
+    const bear=fast<slow&&rsi>=32&&rsi<=48&&falling;
+    if(bull||bear){
+      const signalKey=bull?'COMPRA':'VENDA';
+      if(signalKey!==lastSoundSignal){playSignalAlert();lastSoundSignal=signalKey;}
+      const side=bull?'COMPRA':'VENDA',score=[bull?fast>slow:fast<slow,bull?rsi>=52&&rsi<=68:rsi>=32&&rsi<=48,bull?rising:falling].filter(Boolean).length;
+      tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');dir.textContent=side;strength.textContent=Math.round(score/3*100)+'%';
+      reason.textContent='Condições técnicas alinhadas nos últimos ticks. RSI: '+rsi.toFixed(1)+' · EMA 9/21: '+(bull?'cruzamento relativo favorável à subida':'cruzamento relativo favorável à descida')+'.';
+    }else{
+      lastSoundSignal='neutral';
+      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
+      reason.textContent='Sem alinhamento suficiente entre EMA 9/21, RSI e direção recente. RSI: '+rsi.toFixed(1)+'.';
+    }
+  }
+  function scheduleDerivReconnect(){
+    if(!derivFeedWanted||derivReconnectTimer)return;
+    const delay=Math.min(30000,1500*Math.pow(2,Math.min(derivReconnectAttempts,4)));
+    derivReconnectAttempts++;
+    derivReconnectTimer=setTimeout(()=>{derivReconnectTimer=null;if(derivFeedWanted&&document.visibilityState!=='hidden')connectDerivFeed(true);},delay);
+  }
+  function connectDerivFeed(isReconnect=false){
+    if(!isReconnect){derivFeedWanted=true;derivReconnectAttempts=0;}
+    if(!('WebSocket' in window)){ $('derivFeedMessage').textContent='Este navegador não suporta WebSocket.';return; }
+    if(derivFeedSocket&&derivFeedSocket.readyState===WebSocket.OPEN){setDerivFeedStatus('● Ligado','positive');$('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='Mercado ligado';$('derivFeedDisconnect').disabled=false;return;}
+    const symbol=$('derivFeedSymbol').value;
+    $('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='A ligar…';$('derivFeedDisconnect').disabled=false;
+    $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
+    $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
+    setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
+    const ws=new WebSocket('wss://mendtrader-market-stream-j9w5.onrender.com/stream?symbol='+encodeURIComponent(symbol));
+    derivFeedSocket=ws;derivFeedTicks=[];renderDerivCandles();$('derivCandleState').textContent='A iniciar/reiniciar recolha';
+    ws.onopen=()=>{
+      if(derivFeedSocket!==ws)return;
+      derivReconnectAttempts=0;setDerivFeedStatus('● Ligado','positive');$('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='Mercado ligado';$('derivFeedDisconnect').disabled=false;$('derivFeedMessage').textContent='Ligado ao servidor MendtradeR. A receber cotações públicas da Deriv.';
+      clearInterval(derivFeedPingTimer);
+      derivFeedPingTimer=setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'ping'}));},15000);
+      derivLastTickAt=Date.now();clearInterval(derivTickWatchdogTimer);
+      derivTickWatchdogTimer=setInterval(()=>{
+        if(derivFeedSocket!==ws||ws.readyState!==WebSocket.OPEN)return;
+        if(Date.now()-derivLastTickAt>25000){
+          setDerivFeedStatus('● Preço parado','negative');
+          $('derivFeedMessage').textContent='Sem novas cotações há mais de 25 segundos. A reiniciar a ligação…';
+          try{ws.close(4000,'Sem atualização de preços');}catch(e){}
+        }
+      },5000);
+    };
+    ws.onmessage=(event)=>{
+      if(derivFeedSocket!==ws)return;
+      let data;try{data=JSON.parse(event.data);}catch(e){return;}
+      if(data.type==='status'){
+        if(data.status==='connected'){setDerivFeedStatus('● Deriv ligada','positive');$('derivFeedMessage').textContent='Servidor ligado à Deriv; a aguardar cotações…';}
+        else if(data.status==='connecting'||data.status==='reconnecting'){setDerivFeedStatus('● A ligar à Deriv','neutral');$('derivFeedMessage').textContent='O servidor está a estabelecer/repor a ligação à Deriv…';}
+        else if(data.status==='stale'){setDerivFeedStatus('● Preço parado','negative');$('derivFeedMessage').textContent='O servidor detetou ausência de cotações. A reconectar automaticamente…';}
+        else if(data.status==='upstream_error'){$('derivFeedMessage').textContent='Deriv: '+(data.message||'erro na resposta');setDerivFeedStatus('● Erro','negative');}
+        return;
+      }
+      if(data.type==='tick'&&data.tick){
+        derivLastTickAt=Date.now();
+        const t=data.tick, quote=Number(t.quote);
+        if(!Number.isFinite(quote))return;
+        const time=new Date((Number(t.epoch)||Date.now()/1000)*1000);
+        $('derivFeedPrice').textContent=quote.toLocaleString('pt-PT',{maximumFractionDigits:8});
+        $('derivFeedTime').textContent=time.toLocaleTimeString('pt-PT');
+        derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote});
+        derivFeedTicks=derivFeedTicks.slice(0,120);
+        $('derivFeedRows').innerHTML=derivFeedTicks.slice(0,12).map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
+        updateDerivLiveSignal();
+        addDerivCandleTick(t);
+        if(data.subscription?.id)derivFeedSubscription=data.subscription.id;
+      }
+    };
+    ws.onerror=()=>{
+      if(derivFeedSocket!==ws)return;
+      setDerivFeedStatus('● Falha','negative');$('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Tentar ligar novamente';$('derivFeedMessage').textContent='Falha de ligação. '+(derivFeedWanted?'A tentar novamente…':'Verifica a internet e tenta novamente.');
+      try{ws.close();}catch(e){}
+      $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    };
+    ws.onclose=()=>{
+      if(derivFeedSocket!==ws)return;
+      derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
+      if(derivFeedWanted){$('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Reconectar mercado';$('derivFeedDisconnect').disabled=false;setDerivFeedStatus('● A reconectar','neutral');$('derivFeedMessage').textContent='Ligação interrompida. A tentar reconectar automaticamente…';scheduleDerivReconnect();return;}
+      setDerivFeedStatus('● Desligado');$('derivFeedConnect').textContent='Ligar mercado';$('derivFeedMessage').textContent='Ligação encerrada (código '+event.code+(event.reason?': '+event.reason:'')+'). Tenta novamente.';
+      $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    };
+  }
+  $('derivFeedConnect')?.addEventListener('click',connectDerivFeed);
+  // Ao regressar de segundo plano, alguns navegadores mantêm o WebSocket aberto
+  // mas deixam de entregar ticks. Verifica também a idade do último preço e renova
+  // a ligação quando o fluxo ficou congelado, sem exigir um clique manual.
+  function resumeDerivFeedIfStale(){
+    if(!derivFeedWanted || document.visibilityState==='hidden')return;
+    const socketUnavailable=!derivFeedSocket || derivFeedSocket.readyState===WebSocket.CLOSED || derivFeedSocket.readyState===WebSocket.CLOSING;
+    const priceStale=derivFeedSocket?.readyState===WebSocket.OPEN && (!derivLastTickAt || Date.now()-derivLastTickAt>20000);
+    if(socketUnavailable || priceStale){
+      clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
+      const oldSocket=derivFeedSocket;
+      derivFeedSocket=null;derivFeedSubscription=null;
+      if(oldSocket){try{oldSocket.close(4001,'Retomar fluxo após pausa');}catch(e){}}
+      clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
+      clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
+      connectDerivFeed(true);
+    }
+  }
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeDerivFeedIfStale();});
+  window.addEventListener('pageshow',()=>{resumeDerivFeedIfStale();});
+  window.addEventListener('focus',()=>{resumeDerivFeedIfStale();});
+  window.addEventListener('online',()=>{if(derivFeedWanted)resumeDerivFeedIfStale();});
+  $('derivFeedDisconnect')?.addEventListener('click',closeDerivFeed);
+  $('derivFeedSymbol')?.addEventListener('change',()=>{if(derivFeedSocket||derivFeedWanted){closeDerivFeed();connectDerivFeed();}});
+  window.addEventListener('beforeunload',()=>{try{derivFeedSocket?.close();}catch(e){}});
+
+  $('depositBtn').addEventListener('click',()=>{});
+  client.auth.getSession().then(({data})=>{if(data.session?.user)showApp(data.session.user);});
+  client.auth.onAuthStateChange((_event,session)=>{if(session?.user&&!currentUser)showApp(session.user);else if(!session)showAuth();});
+})();
+</script>
+</body>
+</html>

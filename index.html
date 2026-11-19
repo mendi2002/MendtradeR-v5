@@ -407,6 +407,15 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   .operation-panel .formgrid,.manual-panel .formgrid{grid-template-columns:minmax(0,1fr)}
 }
 
+
+    :root[data-theme="midnight"]{--bg:#020304;--panel:#07090c;--panel2:#0b0e13;--line:#202630;--text:#f4f7fb;--muted:#9aa5b3;--green:#16e0a0;--red:#ff5268;--gold:#ffd166;--blue:#70a7ff}
+    :root[data-theme="midnight"] body{background:radial-gradient(circle at 15% 0%,#101a25 0,transparent 32%),#020304;color:var(--text)}
+    :root[data-theme="midnight"] .card,:root[data-theme="midnight"] .v5-stat,:root[data-theme="midnight"] .ops-mini,:root[data-theme="midnight"] .market-screen,:root[data-theme="midnight"] .operation-panel{background:linear-gradient(145deg,#090d12,#040608)!important;border-color:#202a35!important;box-shadow:0 10px 30px #0009}
+    :root[data-theme="midnight"] .ops-hero{background:linear-gradient(120deg,#030907,#080d14 70%,#10121a)!important;border-color:#17654b}
+    :root[data-theme="midnight"] .field input,:root[data-theme="midnight"] .field select{background:#05080b!important;border-color:#26313d!important;color:#f4f7fb!important}
+    :root[data-theme="midnight"] .nav{background:#05080b;border-right:1px solid #202a35}
+    :root[data-theme="midnight"] .nav button.active,:root[data-theme="midnight"] .nav button:hover{background:#14231e;color:#eafff5}
+    :root[data-theme="midnight"] .signal-card{background:#06130e;border-color:#17654b}
 </style>
 </head>
 <body>
@@ -737,8 +746,14 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
           <div class="card" style="margin-top:14px">
             <h2>🎨 Aparência da plataforma</h2>
             <p class="small muted">Escolhe uma cor visual. A preferência fica guardada neste dispositivo.</p>
-            <div class="field"><label for="themeSelect">Tema</label><select id="themeSelect"><option value="emerald">Preto e verde</option><option value="ocean">Azul tecnológico</option><option value="purple">Roxo</option><option value="light">Claro</option></select></div>
+            <div class="field"><label for="themeSelect">Tema</label><select id="themeSelect"><option value="midnight">Preto profundo</option><option value="emerald">Preto e verde</option><option value="ocean">Azul tecnológico</option><option value="purple">Roxo</option><option value="light">Claro</option></select></div>
             <div class="theme-preview"><span class="theme-swatch" style="background:#00d66b"></span><span class="theme-swatch" style="background:#22c7d9"></span><span class="theme-swatch" style="background:#b18cff"></span><span class="theme-swatch" style="background:#edf2f7"></span></div>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <h2>⚙️ Preferências de operação</h2>
+            <div class="row"><button id="toggleKeepScreen" class="secondary" type="button">📱 Manter ecrã ligado: desligado</button><span id="keepScreenStatus" class="small muted">O ecrã pode bloquear normalmente.</span></div>
+            <div class="row" style="margin-top:12px"><button id="toggleWinSound" class="secondary" type="button">🔔 Som de lucro: desligado</button><span id="winSoundStatus" class="small muted">Sem alerta sonoro para lucros.</span></div>
+            <p class="small muted">O ecrã ligado depende do suporte do navegador. O som de lucro só toca depois de ativares esta opção.</p>
           </div>
         </section>
 
@@ -809,11 +824,16 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   let derivAccountExpiresAt = 0;
   let derivAccounts = [];
   let derivTradingSocket = null;
+  let derivTradingReconnectWanted = false;
+  let derivTradingReconnectTimer = null;
+  let derivTradingReconnectAttempts = 0;
   let derivBalanceSubscription = null;
   let derivConnectedAccount = null;
   let derivRequestId = 20;
   const derivPendingRequests = new Map();
   const derivOpenContracts = new Map();
+  const derivWinSoundPlayed = new Set();
+  const DERIV_SELECTED_ACCOUNT_KEY = "mendtrader_deriv_selected_account";
   function countryInfo(code) { return COUNTRIES.find(c => c.code === code) || COUNTRIES.find(c => c.code === 'AO'); }
   function fillCountrySelect(select) {
     select.innerHTML = COUNTRIES.map(c => `<option value="${c.code}">${c.name} (${c.currency})</option>`).join('');
@@ -901,6 +921,8 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       option.textContent = label + ' · ' + login + ' · ' + (account.currency || 'moeda não indicada');
       select.appendChild(option);
     });
+    const rememberedAccount = localStorage.getItem(DERIV_SELECTED_ACCOUNT_KEY) || "";
+    if (rememberedAccount && accounts.some(item => String(item.account_id || item.id || "") === rememberedAccount)) select.value = rememberedAccount;
     select.disabled = accounts.length === 0;
     $('derivConnectTrading').disabled = accounts.length === 0;
     $('derivLoadAccounts').disabled = false;
@@ -1024,11 +1046,29 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       updateManualTradeControls();
     }
   }
+  function scheduleDerivTradingReconnect() {
+    if (!derivTradingReconnectWanted || derivTradingReconnectTimer) return;
+    if (!derivAccountAccessToken || Date.now() >= derivAccountExpiresAt) {
+      derivTradingReconnectWanted = false;
+      message("derivAccountMsg", "A autorização Deriv expirou. Toca em “Conectar à Deriv” para renovar o acesso.", "error");
+      return;
+    }
+    const delay = Math.min(30000, 2000 * Math.pow(2, Math.min(derivTradingReconnectAttempts, 4)));
+    derivTradingReconnectAttempts++;
+    message("derivAccountMsg", "Ligação interrompida. A tentar restabelecer automaticamente em " + Math.round(delay / 1000) + " s…");
+    derivTradingReconnectTimer = setTimeout(() => {
+      derivTradingReconnectTimer = null;
+      if (derivTradingReconnectWanted) connectDerivTradingAccount();
+    }, delay);
+  }
   async function connectDerivTradingAccount() {
     const accountId = $('derivTradingAccount')?.value;
     const account = derivAccounts.find(item => String(item.account_id || item.id || '') === accountId);
     if (!accountId || !account) return message('derivAccountMsg', 'Escolhe uma conta antes de continuar.', 'error');
     if (derivAccountType(account) === 'unknown') return message('derivAccountMsg', 'Não foi possível identificar com segurança se esta conta é DEMO ou REAL. Não será ligada.', 'error');
+    localStorage.setItem(DERIV_SELECTED_ACCOUNT_KEY, accountId);
+    derivTradingReconnectWanted = true;
+    clearTimeout(derivTradingReconnectTimer); derivTradingReconnectTimer = null;
     if (!derivAccountAccessToken || Date.now() >= derivAccountExpiresAt) return message('derivAccountMsg', 'A autorização expirou. Liga novamente a tua conta Deriv.', 'error');
     try {
       if (derivTradingSocket) { try { derivTradingSocket.close(); } catch {} derivTradingSocket = null; }
@@ -1042,6 +1082,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       const socket = new WebSocket(socketUrl);
       derivTradingSocket = socket;
       socket.onopen = () => {
+        derivTradingReconnectAttempts = 0;
         derivConnectedAccount = account;
         socket.send(JSON.stringify({ balance: 1, subscribe: 1, req_id: 1 }));
         const type = derivAccountType(account).toUpperCase();
@@ -1068,6 +1109,10 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             tracked.status.textContent = contract.is_sold
               ? state.toUpperCase() + ' · ' + (Number.isFinite(profit) ? profit.toFixed(2) + ' ' + (contract.currency || '') : '')
               : 'Contrato #' + contract.contract_id + ' · em aberto';
+            if (contract.is_sold && Number.isFinite(profit) && profit > 0 && !derivWinSoundPlayed.has(String(contract.contract_id))) {
+              derivWinSoundPlayed.add(String(contract.contract_id));
+              playWinAlert();
+            }
           }
         }
         if (data.error) return message('derivAccountMsg', data.error.message || 'Erro recebido da Deriv.', 'error');
@@ -1090,6 +1135,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
           derivConnectedAccount = null;
           updateManualTradeControls();
           $('derivBalanceMode').textContent = 'Ligação à conta encerrada. A autorização pode continuar válida.';
+          scheduleDerivTradingReconnect();
         }
       };
     } catch (error) {
@@ -1142,6 +1188,8 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     startDerivAccountOAuth().catch(error => message('derivAccountMsg', error.message || 'Não foi possível iniciar a ligação.', 'error'));
   });
   $('derivAccountDisconnect')?.addEventListener('click', () => {
+    derivTradingReconnectWanted = false;
+    clearTimeout(derivTradingReconnectTimer); derivTradingReconnectTimer = null;
     if (derivTradingSocket) { try { derivTradingSocket.close(); } catch {} }
     derivTradingSocket = null; derivBalanceSubscription = null; derivConnectedAccount = null;
     derivPendingRequests.forEach(item => { clearTimeout(item.timer); item.reject(new Error('Conta desligada.')); });
@@ -1654,14 +1702,88 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   applyLanguage(localStorage.getItem('mendtrade_language')||'pt');
 
   function applyTheme(theme){
-    const allowed=['emerald','ocean','purple','light'];
+    const allowed=['midnight','emerald','ocean','purple','light'];
     const selected=allowed.includes(theme)?theme:'emerald';
     document.documentElement.dataset.theme=selected;
     if($('themeSelect'))$('themeSelect').value=selected;
     try{localStorage.setItem('mendtrade_theme',selected);}catch(e){}
   }
-  applyTheme(localStorage.getItem('mendtrade_theme')||'emerald');
+  applyTheme(localStorage.getItem('mendtrade_theme')||'midnight');
   $('themeSelect')?.addEventListener('change',e=>applyTheme(e.target.value));
+
+  let keepScreenRequested = localStorage.getItem("mendtrade_keep_screen") === "1";
+  let screenWakeLock = null;
+  async function setKeepScreenAwake(enabled) {
+    keepScreenRequested = !!enabled;
+    localStorage.setItem("mendtrade_keep_screen", keepScreenRequested ? "1" : "0");
+    const btn = $("toggleKeepScreen"), status = $("keepScreenStatus");
+    if (!keepScreenRequested) {
+      try { if (screenWakeLock) await screenWakeLock.release(); } catch (e) {}
+      screenWakeLock = null;
+      if (btn) btn.textContent = "📱 Manter ecrã ligado: desligado";
+      if (status) status.textContent = "O ecrã pode bloquear normalmente.";
+      return;
+    }
+    if (!("wakeLock" in navigator)) {
+      keepScreenRequested = false; localStorage.setItem("mendtrade_keep_screen", "0");
+      if (btn) btn.textContent = "📱 Manter ecrã ligado: indisponível";
+      if (status) status.textContent = "Este navegador não suporta manter o ecrã acordado.";
+      return;
+    }
+    try {
+      screenWakeLock = await navigator.wakeLock.request("screen");
+      screenWakeLock.addEventListener("release", () => {
+        screenWakeLock = null;
+        if (keepScreenRequested && document.visibilityState === "visible") setKeepScreenAwake(true);
+      });
+      if (btn) btn.textContent = "📱 Manter ecrã ligado: ativado";
+      if (status) status.textContent = "O ecrã ficará ligado enquanto a página estiver visível.";
+    } catch (e) {
+      if (btn) btn.textContent = "📱 Tentar manter ecrã ligado";
+      if (status) status.textContent = "O sistema recusou o bloqueio do ecrã. Tenta novamente.";
+    }
+  }
+  $("toggleKeepScreen")?.addEventListener("click", () => setKeepScreenAwake(!keepScreenRequested));
+  if (keepScreenRequested) setKeepScreenAwake(true);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && keepScreenRequested && !screenWakeLock) setKeepScreenAwake(true); });
+
+  let winSoundEnabled = localStorage.getItem("mendtrade_win_sound") === "1";
+  let winAudioContext = null;
+  function playWinAlert() {
+    if (!winSoundEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      winAudioContext = winAudioContext || new AudioCtx();
+      if (winAudioContext.state === "suspended") winAudioContext.resume();
+      const now = winAudioContext.currentTime;
+      [784, 988, 1175].forEach((frequency, index) => {
+        const osc = winAudioContext.createOscillator(), gain = winAudioContext.createGain();
+        const start = now + index * 0.13;
+        osc.type = "sine"; osc.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.18, start + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+        osc.connect(gain); gain.connect(winAudioContext.destination);
+        osc.start(start); osc.stop(start + 0.23);
+      });
+    } catch (e) {}
+  }
+  function updateWinSoundButton() {
+    const btn = $("toggleWinSound"), status = $("winSoundStatus");
+    if (btn) btn.textContent = winSoundEnabled ? "🔕 Som de lucro: ativado" : "🔔 Som de lucro: desligado";
+    if (status) status.textContent = winSoundEnabled ? "Alerta sonoro ativo para operações lucrativas." : "Sem alerta sonoro para lucros.";
+  }
+  $("toggleWinSound")?.addEventListener("click", async () => {
+    winSoundEnabled = !winSoundEnabled;
+    localStorage.setItem("mendtrade_win_sound", winSoundEnabled ? "1" : "0");
+    if (winSoundEnabled) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) { winAudioContext = winAudioContext || new AudioCtx(); try { await winAudioContext.resume(); } catch (e) {} playWinAlert(); }
+    }
+    updateWinSoundButton();
+  });
+  updateWinSoundButton();
 
   function updateProgressionPreview(){
     const base=Math.max(0,Number($('entryAmount')?.value)||1);

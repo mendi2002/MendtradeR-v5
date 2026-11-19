@@ -1956,6 +1956,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       return true;
     };
     const wait=(msg,forceClear=false)=>{
+      derivSignalCandidate='neutral';derivSignalConfirmations=0;
       if(!forceClear&&showActive(msg))return;
       if(forceClear)derivActiveSignal=null;
       tag.textContent='● A aguardar';tag.className='signal-tag neutral';

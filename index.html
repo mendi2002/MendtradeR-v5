@@ -279,12 +279,25 @@
                 <div class="signal-direction">— <span class="muted">Nenhum sinal confirmado</span></div>
                 <p class="small muted">Quando o motor receber dados reais e validar uma oportunidade, o sinal mostrará COMPRA ou VENDA, ativo, confiança e validade. Tu decides se executas.</p>
               </div>
-              <div class="field"><label>Ativo</label><select id="manualAsset"><option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option><option>Volatility 100 Index</option></select></div>
-              <div class="field"><label>Valor da operação (USD)</label><input id="manualAmount" type="number" min="0.35" step="0.01" value="1"></div>
-              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option>1 minuto</option><option>5 minutos</option><option>15 minutos</option></select></div>
-              <div class="row manual-actions"><button class="buy-btn" disabled title="Disponível após integração segura">↑ COMPRA</button><button class="sell-btn" disabled title="Disponível após integração segura">↓ VENDA</button></div>
-              <div class="notice warning small">Modo demonstração: os botões de compra e venda estão bloqueados. Nenhuma ordem será enviada. A execução manual será ativada apenas após integração e confirmação de segurança.</div>
-              <h3>Histórico manual</h3><div class="mini-list"><div class="mini-row"><span class="muted">Ainda sem operações manuais</span><span class="pill">DEMO</span></div></div>
+              <div class="card" style="margin:12px 0;border:1px solid #315c45;background:#07110b">
+                <div class="row" style="justify-content:space-between"><b>🔐 Ligação segura à Deriv · DEMO</b><span id="derivTradeStatus" class="signal-tag neutral">● Não ligada</span></div>
+                <p class="small muted">Usa um token pessoal Deriv com permissão <b>trade</b>. O token é enviado apenas para gerar uma sessão temporária; não é guardado no navegador nem na base de dados. Esta versão aceita apenas conta DEMO.</p>
+                <div class="field"><label for="derivTradeToken">Token pessoal Deriv (PAT)</label><input id="derivTradeToken" type="password" autocomplete="off" placeholder="Cola aqui o token com permissão trade"></div>
+                <div class="formgrid">
+                  <div class="field"><label for="derivTradeAccount">ID da conta DEMO (VRTC...)</label><input id="derivTradeAccount" type="text" autocomplete="off" placeholder="Ex.: VRTC1234567"></div>
+                  <div class="field"><label for="derivTradeAppId">App ID Deriv</label><input id="derivTradeAppId" type="text" value="34TEm2Gavyti0dcVDw73V" autocomplete="off"></div>
+                </div>
+                <div class="row"><button id="derivTradeConnect">Ligar conta DEMO</button><button id="derivTradeDisconnect" class="secondary" disabled>Desligar</button></div>
+                <p id="derivTradeMessage" class="small muted" aria-live="polite">A conta ainda não está autenticada para negociar.</p>
+                <div class="row"><span class="small muted">Saldo Deriv DEMO:</span><b id="derivTradeBalance">—</b><span class="small muted right" id="derivTradeCurrency">—</span></div>
+              </div>
+              <div class="field"><label>Ativo</label><select id="manualAsset"><option value="frxEURUSD">EUR/USD</option><option value="frxGBPUSD">GBP/USD</option><option value="frxUSDJPY">USD/JPY</option><option value="R_100">Volatility 100 Index</option></select></div>
+              <div class="field"><label>Valor da operação (USD)</label><input id="manualAmount" type="number" min="0.35" max="100" step="0.01" value="1"></div>
+              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="1">1 minuto</option><option value="5">5 minutos</option><option value="15">15 minutos</option></select></div>
+              <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" disabled>↓ VENDA</button></div>
+              <div class="notice warning small">A entrada é manual. A posição acompanha a Deriv e fecha automaticamente no vencimento escolhido. Confirma sempre que a conta indicada é DEMO antes de operar.</div>
+              <p id="manualTradeMessage" class="small muted" aria-live="polite">Liga primeiro a conta DEMO para ativar as entradas.</p>
+              <h3>Histórico manual</h3><div id="manualTradeHistory" class="mini-list"><div class="mini-row"><span class="muted">Ainda sem operações manuais nesta sessão</span><span class="pill">DEMO</span></div></div>
             </div>
           </div>
           <div class="card" style="margin-top:14px">
@@ -502,7 +515,676 @@
   $('walletCountry').addEventListener('change', e => updateCountry(e.target.value));
 
   function message(id, text, kind='') { const el=$(id); el.textContent=text; el.className='small '+(kind || 'muted'); }
-  function money(n) { return '$'+(Number(n)||0).toFixed(2); }
+  function money(n) { return '  function showApp(user) {
+    currentUser=user; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
+    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); checkOwnerAccess();
+  }
+  async function checkOwnerAccess(){
+    const nav=$('ownerNavBtn');
+    nav.classList.add('hidden');
+    $('owner').classList.remove('active');
+    const {data,error}=await client.rpc('is_platform_owner');
+    if(error){console.warn('Não foi possível validar o acesso do proprietário:',error.message);return;}
+    if(data===true) nav.classList.remove('hidden');
+  }
+  let ownerProfileCache = [];
+  function renderOwnerUsers(filter=''){
+    const q=filter.trim().toLocaleLowerCase();
+    const rows=ownerProfileCache.filter(u=>[u.full_name,u.email,u.id].some(v=>String(v||'').toLocaleLowerCase().includes(q)));
+    $('ownerUsersRows').innerHTML=rows.length?rows.map(u=>{
+      const status=u.suspended?'<span class="pill" style="color:#ff9b9b;border-color:#8b4545">Suspenso</span>':'<span class="pill" style="color:#9be8b2;border-color:#39734b">Ativo</span>';
+      const action=u.id===currentUser?.id?'<span class="small muted">Protegido</span>':u.suspended
+        ?'<button class="secondary owner-user-action" data-action="reactivate" data-user-id="'+escapeHtml(u.id)+'">Reativar</button>'
+        :'<button class="secondary owner-user-action" data-action="suspend" data-user-id="'+escapeHtml(u.id)+'" style="border-color:#8b4545;color:#ffb0b0">Suspender</button>';
+      return '<tr><td>'+escapeHtml(u.full_name||'—')+'</td><td>'+escapeHtml(u.email||'—')+'</td><td><span class="small">'+escapeHtml(u.id)+'</span></td><td>'+status+'</td><td>'+(u.created_at?new Date(u.created_at).toLocaleDateString('pt-PT'):'—')+'</td><td>'+action+'</td></tr>';
+    }).join(''):'<tr><td colspan="6" class="muted">Nenhum utilizador corresponde à pesquisa.</td></tr>';
+  }
+  $('ownerUserSearch')?.addEventListener('input',e=>renderOwnerUsers(e.target.value));
+  $('ownerUsersRows')?.addEventListener('click',async e=>{
+    const button=e.target.closest('.owner-user-action');
+    if(!button)return;
+    const action=button.dataset.action, userId=button.dataset.userId;
+    const target=ownerProfileCache.find(u=>u.id===userId);
+    if(!target)return;
+    const verb=action==='suspend'?'suspender':'reativar';
+    if(!confirm('Confirmas que pretendes '+verb+' a conta '+(target.email||userId)+'?'))return;
+    button.disabled=true;
+    const {data,error}=await client.functions.invoke('owner-user-management',{body:{action,user_id:userId}});
+    if(error||!data?.ok){
+      alert(data?.error||error?.message||'Não foi possível concluir a ação.');
+      button.disabled=false;
+      return;
+    }
+    alert(data.message||'Estado da conta atualizado.');
+    await loadOwnerDashboard();
+  });
+
+  async function loadOwnerDashboard(){
+    if(!currentUser)return;
+    const msg=$('ownerPanelMsg');
+    msg.textContent='A atualizar os dados administrativos…';
+    $('ownerUsersRows').innerHTML='<tr><td colspan="6" class="muted">A carregar…</td></tr>';
+    $('ownerTradesRows').innerHTML='<tr><td colspan="6" class="muted">A carregar…</td></tr>';
+    const [accounts, trades, bots]=await Promise.all([
+      client.functions.invoke('owner-user-management',{body:{action:'list'}}),
+      client.from('trade_history').select('user_id,created_at,asset,trade_type,result,commission,status').order('created_at',{ascending:false}).limit(100),
+      client.from('bot_settings').select('id',{count:'exact',head:true})
+    ]);
+    if(accounts.error||accounts.data?.error||trades.error||bots.error){
+      msg.textContent='Não foi possível carregar todos os dados. '+(accounts.data?.error||accounts.error?.message||trades.error?.message||bots.error?.message||'Erro desconhecido.');
+      return;
+    }
+    const profileRows=accounts.data?.users||[], tradeRows=trades.data||[];
+    ownerProfileCache=profileRows;
+    const auditRows=accounts.data?.audit_logs||[];
+    $('ownerAuditRows').innerHTML=auditRows.length?auditRows.map(a=>{
+      const label=a.action==='suspend'?'Suspensão':'Reativação';
+      const color=a.action==='suspend'?'#ffb0b0':'#9be8b2';
+      return '<tr><td>'+new Date(a.created_at).toLocaleString('pt-PT')+'</td><td><b style="color:'+color+'">'+label+'</b></td><td>'+escapeHtml(a.target_email||a.target_user_id||'—')+'</td><td>'+escapeHtml(a.actor_email||'Proprietário')+'</td></tr>';
+    }).join(''):'<tr><td colspan="4" class="muted">Ainda não existem ações administrativas registadas.</td></tr>';
+    $('ownerUsersCount').textContent=String(profileRows.length);
+    $('ownerTradesCount').textContent=String(tradeRows.length);
+    const totalCommission=tradeRows.reduce((sum,r)=>sum+Math.max(0,Number(r.commission)||0),0);
+    $('ownerCommissionTotal').textContent=money(totalCommission);
+    $('ownerBotsCount').textContent=String(bots.count??'—');
+    renderOwnerUsers($('ownerUserSearch')?.value||'');
+    if(!profileRows.length) $('ownerUsersRows').innerHTML='<tr><td colspan="6" class="muted">Ainda não existem contas registadas.</td></tr>';
+    $('ownerTradesRows').innerHTML=tradeRows.length?tradeRows.slice(0,30).map(r=>'<tr><td>'+new Date(r.created_at).toLocaleString('pt-PT')+'</td><td><span class="small">'+escapeHtml(r.user_id||'—')+'</span></td><td>'+escapeHtml(r.asset||'—')+'</td><td>'+money(r.result)+'</td><td>'+money(r.commission)+'</td><td>'+escapeHtml(r.status||'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Ainda não existem operações registadas.</td></tr>';
+    msg.textContent='Dados atualizados. A comissão total é a soma dos valores gravados nos últimos 100 registos consultados; não é prova de cobrança ou recebimento.';
+  }
+  $('ownerRefreshBtn')?.addEventListener('click',loadOwnerDashboard);
+  function showAuth() { $('appView').classList.add('hidden'); $('authView').classList.remove('hidden'); $('logoutBtn').classList.add('hidden'); $('menuToggle').classList.add('hidden'); openMenu(false); currentUser=null; }
+
+  $('loginBtn').addEventListener('click', async () => {
+    const email=$('email').value.trim(), password=$('password').value;
+    if(!email || !password) return message('authMsg','Preenche o e-mail e a palavra-passe.','error');
+    $('loginBtn').disabled=true; message('authMsg','A entrar...');
+    const {data,error}=await client.auth.signInWithPassword({email,password}); $('loginBtn').disabled=false;
+    if(error) return message('authMsg',error.message,'error'); showApp(data.user);
+  });
+  $('signupBtn').addEventListener('click', async () => {
+    const email=$('email').value.trim(), password=$('password').value;
+    if(!email || password.length<6) return message('authMsg','Introduz um e-mail válido e uma palavra-passe com pelo menos 6 caracteres.','error');
+    $('signupBtn').disabled=true; message('authMsg','A criar conta...');
+    const selected=countryInfo(currentCountry); const {data,error}=await client.auth.signUp({email,password,options:{data:{country:selected.code,currency:selected.currency}}}); $('signupBtn').disabled=false;
+    if(error) return message('authMsg',error.message,'error');
+    if(data.session) showApp(data.user); else message('authMsg','Conta criada. Verifica o teu e-mail para confirmar o registo.','success');
+  });
+  $('logoutBtn').addEventListener('click', async()=>{await client.auth.signOut();showAuth();});
+
+  const mainNav = $('mainNav');
+  const navBackdrop = $('navBackdrop');
+  const menuToggle = $('menuToggle');
+  function openMenu(open=true){
+    mainNav.classList.toggle('open',open);
+    navBackdrop.classList.toggle('open',open);
+    menuToggle.setAttribute('aria-expanded',String(open));
+  }
+  menuToggle.addEventListener('click',()=>openMenu(!mainNav.classList.contains('open')));
+  // Gesto móvel: deslizar da margem esquerda para a direita abre o menu.
+  // Não interfere com carrosséis, controlos de formulário ou movimentos verticais.
+  let menuSwipeStart=null;
+  document.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1)return;
+    const target=e.target;
+    if(target.closest('input,select,textarea,button,a,[contenteditable="true"],.ops-carousel-track,.ops-carousel-tabs'))return;
+    const t=e.touches[0];
+    menuSwipeStart={x:t.clientX,y:t.clientY,wasOpen:mainNav.classList.contains('open')};
+  },{passive:true});
+  document.addEventListener('touchend',e=>{
+    if(!menuSwipeStart||e.changedTouches.length!==1){menuSwipeStart=null;return;}
+    const t=e.changedTouches[0],dx=t.clientX-menuSwipeStart.x,dy=t.clientY-menuSwipeStart.y;
+    const start=menuSwipeStart;menuSwipeStart=null;
+    if(Math.abs(dy)>65||Math.abs(dx)<75)return;
+    if(!start.wasOpen&&start.x<=55&&dx>=75&&currentUser)openMenu(true);
+    else if(start.wasOpen&&dx<=-75)openMenu(false);
+  },{passive:true});
+  $('menuClose').addEventListener('click',()=>openMenu(false));
+  navBackdrop.addEventListener('click',()=>openMenu(false));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')openMenu(false);});
+
+  document.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b===btn));
+    document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id===btn.dataset.page));
+    openMenu(false);
+    if(btn.dataset.page==='history') loadHistory();
+    if(btn.dataset.page==='owner') loadOwnerDashboard();
+  }));
+
+  async function loadBotSettings(){
+    if(!currentUser)return;
+    const {data,error}=await client.from('bot_settings').select('*').eq('user_id',currentUser.id).order('updated_at',{ascending:false}).limit(1).maybeSingle();
+    if(error){message('botMsg','Não foi possível ler as configurações: '+error.message,'error');return;}
+    if(!data)return;
+    $('asset').value=data.asset||'Volatility 100 Index'; $('strategy').value=data.strategy||'manual';
+    $('entryAmount').value=data.entry_amount??1; $('minStake').value=data.min_stake??0.35; $('maxStake').value=data.max_stake??5;
+    $('targetAmount').value=data.target_amount??10; $('lossLimit').value=data.loss_limit??5; $('maxTrades').value=data.max_trades??10;
+    $('botStatus').textContent=data.bot_enabled?'Configurado':'Desligado';
+  }
+  $('saveBotBtn').addEventListener('click',async()=>{
+    if(!currentUser)return;
+    const entry=Number($('entryAmount').value), min=Number($('minStake').value), max=Number($('maxStake').value), target=Number($('targetAmount').value), loss=Number($('lossLimit').value), trades=Number($('maxTrades').value);
+    if(![entry,min,max,target,loss,trades].every(Number.isFinite)||entry<=0||min<=0||max<min||entry<min||entry>max||target<0||loss<0||!Number.isInteger(trades)||trades<1||trades>100){return message('botMsg','Verifica os valores. A entrada deve ficar entre o mínimo e o máximo.','error');}
+    const payload={user_id:currentUser.id,asset:$('asset').value.trim()||'Volatility 100 Index',strategy:$('strategy').value,entry_amount:entry,min_stake:min,max_stake:max,target_amount:target,profit_target:target,loss_limit:loss,stop_loss:loss,max_trades:trades,bot_enabled:false,updated_at:new Date().toISOString()};
+    $('saveBotBtn').disabled=true; message('botMsg','A guardar...');
+    // Usa update se já existir uma linha; caso contrário, cria uma. A política RLS deve permitir apenas o próprio user_id.
+    const {data:existing}=await client.from('bot_settings').select('id').eq('user_id',currentUser.id).limit(1).maybeSingle();
+    let result;
+    if(existing) result=await client.from('bot_settings').update(payload).eq('id',existing.id).select().single();
+    else result=await client.from('bot_settings').insert(payload).select().single();
+    $('saveBotBtn').disabled=false;
+    if(result.error)return message('botMsg','Não foi possível guardar. Verifica a política RLS da tabela bot_settings: '+result.error.message,'error');
+    $('botStatus').textContent='Desligado'; message('botMsg','Configurações guardadas. O bot continua desligado até a integração Deriv ser implementada.','success');
+  });
+
+
+  // Laboratório offline: EMA, RSI, MACD simplificado, ATR e backtest candle-a-candle.
+  const csvBox = $('candleCsv');
+  $('loadExampleBtn').addEventListener('click',()=>{
+    // Série sintética apenas para demonstrar a interface; não representa um ativo real.
+    let rows=['timestamp,open,high,low,close'], price=100;
+    for(let i=0;i<260;i++){
+      const drift=Math.sin(i/13)*0.18 + (i%70<38?0.07:-0.055);
+      const open=price, close=Math.max(1,open+drift+(Math.sin(i*2.1)*0.32));
+      const high=Math.max(open,close)+0.12+Math.abs(Math.sin(i))*0.18;
+      const low=Math.min(open,close)-0.12-Math.abs(Math.cos(i))*0.18;
+      rows.push(`2026-01-${String(1+Math.floor(i/48)).padStart(2,'0')} ${String(Math.floor((i%48)*5/60)).padStart(2,'0')}:${String((i%12)*5).padStart(2,'0')},${open.toFixed(4)},${high.toFixed(4)},${low.toFixed(4)},${close.toFixed(4)}`);
+      price=close;
+    }
+    csvBox.value=rows.join('\n');
+    $('backtestStatus').textContent='Exemplo sintético carregado — não é cotação real.';
+  });
+  function parseCandles(text){
+    const lines=text.trim().split(/\r?\n/).filter(Boolean);
+    if(lines.length<3) throw Error('Insere o cabeçalho e pelo menos 2 linhas de candles.');
+    const start=/open/i.test(lines[0])?1:0, out=[];
+    for(let i=start;i<lines.length;i++){
+      const p=lines[i].split(/[;,]/).map(x=>x.trim());
+      if(p.length<5) continue;
+      const vals=p.slice(-4).map(Number);
+      if(vals.some(v=>!Number.isFinite(v))||vals[0]<=0||vals[1]<Math.max(vals[0],vals[3])||vals[2]>Math.min(vals[0],vals[3])) {
+        // A validação abaixo é permissiva quanto à ordem OHLC, mas rejeita números impossíveis.
+        const [o,h,l,c]=vals;
+        if(![o,h,l,c].every(Number.isFinite)||h<Math.max(o,c)||l>Math.min(o,c)||l<=0) continue;
+      }
+      const [open,high,low,close]=vals;
+      if(high<Math.max(open,close)||low>Math.min(open,close)||low<=0) continue;
+      out.push({time:p.slice(0,p.length-4).join(' '),open,high,low,close});
+    }
+    if(out.length<60) throw Error('Dados válidos insuficientes. Fornece pelo menos 60 candles (ideal: 200 ou mais).');
+    return out;
+  }
+  function ema(values,period){
+    const k=2/(period+1), a=Array(values.length).fill(null);
+    let seed=values.slice(0,period).reduce((x,y)=>x+y,0)/period;
+    a[period-1]=seed;
+    for(let i=period;i<values.length;i++) a[i]=values[i]*k+a[i-1]*(1-k);
+    return a;
+  }
+  function rsi(values,period=14){
+    const out=Array(values.length).fill(null); let gains=0,losses=0;
+    for(let i=1;i<=period;i++){const d=values[i]-values[i-1];gains+=Math.max(d,0);losses+=Math.max(-d,0);}
+    let ag=gains/period, al=losses/period;
+    out[period]=al===0?100:100-100/(1+ag/al);
+    for(let i=period+1;i<values.length;i++){
+      const d=values[i]-values[i-1];ag=(ag*(period-1)+Math.max(d,0))/period;al=(al*(period-1)+Math.max(-d,0))/period;
+      out[i]=al===0?100:100-100/(1+ag/al);
+    } return out;
+  }
+  function runStrategy(c,style,risk){
+    const close=c.map(x=>x.close), fast=ema(close,9), slow=ema(close,21), long=ema(close,50), mom=rsi(close,14), macdLine=ema(close,12).map((v,i)=>v===null||ema(close,26)[i]===null?null:v-ema(close,26)[i]);
+    const minScore=risk==='conservative'?4:risk==='aggressive'?2:3;
+    let equity=0,peak=0,maxDD=0,wins=0,losses=0,signals=0, skipped=0, sumWin=0,sumLoss=0;
+    const trades=[];
+    for(let i=55;i<c.length-1;i++){
+      const bull=fast[i]>slow[i]&&slow[i]>long[i], bear=fast[i]<slow[i]&&slow[i]<long[i];
+      const r=mom[i], m=macdLine[i], prev=macdLine[i-1];
+      if(r===null||m===null||prev===null) continue;
+      let side=null,score=0;
+      if(style==='trend'){
+        if(bull){side='COMPRA';score=2+(r>50&&r<72?1:0)+(m>0?1:0);}
+        if(bear){side='VENDA';score=2+(r<50&&r>28?1:0)+(m<0?1:0);}
+      } else if(style==='reversal'){
+        if(r<30&&m>prev){side='COMPRA';score=2+(close[i]>close[i-1]?1:0)+(m>0?1:0);}
+        if(r>70&&m<prev){side='VENDA';score=2+(close[i]<close[i-1]?1:0)+(m<0?1:0);}
+      } else {
+        if(bull&&r>50&&r<70&&m>prev){side='COMPRA';score=2+(m>0?1:0)+(close[i]>fast[i]?1:0);}
+        if(bear&&r<50&&r>30&&m<prev){side='VENDA';score=2+(m<0?1:0)+(close[i]<fast[i]?1:0);}
+      }
+      if(!side||score<minScore){skipped++;continue;}
+      const entry=c[i+1].open, exit=c[i+1].close;
+      const result=side==='COMPRA'?exit-entry:entry-exit;
+      equity+=result;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);
+      signals++;
+      if(result>0){wins++;sumWin+=result;}else{losses++;sumLoss+=Math.abs(result);}
+      trades.push({time:c[i+1].time,side,result,score});
+    }
+    return {signals,wins,losses,skipped,equity,maxDD,winRate:signals?wins/signals*100:0,profitFactor:sumLoss?sumWin/sumLoss:(sumWin?Infinity:0),trades};
+  }
+  $('runBacktestBtn').addEventListener('click',()=>{
+    try{
+      $('runBacktestBtn').disabled=true;$('backtestStatus').textContent='A calcular…';
+      const candles=parseCandles(csvBox.value), result=runStrategy(candles,$('strategyStyle').value,$('strategyRisk').value);
+      $('btWinRate').textContent=result.signals?result.winRate.toFixed(1)+'%':'—';
+      $('btNet').textContent=result.equity.toFixed(4);
+      $('btDrawdown').textContent=result.maxDD.toFixed(4);
+      $('btDetails').textContent=`${candles.length} candles analisados · ${result.signals} sinais testados · ${result.wins} positivos · ${result.losses} negativos · ${result.skipped} candles sem entrada. O resultado usa a variação do candle seguinte, sem spreads, comissões, slippage ou latência; por isso é apenas uma primeira triagem e pode sobrestimar o desempenho.`;
+      const pf=Number.isFinite(result.profitFactor)?result.profitFactor.toFixed(2):'∞';
+      $('btMetrics').innerHTML=[
+        ['Total de candles',candles.length],['Operações simuladas',result.signals],['Operações vencedoras',result.wins],['Operações perdedoras',result.losses],['Profit factor bruto',pf],['Perfil de risco',$('strategyRisk').selectedOptions[0].text],['Estratégia',$('strategyStyle').selectedOptions[0].text]
+      ].map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+      $('backtestStatus').textContent='Teste concluído.';
+    }catch(e){$('backtestStatus').textContent='';$('btDetails').textContent=e.message;}
+    finally{$('runBacktestBtn').disabled=false;}
+  });
+
+  async function loadHistory(){
+    if(!currentUser)return; $('historyRows').innerHTML='<tr><td colspan="6" class="muted">A carregar...</td></tr>';
+    const {data,error}=await client.from('trade_history').select('created_at,asset,trade_type,result,commission,status').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50);
+    if(error){$('historyRows').innerHTML='<tr><td colspan="6">Não foi possível carregar o histórico.</td></tr>';return message('historyMsg','Verifica a política RLS: '+error.message,'error');}
+    if(!data?.length){$('historyRows').innerHTML='<tr><td colspan="6" class="muted">Ainda não existem operações registadas.</td></tr>';return message('historyMsg','As operações aparecerão aqui depois da integração.');}
+    $('historyRows').innerHTML=data.map(r=>`<tr><td>${new Date(r.created_at).toLocaleString('pt-PT')}</td><td>${escapeHtml(r.asset||'—')}</td><td>${escapeHtml(r.trade_type||'—')}</td><td>${money(r.result)}</td><td>${money(r.commission)}</td><td>${escapeHtml(r.status||'—')}</td></tr>`).join('');
+    message('historyMsg','A mostrar até 50 operações.');
+  }
+  function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  $('refreshHistory').addEventListener('click',loadHistory);
+
+  // Janelas de gráfico separadas: abre uma janela do navegador a partir do clique do utilizador.
+  let chartWindowCount=0;
+  function openChartWindow(symbol){
+    const asset=symbol||$('manualAsset')?.value||$('asset')?.value||'EUR/USD';
+    const win=window.open('',`mendtrade_chart_${++chartWindowCount}`,'width=1050,height=700,resizable=yes,scrollbars=yes');
+    if(!win){message('botMsg','O navegador bloqueou a janela. Permite pop-ups para este ficheiro e tenta novamente.','error');return;}
+    const safe=escapeHtml(asset);
+    win.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MendtradeR · ${safe}</title><style>body{margin:0;background:#050806;color:#effff5;font:16px system-ui;padding:22px}header,.panel{background:#0d1711;border:1px solid #245438;border-radius:14px;padding:16px;margin-bottom:14px}.green{color:#00df75}svg{width:100%;height:420px;background:#070c09;border-radius:10px}.muted{color:#9eb0a4}</style></head><body><header><h2 class="green">MendtradeR · Janela de gráfico</h2><b>${safe}</b> <span class="muted">· MODO DEMO</span></header><div class="panel"><b>Gráfico independente</b><p class="muted">Área preparada para gráfico e dados de mercado. O desenho abaixo é ilustrativo e não representa cotações ao vivo.</p><svg viewBox="0 0 900 400" preserveAspectRatio="none"><path d="M0 80H900M0 160H900M0 240H900M0 320H900" stroke="#23382c"/><path d="M10 300 L70 250 L130 270 L190 190 L250 220 L310 145 L370 175 L430 110 L490 155 L550 90 L610 125 L670 70 L730 120 L790 60 L890 85" fill="none" stroke="#00d978" stroke-width="4"/></svg><p class="muted">Quando a integração de cotações for concluída, esta janela poderá apresentar candles, indicadores e períodos selecionáveis.</p></div></body></html>`);
+    win.document.close();
+  }
+  $('openChartWindow')?.addEventListener('click',()=>openChartWindow());
+  document.querySelectorAll('.chart-shortcut').forEach(b=>b.addEventListener('click',()=>openChartWindow(b.dataset.symbol)));
+
+  // Centro de suporte: respostas locais de orientação e preparação de pedido ao proprietário.
+  $('sendAiQuestion')?.addEventListener('click',()=>{
+    const input=$('aiQuestion'), q=input.value.trim(); if(!q)return;
+    const box=$('aiChat'); const user=document.createElement('div');user.className='chat-msg user';user.textContent=q;box.appendChild(user);
+    const t=q.toLowerCase();let answer='Posso orientar sobre as áreas do MendtradeR. Para questões específicas da conta, usa também “Falar com o proprietário”.';
+    if(/bot|estrat|entrada|risco/.test(t)) answer='Na área Operações do Bot podes escolher o ativo, estratégia, valor por entrada, limites de perda e meta. Nesta prévia o bot permanece desligado e não envia ordens.';
+    else if(/manual|compra|venda|sinal/.test(t)) answer='Na janela Operações Manuais podes acompanhar sinais quando houver uma fonte de mercado validada. A decisão de executar manualmente continua contigo; nesta prévia os botões estão bloqueados.';
+    else if(/deriv|ligar|conectar/.test(t)) answer='A ligação à Deriv ainda precisa de OAuth seguro, callback HTTPS e validação em DEMO. Nunca coloques tokens privados no navegador ou os partilhes no chat.';
+    else if(/idioma|língua|language/.test(t)) answer='Usa o seletor de idioma no topo para alternar entre Português, English e Español.';
+    const bot=document.createElement('div');bot.className='chat-msg';bot.textContent=answer;box.appendChild(bot);box.scrollTop=box.scrollHeight;input.value='';
+  });
+  $('aiQuestion')?.addEventListener('keydown',e=>{if(e.key==='Enter')$('sendAiQuestion').click();});
+  $('sendOwnerMessage')?.addEventListener('click',()=>{
+    const msg=$('ownerMessage').value.trim(); if(!msg){$('ownerSupportMsg').textContent='Escreve a mensagem antes de continuar.';return;}
+    localStorage.setItem('mendtrade_owner_support_draft',JSON.stringify({topic:$('ownerTopic').value,message:msg,createdAt:new Date().toISOString(),user:currentUser?.email||'visitante'}));
+    $('ownerSupportMsg').textContent='Mensagem preparada neste dispositivo. O envio ao proprietário só ficará disponível após configurar o serviço de suporte no backend.';
+  });
+
+  // Seletor de idioma para navegação e elementos principais do painel.
+  const translations={
+    pt:{nav:['Área de operações','Visão geral','Histórico','Instruções e técnicas','Depósitos','Levantamentos','Suporte IA / Proprietário','Conta e definições'],support:'Centro de suporte',bot:'Operações do Bot',manual:'Operações Manuais'},
+    en:{nav:['Trading workspace','Overview','History','Guides & techniques','Deposits','Withdrawals','AI / Owner support','Account & settings'],support:'Support Center',bot:'Bot Operations',manual:'Manual Operations'},
+    es:{nav:['Área de operaciones','Resumen','Historial','Instrucciones y técnicas','Depósitos','Retiros','Soporte IA / Propietario','Cuenta y ajustes'],support:'Centro de soporte',bot:'Operaciones del Bot',manual:'Operaciones Manuales'}
+  };
+  $('languageSelect')?.addEventListener('change',e=>{
+    const lang=translations[e.target.value]||translations.pt;
+    document.querySelectorAll('#mainNav [data-page]').forEach((b,i)=>{const icon=b.textContent.trim().split(' ')[0];b.textContent=icon+' '+lang.nav[i];});
+    const sh=$('#support h1');if(sh)sh.textContent=lang.support;
+    const bh=document.querySelector('.bot-panel .panel-heading h2');if(bh)bh.textContent='🤖 '+lang.bot;
+    const mh=document.querySelector('.manual-panel .panel-heading h2');if(mh)mh.textContent='🎯 '+lang.manual;
+    document.documentElement.lang=e.target.value;
+  });
+
+
+
+  // Área de operações horizontal: BOT primeiro, restantes painéis por deslize.
+  function setupOperationsCarousel(){
+    const page=$('bot');
+    if(!page || page.querySelector('.ops-carousel')) return;
+    const botPanel=page.querySelector('.bot-panel');
+    const marketPanel=$('derivLivePanel');
+    const manualPanel=page.querySelector('.manual-panel');
+    const strategyLab=$('strategyLab');
+    const enginePanel=Array.from(page.children).find(el=>el.classList?.contains('card') && el.textContent.includes('Motor inteligente multimercado'));
+    if(!botPanel || !marketPanel || !manualPanel || !strategyLab) return;
+    const carousel=document.createElement('div');
+    carousel.className='ops-carousel';
+    carousel.innerHTML='<div class="ops-carousel-tabs" role="tablist" aria-label="Painéis de operações"></div><div class="ops-carousel-hint">Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.</div><div class="ops-carousel-track"></div>';
+    page.querySelector('.ops-hero').insertAdjacentElement('afterend',carousel);
+    const tabs=carousel.querySelector('.ops-carousel-tabs'),track=carousel.querySelector('.ops-carousel-track');
+    const panels=[['🤖 BOT',botPanel],['📡 MERCADO',marketPanel],['🎯 MANUAL',manualPanel],['🧠 MOTOR',enginePanel],['🧪 ESTRATÉGIA',strategyLab]].filter(([,el])=>!!el);
+    panels.forEach(([label,panel],index)=>{
+      const slide=document.createElement('div');slide.className='ops-slide';slide.appendChild(panel);track.appendChild(slide);
+      const tab=document.createElement('button');tab.type='button';tab.textContent=label;tab.setAttribute('role','tab');tab.setAttribute('aria-selected',index===0?'true':'false');if(index===0)tab.classList.add('active');
+      tab.addEventListener('click',()=>slide.scrollIntoView({behavior:'smooth',block:'nearest',inline:'start'}));tabs.appendChild(tab);
+    });
+    page.querySelector('.ops-layout.dual-ops')?.remove();
+    const dock=page.querySelector('.window-dock');if(dock)carousel.insertAdjacentElement('afterend',dock);
+    const updateActive=()=>{
+      const slides=[...track.querySelectorAll('.ops-slide')],mid=track.getBoundingClientRect().left+track.clientWidth*.35;
+      let active=0,best=Infinity;
+      slides.forEach((slide,i)=>{const d=Math.abs(slide.getBoundingClientRect().left-mid);if(d<best){best=d;active=i;}});
+      [...tabs.children].forEach((tab,i)=>{tab.classList.toggle('active',i===active);tab.setAttribute('aria-selected',i===active?'true':'false');});
+    };
+    track.addEventListener('scroll',()=>requestAnimationFrame(updateActive),{passive:true});window.addEventListener('resize',updateActive);updateActive();
+  }
+  setupOperationsCarousel();
+
+  // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
+  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;
+  const DERIV_CANDLES_KEY='mendtrader_deriv_candles_v1';
+  try{derivLiveCandles=JSON.parse(localStorage.getItem(DERIV_CANDLES_KEY)||'[]').slice(-300);}catch(e){derivLiveCandles=[];}
+  function setDerivFeedStatus(label,kind='neutral'){
+    const el=$('derivFeedStatus'); if(!el)return;
+    el.textContent=label; el.className='signal-tag '+kind;
+  }
+  function closeDerivFeed(){
+    derivFeedWanted=false;clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
+    if(derivFeedSocket){
+      try{if(derivFeedSubscription&&derivFeedSocket.readyState===WebSocket.OPEN)derivFeedSocket.send(JSON.stringify({forget:derivFeedSubscription}));}catch(e){}
+      try{derivFeedSocket.close();}catch(e){}
+    }
+    derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
+    $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
+  }
+  function addDerivCandleTick(tick){
+    const epoch=Number(tick.epoch);const price=Number(tick.quote);
+    if(!Number.isFinite(epoch)||!Number.isFinite(price))return;
+    const bucket=Math.floor(epoch/60)*60;
+    if(!derivCurrentCandle){
+      derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
+    }else if(bucket===derivCurrentCandle.epoch){
+      derivCurrentCandle.high=Math.max(derivCurrentCandle.high,price);
+      derivCurrentCandle.low=Math.min(derivCurrentCandle.low,price);
+      derivCurrentCandle.close=price;
+    }else if(bucket>derivCurrentCandle.epoch){
+      derivLiveCandles.push({...derivCurrentCandle,time:new Date(derivCurrentCandle.epoch*1000).toLocaleTimeString('pt-PT')});
+      derivLiveCandles=derivLiveCandles.slice(-300);
+      try{localStorage.setItem(DERIV_CANDLES_KEY,JSON.stringify(derivLiveCandles));}catch(e){}
+      derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
+      renderDerivCandles();
+      updateDerivCandleSignal();
+    }
+    $('derivCandleState').textContent='A recolher candle atual';
+  }
+  function renderDerivCandles(){
+    $('derivCandleCount').textContent=String(derivLiveCandles.length);
+    $('derivCandleRows').innerHTML=derivLiveCandles.slice(-8).reverse().map(c=>'<tr><td>'+escapeHtml(c.time)+'</td><td>'+c.open+'</td><td>'+c.high+'</td><td>'+c.low+'</td><td>'+c.close+'</td></tr>').join('')||'<tr><td colspan="5" class="muted">Ainda sem candles fechados.</td></tr>';
+    $('derivCandleTestResult').textContent=derivLiveCandles.length<60?'Faltam '+(60-derivLiveCandles.length)+' candles para o primeiro teste (aproximadamente '+(60-derivLiveCandles.length)+' minutos).':'Já existem dados suficientes para um primeiro teste histórico em demo.';
+  }
+  function updateDerivCandleSignal(){
+    const c=derivLiveCandles;if(c.length<55)return;
+    const close=c.map(x=>x.close);
+    const fast=ema(close,9),slow=ema(close,21),r=rsi(close,14),i=close.length-1;
+    const bull=fast[i]>slow[i]&&r[i]>=52&&r[i]<=68&&close[i]>close[i-1];
+    const bear=fast[i]<slow[i]&&r[i]>=32&&r[i]<=48&&close[i]<close[i-1];
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    if(bull||bear){
+      const side=bull?'COMPRA':'VENDA';tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');
+      dir.textContent=side;strength.textContent='3/3 condições';
+      reason.textContent='Análise dos candles fechados de 1 minuto: EMA 9/21 alinhadas, RSI '+r[i].toFixed(1)+' e fecho na direção do sinal. Experimental; aguardar confirmação.';
+    }else{
+      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
+      reason.textContent='Os candles fechados ainda não alinham EMA 9/21, RSI e direção. RSI atual: '+r[i].toFixed(1)+'.';
+    }
+  }
+  $('derivCandleBacktest').addEventListener('click',()=>{
+    const resultEl=$('derivCandleTestResult');
+    if(derivLiveCandles.length<60){resultEl.textContent='Ainda são necessários pelo menos 60 candles fechados. Mantém o mercado ligado.';return;}
+    try{
+      const style=$('strategyStyle')?.value||'trend',risk=$('strategyRisk')?.value||'balanced';
+      const result=runStrategy(derivLiveCandles,style,risk);
+      resultEl.textContent='TESTE DEMO · '+derivLiveCandles.length+' candles · '+result.signals+' operações simuladas · '+result.wins+' positivas · '+result.losses+' negativas · taxa positiva '+result.winRate.toFixed(1)+'% · resultado bruto '+result.equity.toFixed(5)+' pontos. Não inclui spread, custos, latência nem execução real.';
+    }catch(e){resultEl.textContent='Não foi possível executar o teste: '+e.message;}
+  });
+
+  // Aviso sonoro ao surgir um novo sinal técnico. Não indica lucro realizado.
+  let signalSoundEnabled=false, signalAudioContext=null, lastSoundSignal='neutral';
+  function playSignalAlert(){
+    if(!signalSoundEnabled)return;
+    try{
+      const AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx)return;
+      signalAudioContext=signalAudioContext||new AudioCtx();
+      if(signalAudioContext.state==='suspended')signalAudioContext.resume();
+      const now=signalAudioContext.currentTime;
+      [0,0.18].forEach((offset,index)=>{
+        const osc=signalAudioContext.createOscillator(),gain=signalAudioContext.createGain();
+        osc.type='sine';osc.frequency.value=index===0?880:1175;
+        gain.gain.setValueAtTime(0.0001,now+offset);
+        gain.gain.exponentialRampToValueAtTime(0.16,now+offset+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001,now+offset+0.13);
+        osc.connect(gain);gain.connect(signalAudioContext.destination);
+        osc.start(now+offset);osc.stop(now+offset+0.14);
+      });
+    }catch(e){}
+  }
+  $('toggleSignalSound')?.addEventListener('click',async()=>{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx){$('signalSoundStatus').textContent='Áudio não suportado neste navegador.';return;}
+    try{
+      signalAudioContext=signalAudioContext||new AudioCtx();
+      await signalAudioContext.resume();
+      signalSoundEnabled=!signalSoundEnabled;
+      $('toggleSignalSound').textContent=signalSoundEnabled?'🔕 Desativar aviso sonoro':'🔔 Ativar aviso sonoro';
+      $('signalSoundStatus').textContent=signalSoundEnabled?'Som ativo · alerta em novo sinal':'Som desligado';
+      if(signalSoundEnabled)playSignalAlert();
+    }catch(e){$('signalSoundStatus').textContent='Não foi possível ativar o áudio.';}
+  });
+  function updateDerivLiveSignal(){
+    const prices=derivFeedTicks.slice().reverse().map(x=>x.quote);
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    if(!tag||!dir||!strength||!reason)return;
+    const wait=(msg)=>{tag.textContent='● A aguardar';tag.className='signal-tag neutral';dir.textContent='A AGUARDAR';strength.textContent='—';reason.textContent=msg;};
+    if(prices.length<30){wait('A recolher dados: '+prices.length+'/30 ticks. Aguarda alguns instantes com o mercado ligado.');return;}
+    const ema=(arr,p)=>{const k=2/(p+1);let v=arr.slice(0,p).reduce((a,b)=>a+b,0)/p;for(let i=p;i<arr.length;i++)v=arr[i]*k+v*(1-k);return v;};
+    const last=prices[prices.length-1], fast=ema(prices.slice(-30),9), slow=ema(prices.slice(-30),21);
+    let gains=0,losses=0;for(let i=prices.length-14;i<prices.length;i++){const d=prices[i]-prices[i-1];gains+=Math.max(d,0);losses+=Math.max(-d,0);}
+    const avgGain=gains/14,avgLoss=losses/14,rsi=avgLoss===0?100:100-100/(1+avgGain/avgLoss);
+    const rising=last>prices[prices.length-4],falling=last<prices[prices.length-4];
+    const bull=fast>slow&&rsi>=52&&rsi<=68&&rising;
+    const bear=fast<slow&&rsi>=32&&rsi<=48&&falling;
+    if(bull||bear){
+      const signalKey=bull?'COMPRA':'VENDA';
+      if(signalKey!==lastSoundSignal){playSignalAlert();lastSoundSignal=signalKey;}
+      const side=bull?'COMPRA':'VENDA',score=[bull?fast>slow:fast<slow,bull?rsi>=52&&rsi<=68:rsi>=32&&rsi<=48,bull?rising:falling].filter(Boolean).length;
+      tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');dir.textContent=side;strength.textContent=Math.round(score/3*100)+'%';
+      reason.textContent='Condições técnicas alinhadas nos últimos ticks. RSI: '+rsi.toFixed(1)+' · EMA 9/21: '+(bull?'cruzamento relativo favorável à subida':'cruzamento relativo favorável à descida')+'.';
+    }else{
+      lastSoundSignal='neutral';
+      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
+      reason.textContent='Sem alinhamento suficiente entre EMA 9/21, RSI e direção recente. RSI: '+rsi.toFixed(1)+'.';
+    }
+  }
+  function scheduleDerivReconnect(){
+    if(!derivFeedWanted||derivReconnectTimer)return;
+    const delay=Math.min(30000,1500*Math.pow(2,Math.min(derivReconnectAttempts,4)));
+    derivReconnectAttempts++;
+    derivReconnectTimer=setTimeout(()=>{derivReconnectTimer=null;if(derivFeedWanted&&document.visibilityState!=='hidden')connectDerivFeed(true);},delay);
+  }
+  function connectDerivFeed(isReconnect=false){
+    if(!isReconnect){derivFeedWanted=true;derivReconnectAttempts=0;}
+    if(!('WebSocket' in window)){ $('derivFeedMessage').textContent='Este navegador não suporta WebSocket.';return; }
+    if(derivFeedSocket&&derivFeedSocket.readyState===WebSocket.OPEN){if(isReconnect)return;closeDerivFeed();return;}
+    const symbol=$('derivFeedSymbol').value;
+    $('derivFeedConnect').disabled=true;$('derivFeedDisconnect').disabled=false;
+    $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
+    $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
+    setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
+    const ws=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+    derivFeedSocket=ws;derivFeedTicks=[];renderDerivCandles();$('derivCandleState').textContent='A iniciar/reiniciar recolha';
+    ws.onopen=()=>{
+      if(derivFeedSocket!==ws)return;
+      derivReconnectAttempts=0;setDerivFeedStatus('● Ligado','positive');$('derivFeedMessage').textContent='Ligado. A receber cotações públicas.';
+      ws.send(JSON.stringify({ticks:symbol,subscribe:1}));
+      ws.send(JSON.stringify({ping:1}));
+      clearInterval(derivFeedPingTimer);
+      derivFeedPingTimer=setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({ping:1}));},30000);
+    };
+    ws.onmessage=(event)=>{
+      if(derivFeedSocket!==ws)return;
+      let data;try{data=JSON.parse(event.data);}catch(e){return;}
+      if(data.error){$('derivFeedMessage').textContent='Deriv: '+(data.error.message||'erro na resposta');setDerivFeedStatus('● Erro','negative');return;}
+      if(data.msg_type==='tick'&&data.tick){
+        const t=data.tick, quote=Number(t.quote);
+        if(!Number.isFinite(quote))return;
+        const time=new Date((Number(t.epoch)||Date.now()/1000)*1000);
+        $('derivFeedPrice').textContent=quote.toLocaleString('pt-PT',{maximumFractionDigits:8});
+        $('derivFeedTime').textContent=time.toLocaleTimeString('pt-PT');
+        derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote});
+        derivFeedTicks=derivFeedTicks.slice(0,120);
+        $('derivFeedRows').innerHTML=derivFeedTicks.slice(0,12).map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
+        updateDerivLiveSignal();
+        addDerivCandleTick(t);
+        if(data.subscription?.id)derivFeedSubscription=data.subscription.id;
+      }
+    };
+    ws.onerror=()=>{
+      if(derivFeedSocket!==ws)return;
+      setDerivFeedStatus('● Falha','negative');$('derivFeedMessage').textContent='Falha de ligação. '+(derivFeedWanted?'A tentar novamente…':'Verifica a internet e tenta novamente.');
+      $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+      if(derivFeedWanted)scheduleDerivReconnect();
+    };
+    ws.onclose=()=>{
+      if(derivFeedSocket!==ws)return;
+      derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
+      if(derivFeedWanted){setDerivFeedStatus('● A reconectar','neutral');$('derivFeedMessage').textContent='Ligação interrompida. A tentar reconectar…';scheduleDerivReconnect();return;}
+      setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada (código '+event.code+(event.reason?': '+event.reason:'')+'). Tenta novamente.';
+      $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    };
+  }
+  $('derivFeedConnect')?.addEventListener('click',connectDerivFeed);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&derivFeedWanted&&(!derivFeedSocket||derivFeedSocket.readyState===WebSocket.CLOSED)){clearTimeout(derivReconnectTimer);derivReconnectTimer=null;connectDerivFeed(true);}});
+  window.addEventListener('pageshow',()=>{if(derivFeedWanted&&(!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN)){clearTimeout(derivReconnectTimer);derivReconnectTimer=null;connectDerivFeed(true);}});
+  $('derivFeedDisconnect')?.addEventListener('click',closeDerivFeed);
+  $('derivFeedSymbol')?.addEventListener('change',()=>{if(derivFeedSocket)connectDerivFeed();});
+  window.addEventListener('beforeunload',()=>{try{derivFeedSocket?.close();}catch(e){}});
+
+  $('derivTradeConnect')?.addEventListener('click',connectDerivTrade);
+  $('derivTradeDisconnect')?.addEventListener('click',closeDerivTradeSocket);
+  $('manualBuyBtn')?.addEventListener('click',()=>placeManualDerivTrade('COMPRA'));
+  $('manualSellBtn')?.addEventListener('click',()=>placeManualDerivTrade('VENDA'));
+  window.addEventListener('beforeunload',()=>{try{derivTradeSocket?.close();}catch{}});
+  $('depositBtn').addEventListener('click',()=>{});
+  client.auth.getSession().then(({data})=>{if(data.session?.user)showApp(data.session.user);});
+  client.auth.onAuthStateChange((_event,session)=>{if(session?.user&&!currentUser)showApp(session.user);else if(!session)showAuth();});
+})();
+</script>
+</body>
+</html>+(Number(n)||0).toFixed(2); }
+
+  // Integração autenticada Deriv: sessão temporária, apenas conta DEMO.
+  let derivTradeSocket=null, derivTradeConnected=false, derivTradeReqId=7000;
+  const derivTradePending=new Map(), derivTradeHistory=[];
+  let derivOpenContractId=null, derivOpenTradeMeta=null;
+  function setDerivTradeStatus(label,kind='neutral'){
+    const el=$('derivTradeStatus'); if(el){el.textContent=label;el.className='signal-tag '+kind;}
+  }
+  function derivTradeSend(payload){
+    if(!derivTradeSocket||derivTradeSocket.readyState!==WebSocket.OPEN)throw Error('A ligação à Deriv não está ativa.');
+    const req_id=++derivTradeReqId;
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{derivTradePending.delete(req_id);reject(Error('A Deriv demorou demasiado a responder.'));},12000);
+      derivTradePending.set(req_id,{resolve,reject,timer});
+      derivTradeSocket.send(JSON.stringify({...payload,req_id}));
+    });
+  }
+  function renderManualTradeHistory(){
+    const host=$('manualTradeHistory'); if(!host)return;
+    host.innerHTML=derivTradeHistory.length?derivTradeHistory.slice(0,12).map(t=>{
+      const color=t.result>0?'#73e6a6':t.result<0?'#ff929d':'#cbd8d0';
+      return '<div class="mini-row"><span>'+escapeHtml(t.time)+' · '+escapeHtml(t.side)+' · '+escapeHtml(t.asset)+' · '+money(t.stake)+'</span><b style="color:'+color+'">'+(t.result===null?'ABERTA':(t.result>0?'+':'')+money(t.result))+'</b></div>';
+    }).join(''):'<div class="mini-row"><span class="muted">Ainda sem operações manuais nesta sessão</span><span class="pill">DEMO</span></div>';
+  }
+  function closeDerivTradeSocket(){
+    derivTradeConnected=false;derivOpenContractId=null;derivOpenTradeMeta=null;
+    for(const [id,p] of derivTradePending){clearTimeout(p.timer);p.reject(Error('Ligação encerrada.'));}derivTradePending.clear();
+    try{derivTradeSocket?.close();}catch{}
+    derivTradeSocket=null;
+    $('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;
+    $('derivTradeConnect').disabled=false;$('derivTradeDisconnect').disabled=true;
+    $('derivTradeBalance').textContent='—';$('derivTradeCurrency').textContent='—';
+    setDerivTradeStatus('● Não ligada');$('derivTradeMessage').textContent='Conta desligada.';
+  }
+  async function connectDerivTrade(){
+    if(!currentUser)return message('derivTradeMessage','Entra primeiro na tua conta MendtradeR.','error');
+    const token=$('derivTradeToken').value.trim(), accountId=$('derivTradeAccount').value.trim(), appId=$('derivTradeAppId').value.trim();
+    if(!token||!accountId||!appId)return message('derivTradeMessage','Preenche o token, o ID da conta DEMO e o App ID.','error');
+    $('derivTradeConnect').disabled=true;$('derivTradeMessage').textContent='A validar a conta DEMO na Deriv…';
+    try{
+      const {data,error}=await client.functions.invoke('deriv-demo-otp',{body:{token,account_id:accountId,app_id:appId}});
+      $('derivTradeToken').value='';
+      if(error||!data?.url)throw Error(data?.error||error?.message||'Não foi possível obter a sessão DEMO.');
+      closeDerivTradeSocket();
+      $('derivTradeConnect').disabled=true;
+      setDerivTradeStatus('● A ligar','neutral');
+      const ws=new WebSocket(data.url);derivTradeSocket=ws;
+      ws.onopen=()=>{
+        if(derivTradeSocket!==ws)return;
+        derivTradeConnected=true;setDerivTradeStatus('● DEMO ligada','positive');
+        $('derivTradeMessage').textContent='Conta DEMO autenticada. A negociar apenas com saldo virtual.';
+        $('derivTradeDisconnect').disabled=false;
+        $('manualBuyBtn').disabled=false;$('manualSellBtn').disabled=false;
+        ws.send(JSON.stringify({balance:1,subscribe:1,req_id:++derivTradeReqId}));
+      };
+      ws.onmessage=event=>{
+        if(derivTradeSocket!==ws)return;
+        let data;try{data=JSON.parse(event.data)}catch{return}
+        if(data.req_id&&derivTradePending.has(data.req_id)){
+          const p=derivTradePending.get(data.req_id);derivTradePending.delete(data.req_id);clearTimeout(p.timer);
+          if(data.error)p.reject(Error(data.error.message||'Erro devolvido pela Deriv.'));else p.resolve(data);
+        }
+        if(data.msg_type==='balance'&&data.balance){
+          $('derivTradeBalance').textContent=Number(data.balance.balance).toFixed(2)+' '+(data.balance.currency||'USD');
+          $('derivTradeCurrency').textContent='Conta DEMO · '+(data.balance.loginid||accountId);
+        }
+        if(data.msg_type==='proposal_open_contract'&&data.proposal_open_contract){
+          const c=data.proposal_open_contract;
+          if(derivOpenContractId&&String(c.contract_id)===String(derivOpenContractId)){
+            if(c.is_sold||c.status==='sold'||c.is_expired){
+              const profit=Number(c.profit)||0,meta=derivOpenTradeMeta||{};
+              const record={time:new Date().toLocaleTimeString('pt-PT'),side:meta.side||'—',asset:meta.asset||'—',stake:meta.stake||0,result:profit};
+              derivTradeHistory.unshift(record);renderManualTradeHistory();
+              $('manualTradeMessage').textContent='Operação encerrada pela Deriv. Resultado: '+(profit>=0?'+':'')+money(profit)+'.';
+              if(currentUser)client.from('trade_history').insert({user_id:currentUser.id,asset:record.asset,direction:record.side,entry_amount:record.stake,stake:record.stake,result:profit,profit:profit,commission:0,status:'closed',trade_type:'manual'}).then(({error})=>{if(error)console.warn('Histórico remoto não gravado:',error.message);});
+              derivOpenContractId=null;derivOpenTradeMeta=null;
+              try{ws.send(JSON.stringify({forget: c.subscription?.id}));}catch{}
+            }
+          }
+        }
+      };
+      ws.onerror=()=>{if(derivTradeSocket===ws){setDerivTradeStatus('● Erro','negative');$('derivTradeMessage').textContent='Falha ao abrir a sessão autenticada. Confirma o token e a conta DEMO.';closeDerivTradeSocket();}};
+      ws.onclose=()=>{if(derivTradeSocket===ws){derivTradeSocket=null;derivTradeConnected=false;$('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;$('derivTradeConnect').disabled=false;$('derivTradeDisconnect').disabled=true;setDerivTradeStatus('● Desligada');$('derivTradeMessage').textContent='Sessão Deriv encerrada. Liga novamente para operar.';}};
+    }catch(err){
+      $('derivTradeConnect').disabled=false;$('derivTradeMessage').textContent=err.message||'Erro ao ligar à Deriv.';
+      setDerivTradeStatus('● Erro','negative');
+    }
+  }
+  async function placeManualDerivTrade(side){
+    if(!derivTradeConnected||!derivTradeSocket||derivTradeSocket.readyState!==WebSocket.OPEN)return message('manualTradeMessage','Liga primeiro a conta DEMO Deriv.','error');
+    if(derivOpenContractId)return message('manualTradeMessage','Já existe uma operação aberta. Aguarda o fecho automático antes de abrir outra.','error');
+    const stake=Number($('manualAmount').value),duration=Number($('manualExpiry').value),symbol=$('manualAsset').value;
+    if(!Number.isFinite(stake)||stake<0.35||stake>100)return message('manualTradeMessage','O valor deve estar entre 0,35 e 100 USD.','error');
+    if(![1,5,15].includes(duration))return message('manualTradeMessage','Tempo de expiração inválido.','error');
+    const button=side==='COMPRA'?'manualBuyBtn':'manualSellBtn';
+    $('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;
+    message('manualTradeMessage','A pedir cotação à Deriv…');
+    try{
+      const proposal=await derivTradeSend({proposal:1,amount:stake,basis:'stake',contract_type:side==='COMPRA'?'CALL':'PUT',currency:'USD',duration,duration_unit:'m',underlying_symbol:symbol});
+      const p=proposal.proposal;
+      if(!p?.id||!Number.isFinite(Number(p.ask_price)))throw Error('A Deriv não devolveu uma proposta válida para este ativo.');
+      message('manualTradeMessage','Cotação recebida. A confirmar entrada DEMO…');
+      const bought=await derivTradeSend({buy:p.id,price:Number(p.ask_price)});
+      const b=bought.buy;
+      if(!b?.contract_id)throw Error('A Deriv não confirmou a compra.');
+      derivOpenContractId=b.contract_id;derivOpenTradeMeta={side,asset:$('manualAsset').selectedOptions[0].textContent,stake};
+      derivTradeHistory.unshift({time:new Date().toLocaleTimeString('pt-PT'),side,asset:$('manualAsset').selectedOptions[0].textContent,stake,result:null});renderManualTradeHistory();
+      message('manualTradeMessage','Entrada '+side+' confirmada na DEMO. A posição será acompanhada até ao vencimento. ID: '+b.contract_id,'success');
+      derivTradeSocket.send(JSON.stringify({proposal_open_contract:1,contract_id:b.contract_id,subscribe:1,req_id:++derivTradeReqId}));
+    }catch(err){message('manualTradeMessage',err.message||'Não foi possível executar a operação.','error');}
+    finally{if(derivTradeConnected){$('manualBuyBtn').disabled=false;$('manualSellBtn').disabled=false;}}
+  }
   function showApp(user) {
     currentUser=user; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
     $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); checkOwnerAccess();

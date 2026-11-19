@@ -378,6 +378,35 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   .operation-panel{padding:12px}
 }
 
+
+/* MENDTRADER — correção de espaço da área de operações */
+.ops-layout.dual-ops{align-items:stretch;gap:14px}
+.ops-layout.dual-ops>.operation-panel{min-width:0;max-height:none;min-height:0;overflow:visible}
+.bot-panel,.manual-panel{height:auto;max-height:none;overflow:visible}
+.bot-panel .market-screen,.manual-panel .signal-card{min-height:150px}
+.bot-panel .market-screen svg{height:150px;min-height:150px}
+.bot-panel .tablewrap,.manual-panel .tablewrap,.manual-panel #manualHistory{max-height:220px;overflow:auto}
+.operation-panel{padding:18px}
+.operation-panel .formgrid{gap:10px 12px}
+.operation-panel .field{min-width:0}
+.operation-panel input,.operation-panel select{min-height:44px;width:100%;box-sizing:border-box}
+.manual-panel .manual-actions button{min-height:48px;flex:1}
+@media(max-width:760px){
+  .ops-layout.dual-ops{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+  .ops-layout.dual-ops>.operation-panel{width:100%;max-height:none;overflow:visible}
+  .bot-panel,.manual-panel{max-height:none;overflow:visible;padding:14px}
+  .bot-panel .market-screen svg{height:135px;min-height:135px}
+  .bot-panel .tablewrap,.manual-panel .tablewrap,.manual-panel #manualHistory{max-height:200px}
+  .operation-panel .formgrid,.manual-panel .formgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .operation-panel .field{margin:8px 0}
+  .operation-panel input,.operation-panel select{font-size:14px;min-height:44px}
+  .manual-panel .signal-card{min-height:0;padding:12px}
+  .manual-panel .signal-direction{font-size:22px}
+}
+@media(max-width:380px){
+  .operation-panel .formgrid,.manual-panel .formgrid{grid-template-columns:minmax(0,1fr)}
+}
+
 </style>
 </head>
 <body>

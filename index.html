@@ -1229,7 +1229,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     if (derivTradingSocket) { try { derivTradingSocket.close(); } catch {} }
     derivTradingSocket = null; derivBalanceSubscription = null; derivConnectedAccount = null;
     derivPendingRequests.forEach(item => { clearTimeout(item.timer); item.reject(new Error('Conta desligada.')); });
-    derivPendingRequests.clear(); derivOpenContracts.clear();
+    derivPendingRequests.clear(); derivOpenContracts.clear(); renderManualTradeStats();
     derivAccountAccessToken = null; derivAccountExpiresAt = 0; derivAccounts = [];
     if ($('derivTradingAccount')) { $('derivTradingAccount').innerHTML = '<option value="">Liga primeiro a Deriv</option>'; $('derivTradingAccount').disabled = true; }
     if ($('derivConnectTrading')) $('derivConnectTrading').disabled = true;

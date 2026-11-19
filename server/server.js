@@ -14,20 +14,69 @@ const MAX_SYMBOLS = Number(process.env.MAX_SYMBOLS || 5);
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean);
 
 const FRONTEND_FILE = path.resolve(__dirname, '..', 'index.html');
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rfgcsprgcbravydlnnuc.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_kF7ycrRT90LwZCW532E3Jg_MHE03QKf';
+const DERIV_CLIENT_ID = process.env.DERIV_CLIENT_ID || '34TEm2Gavyti0dcVDw73V';
+const DERIV_REDIRECT_URI = process.env.DERIV_REDIRECT_URI || 'https://mendtrader-market-stream-j9w5.onrender.com/callback';
 
 const server = http.createServer((req, res) => {
   const requestUrl = new URL(req.url, 'http://localhost');
   if (requestUrl.pathname === '/callback' && req.method === 'GET') {
-    const hasOAuthResponse = requestUrl.searchParams.has('code') || requestUrl.searchParams.has('error');
-    res.writeHead(hasOAuthResponse ? 503 : 200, {
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'no-store',
-      'x-content-type-options': 'nosniff'
+    fs.readFile(FRONTEND_FILE, (error, html) => {
+      if (error) {
+        res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end('A interface MendtradeR ainda não está disponível.');
+      }
+      res.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'referrer-policy': 'no-referrer',
+        'x-content-type-options': 'nosniff'
+      });
+      return res.end(html);
     });
-    const message = hasOAuthResponse
-      ? 'A resposta OAuth da Deriv chegou, mas a troca segura do código ainda não está ativada. Não tente repetir a autorização; conclua primeiro a configuração OAuth do servidor.'
-      : 'Endpoint de retorno MendtradeR disponível. Este endereço está pronto para ser registado na aplicação OAuth 2.0 da Deriv.';
-    return res.end('<!doctype html><html lang="pt"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MendtradeR · Retorno Deriv</title><body style="margin:0;background:#080d0b;color:#edf7f1;font:16px system-ui;min-height:100vh;display:grid;place-items:center"><main style="max-width:560px;margin:24px;padding:28px;border:1px solid #28513c;border-radius:18px;background:#101a14"><h1 style="color:#00d66b">MendtradeR</h1><h2>Retorno de autorização Deriv</h2><p>' + message + '</p><p style="color:#9aa9a0;font-size:13px">Não partilhe palavras-passe nem códigos de autorização.</p></main></body></html>');
+    return;
+  }
+  if (requestUrl.pathname === '/oauth/deriv/token' && req.method === 'POST') {
+    const sendJson = (status, payload) => {
+      if (res.headersSent) return;
+      res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      res.end(JSON.stringify(payload));
+    };
+    const authorization = req.headers.authorization || '';
+    if (!/^Bearer\s+\S+$/i.test(authorization)) { sendJson(401, { error: 'Sessão MendtradeR necessária.' }); return; }
+    let rawBody = '', bodyTooLarge = false;
+    req.on('data', chunk => { rawBody += chunk.toString('utf8'); if (rawBody.length > 12000) bodyTooLarge = true; });
+    req.on('end', async () => {
+      if (bodyTooLarge) return sendJson(413, { error: 'Pedido demasiado grande.' });
+      let payload;
+      try { payload = JSON.parse(rawBody || '{}'); } catch { return sendJson(400, { error: 'Pedido inválido.' }); }
+      const code = typeof payload.code === 'string' ? payload.code.trim() : '';
+      const verifier = typeof payload.code_verifier === 'string' ? payload.code_verifier : '';
+      if (!code || verifier.length < 43 || verifier.length > 128) return sendJson(400, { error: 'Código ou verificador PKCE inválido.' });
+      if (payload.redirect_uri !== DERIV_REDIRECT_URI) return sendJson(400, { error: 'O endereço de retorno não corresponde ao registado na aplicação.' });
+      try {
+        const userCheck = await fetch(SUPABASE_URL + '/auth/v1/user', {
+          method: 'GET', headers: { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: authorization }
+        });
+        if (!userCheck.ok) return sendJson(401, { error: 'A sessão MendtradeR expirou. Inicia sessão novamente.' });
+        const form = new URLSearchParams({
+          grant_type: 'authorization_code', client_id: DERIV_CLIENT_ID, code,
+          code_verifier: verifier, redirect_uri: DERIV_REDIRECT_URI
+        });
+        const tokenResponse = await fetch('https://auth.deriv.com/oauth2/token', {
+          method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form.toString()
+        });
+        const tokenData = await tokenResponse.json().catch(() => ({}));
+        if (!tokenResponse.ok || !tokenData.access_token) {
+          return sendJson(400, { error: tokenData.error_description || tokenData.error || 'A Deriv não aceitou a autorização. Verifica App ID, permissões e URL de retorno.' });
+        }
+        return sendJson(200, { access_token: tokenData.access_token, expires_in: Number(tokenData.expires_in) || 0, token_type: tokenData.token_type || 'Bearer' });
+      } catch {
+        return sendJson(502, { error: 'Não foi possível contactar o serviço de autorização da Deriv. Tenta novamente.' });
+      }
+    });
+    return;
   }
   if (requestUrl.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });

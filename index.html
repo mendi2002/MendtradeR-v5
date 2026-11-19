@@ -553,12 +553,13 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
                 <div class="signal-direction">— <span class="muted">Nenhum sinal confirmado</span></div>
                 <p class="small muted">Quando o motor receber dados reais e validar uma oportunidade, o sinal mostrará COMPRA ou VENDA, ativo, confiança e validade. Tu decides se executas.</p>
               </div>
-              <div class="field"><label>Ativo</label><select id="manualAsset"><option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option><option>Volatility 100 Index</option></select></div>
-              <div class="field"><label>Valor da operação (USD)</label><input id="manualAmount" type="number" min="0.35" step="0.01" value="1"></div>
-              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option>1 minuto</option><option>5 minutos</option><option>15 minutos</option></select></div>
-              <div class="row manual-actions"><button class="buy-btn" disabled title="Disponível após integração segura">↑ COMPRA</button><button class="sell-btn" disabled title="Disponível após integração segura">↓ VENDA</button></div>
-              <div class="notice warning small">Modo demonstração: os botões de compra e venda estão bloqueados. Nenhuma ordem será enviada. A execução manual será ativada apenas após integração e confirmação de segurança.</div>
-              <h3>Histórico manual</h3><div class="mini-list"><div class="mini-row"><span class="muted">Ainda sem operações manuais</span><span class="pill">DEMO</span></div></div>
+              <div class="field"><label>Ativo</label><select id="manualAsset"><option value="frxEURUSD">EUR/USD</option><option value="frxGBPUSD">GBP/USD</option><option value="frxUSDJPY">USD/JPY</option><option value="1HZ100V">Volatility 100 (1s)</option></select></div>
+              <div class="field"><label id="manualAmountLabel">Valor da operação</label><input id="manualAmount" type="number" min="0.35" step="0.01" value="1" inputmode="decimal"></div>
+              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option></select></div>
+              <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" type="button" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" type="button" disabled>↓ VENDA</button></div>
+              <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
+              <div class="notice warning small">Negociação disponível apenas em DEMO nesta fase. Cada clique exige confirmação. Verifica o valor, o ativo e a duração antes de confirmar. A conta REAL permanece bloqueada para ordens.</div>
+              <h3>Histórico manual</h3><div id="manualHistory" class="mini-list"><div class="mini-row"><span class="muted">Ainda sem operações manuais</span><span class="pill">DEMO</span></div></div>
             </div>
           </div>
           <div class="card" style="margin-top:14px">
@@ -780,6 +781,10 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   let derivAccounts = [];
   let derivTradingSocket = null;
   let derivBalanceSubscription = null;
+  let derivConnectedAccount = null;
+  let derivRequestId = 20;
+  const derivPendingRequests = new Map();
+  const derivOpenContracts = new Map();
   function countryInfo(code) { return COUNTRIES.find(c => c.code === code) || COUNTRIES.find(c => c.code === 'AO'); }
   function fillCountrySelect(select) {
     select.innerHTML = COUNTRIES.map(c => `<option value="${c.code}">${c.name} (${c.currency})</option>`).join('');
@@ -886,6 +891,110 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     renderDerivAccounts(accounts);
     message('derivAccountMsg', 'Autorização Deriv confirmada. Foram consultadas as contas; ainda não é enviada nenhuma ordem.', 'success');
   }
+  function updateManualTradeControls() {
+    const isDemo = !!derivConnectedAccount && derivAccountType(derivConnectedAccount) === 'demo';
+    const socketReady = !!derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN;
+    const enabled = isDemo && socketReady;
+    if ($('manualBuyBtn')) $('manualBuyBtn').disabled = !enabled;
+    if ($('manualSellBtn')) $('manualSellBtn').disabled = !enabled;
+    if ($('manualAmountLabel')) $('manualAmountLabel').textContent = 'Valor da operação (' + (derivConnectedAccount?.currency || 'moeda da conta') + ')';
+    if ($('manualTradeStatus') && !enabled) {
+      $('manualTradeStatus').textContent = derivConnectedAccount && derivAccountType(derivConnectedAccount) === 'real'
+        ? 'Conta REAL ligada apenas para consulta. Seleciona uma conta DEMO para operar.'
+        : 'Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.';
+    }
+  }
+  function sendDerivTradeRequest(payload) {
+    return new Promise((resolve, reject) => {
+      if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
+        reject(new Error('A ligação autenticada à Deriv não está pronta. Liga novamente a conta DEMO.'));
+        return;
+      }
+      const req_id = ++derivRequestId;
+      const timer = setTimeout(() => {
+        derivPendingRequests.delete(req_id);
+        reject(new Error('A Deriv demorou demasiado a responder. Verifica o histórico da conta antes de repetir a operação.'));
+      }, 15000);
+      derivPendingRequests.set(req_id, { resolve, reject, timer });
+      try { derivTradingSocket.send(JSON.stringify({ ...payload, req_id })); }
+      catch (error) {
+        clearTimeout(timer);
+        derivPendingRequests.delete(req_id);
+        reject(error);
+      }
+    });
+  }
+  function addManualHistoryRow(contractId, direction, asset, amount, currency, duration) {
+    const list = $('manualHistory');
+    if (!list) return null;
+    if (list.querySelector('.muted')?.textContent.includes('Ainda sem operações')) list.innerHTML = '';
+    const row = document.createElement('div');
+    row.className = 'mini-row';
+    row.style.flexWrap = 'wrap';
+    const label = document.createElement('span');
+    label.textContent = (direction === 'CALL' ? 'COMPRA' : 'VENDA') + ' · ' + asset + ' · ' + amount.toFixed(2) + ' ' + currency;
+    const status = document.createElement('span');
+    status.className = 'pill';
+    status.textContent = 'Contrato #' + contractId + ' · em aberto';
+    row.append(label, status);
+    list.prepend(row);
+    derivOpenContracts.set(String(contractId), { row, status, label });
+    return row;
+  }
+  async function executeManualTrade(direction) {
+    if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo') {
+      message('manualTradeStatus', 'Por segurança, as ordens manuais só estão disponíveis numa conta DEMO ligada.', 'error');
+      updateManualTradeControls();
+      return;
+    }
+    if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
+      message('manualTradeStatus', 'A ligação DEMO foi perdida. Liga novamente a conta.', 'error');
+      updateManualTradeControls();
+      return;
+    }
+    const amount = Number($('manualAmount')?.value);
+    const duration = Number($('manualExpiry')?.value);
+    const symbol = $('manualAsset')?.value;
+    const currency = String(derivConnectedAccount.currency || '').toUpperCase();
+    const assetLabel = $('manualAsset')?.selectedOptions?.[0]?.textContent || symbol;
+    if (!Number.isFinite(amount) || amount <= 0 || !duration || !symbol || !currency) {
+      message('manualTradeStatus', 'Confere o valor, o ativo, a duração e a moeda da conta.', 'error');
+      return;
+    }
+    const directionLabel = direction === 'CALL' ? 'COMPRA' : 'VENDA';
+    const accepted = window.confirm('CONFIRMAR ORDEM EM DEMO\n\n' + directionLabel + ' · ' + assetLabel + '\nValor: ' + amount.toFixed(2) + ' ' + currency + '\nDuração: ' + (duration / 60) + ' minuto(s)\n\nEsta ordem será enviada apenas para a conta DEMO. Continuar?');
+    if (!accepted) return;
+    const buyButton = $('manualBuyBtn'), sellButton = $('manualSellBtn');
+    if (buyButton) buyButton.disabled = true;
+    if (sellButton) sellButton.disabled = true;
+    message('manualTradeStatus', 'A pedir cotação à Deriv…');
+    try {
+      const quoteResponse = await sendDerivTradeRequest({
+        proposal: 1, amount, basis: 'stake', contract_type: direction,
+        currency, duration, duration_unit: 's', underlying_symbol: symbol
+      });
+      const quote = quoteResponse.proposal || quoteResponse.data?.proposal;
+      if (!quote?.id || !Number.isFinite(Number(quote.ask_price))) {
+        throw new Error(quoteResponse.error?.message || 'A Deriv não devolveu uma cotação válida para este ativo e valor.');
+      }
+      message('manualTradeStatus', 'Cotação recebida. A confirmar a compra na conta DEMO…');
+      const buyResponse = await sendDerivTradeRequest({ buy: quote.id, price: Number(quote.ask_price) });
+      const bought = buyResponse.buy || buyResponse.data?.buy;
+      if (!bought?.contract_id) throw new Error(buyResponse.error?.message || 'A Deriv não confirmou a abertura do contrato.');
+      const row = addManualHistoryRow(bought.contract_id, direction, assetLabel, amount, currency, duration);
+      message('manualTradeStatus', 'Contrato DEMO aberto com sucesso. ID: ' + bought.contract_id + '. A acompanhar o resultado.', 'success');
+      if (derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN) {
+        derivTradingSocket.send(JSON.stringify({
+          proposal_open_contract: 1, contract_id: bought.contract_id,
+          subscribe: 1, req_id: ++derivRequestId
+        }));
+      }
+    } catch (error) {
+      message('manualTradeStatus', error.message || 'Não foi possível executar a operação DEMO.', 'error');
+    } finally {
+      updateManualTradeControls();
+    }
+  }
   async function connectDerivTradingAccount() {
     const accountId = $('derivTradingAccount')?.value;
     const account = derivAccounts.find(item => String(item.account_id || item.id || '') === accountId);
@@ -904,14 +1013,34 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       const socket = new WebSocket(socketUrl);
       derivTradingSocket = socket;
       socket.onopen = () => {
+        derivConnectedAccount = account;
         socket.send(JSON.stringify({ balance: 1, subscribe: 1, req_id: 1 }));
         const type = derivAccountType(account).toUpperCase();
         $('derivBalanceMode').textContent = 'Ligação estabelecida · ' + type + ' · ' + (account.loginid || accountId) + ' · a aguardar saldo…';
-        message('derivAccountMsg', 'Conta ' + type + ' ligada em modo de consulta. Nenhuma ordem será enviada.', 'success');
+        message('derivAccountMsg', 'Conta ' + type + ' ligada. Ordens manuais desbloqueadas apenas em DEMO.', 'success');
+        updateManualTradeControls();
       };
       socket.onmessage = event => {
         let data;
         try { data = JSON.parse(event.data); } catch { return; }
+        if (data.req_id && derivPendingRequests.has(Number(data.req_id))) {
+          const pending = derivPendingRequests.get(Number(data.req_id));
+          clearTimeout(pending.timer);
+          derivPendingRequests.delete(Number(data.req_id));
+          if (data.error) pending.reject(new Error(data.error.message || 'A Deriv recusou o pedido.'));
+          else pending.resolve(data);
+        }
+        if (data.msg_type === 'proposal_open_contract' && data.proposal_open_contract) {
+          const contract = data.proposal_open_contract;
+          const tracked = derivOpenContracts.get(String(contract.contract_id));
+          if (tracked) {
+            const profit = Number(contract.profit);
+            const state = contract.status || (contract.is_sold ? 'fechado' : 'em aberto');
+            tracked.status.textContent = contract.is_sold
+              ? state.toUpperCase() + ' · ' + (Number.isFinite(profit) ? profit.toFixed(2) + ' ' + (contract.currency || '') : '')
+              : 'Contrato #' + contract.contract_id + ' · em aberto';
+          }
+        }
         if (data.error) return message('derivAccountMsg', data.error.message || 'Erro recebido da Deriv.', 'error');
         if (data.msg_type === 'balance' && data.balance) {
           const balance = data.balance;
@@ -929,6 +1058,8 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       socket.onclose = () => {
         if (derivTradingSocket === socket) {
           derivTradingSocket = null;
+          derivConnectedAccount = null;
+          updateManualTradeControls();
           $('derivBalanceMode').textContent = 'Ligação à conta encerrada. A autorização pode continuar válida.';
         }
       };
@@ -983,7 +1114,9 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   });
   $('derivAccountDisconnect')?.addEventListener('click', () => {
     if (derivTradingSocket) { try { derivTradingSocket.close(); } catch {} }
-    derivTradingSocket = null; derivBalanceSubscription = null;
+    derivTradingSocket = null; derivBalanceSubscription = null; derivConnectedAccount = null;
+    derivPendingRequests.forEach(item => { clearTimeout(item.timer); item.reject(new Error('Conta desligada.')); });
+    derivPendingRequests.clear(); derivOpenContracts.clear();
     derivAccountAccessToken = null; derivAccountExpiresAt = 0; derivAccounts = [];
     if ($('derivTradingAccount')) { $('derivTradingAccount').innerHTML = '<option value="">Liga primeiro a Deriv</option>'; $('derivTradingAccount').disabled = true; }
     if ($('derivConnectTrading')) $('derivConnectTrading').disabled = true;
@@ -994,6 +1127,9 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   });
   $('derivLoadAccounts')?.addEventListener('click', () => loadDerivAccounts().catch(error => message('derivAccountMsg', error.message, 'error')));
   $('derivConnectTrading')?.addEventListener('click', connectDerivTradingAccount);
+  $('manualBuyBtn')?.addEventListener('click', () => executeManualTrade('CALL'));
+  $('manualSellBtn')?.addEventListener('click', () => executeManualTrade('PUT'));
+  updateManualTradeControls();
 
   function showApp(user) {
     currentUser=user; if (typeof ensureReferralAttribution === 'function') ensureReferralAttribution(user); $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');

@@ -198,6 +198,11 @@
     .manual-panel .notice{padding:7px 9px;margin:7px 0;font-size:11px}
     .manual-panel h3{font-size:14px;margin:9px 0 4px}
     .manual-panel .mini-row{padding:5px 0}
+    .manual-result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:8px 0}
+    .manual-result-grid .ops-mini{padding:8px;min-width:0}
+    .manual-result-grid .ops-mini strong{font-size:16px;overflow-wrap:anywhere}
+    .manual-pnl-positive{color:var(--green)!important}.manual-pnl-negative{color:var(--red)!important}
+    @media(max-width:420px){.manual-result-grid{grid-template-columns:1fr 1fr}.manual-result-grid .ops-mini:last-child{grid-column:1/-1}}
     @media(max-width:760px){
       .ops-slide:has(.manual-panel){flex-basis:100%}
       .manual-panel{max-width:none}
@@ -596,7 +601,12 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
               <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option></select></div>
               <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" type="button" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" type="button" disabled>↓ VENDA</button></div>
               <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
-              <div class="notice warning small">Negociação disponível apenas em DEMO nesta fase. Cada clique exige confirmação. Verifica o valor, o ativo e a duração antes de confirmar. A conta REAL permanece bloqueada para ordens.</div>
+              <div class="manual-result-grid">
+                <div class="ops-mini"><span class="label">P/L em aberto</span><strong id="manualOpenPnl">0.00</strong></div>
+                <div class="ops-mini"><span class="label">Resultado fechado</span><strong id="manualClosedPnl">0.00</strong></div>
+                <div class="ops-mini"><span class="label">Ganhos / perdas</span><strong id="manualWinLoss">0 / 0</strong></div>
+              </div>
+              <div class="notice warning small">Área manual em DEMO: um toque envia a ordem sem confirmação extra. A Deriv fecha o contrato automaticamente no prazo escolhido; o resultado é acompanhado nesta janela. A conta REAL continua bloqueada.</div>
               <h3>Histórico manual</h3><div id="manualHistory" class="mini-list"><div class="mini-row"><span class="muted">Ainda sem operações manuais</span><span class="pill">DEMO</span></div></div>
             </div>
           </div>
@@ -832,6 +842,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   let derivRequestId = 20;
   const derivPendingRequests = new Map();
   const derivOpenContracts = new Map();
+  let manualTradeBusy = false;
   const derivWinSoundPlayed = new Set();
   const DERIV_SELECTED_ACCOUNT_KEY = "mendtrader_deriv_selected_account";
   function countryInfo(code) { return COUNTRIES.find(c => c.code === code) || COUNTRIES.find(c => c.code === 'AO'); }
@@ -946,8 +957,8 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const isDemo = !!derivConnectedAccount && derivAccountType(derivConnectedAccount) === 'demo';
     const socketReady = !!derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN;
     const enabled = isDemo && socketReady;
-    if ($('manualBuyBtn')) $('manualBuyBtn').disabled = !enabled;
-    if ($('manualSellBtn')) $('manualSellBtn').disabled = !enabled;
+    if ($('manualBuyBtn')) $('manualBuyBtn').disabled = !enabled || manualTradeBusy;
+    if ($('manualSellBtn')) $('manualSellBtn').disabled = !enabled || manualTradeBusy;
     if ($('manualAmountLabel')) $('manualAmountLabel').textContent = 'Valor da operação (' + (derivConnectedAccount?.currency || 'moeda da conta') + ')';
     if ($('manualTradeStatus') && !enabled) {
       $('manualTradeStatus').textContent = derivConnectedAccount && derivAccountType(derivConnectedAccount) === 'real'
@@ -987,10 +998,29 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const status = document.createElement('span');
     status.className = 'pill';
     status.textContent = 'Contrato #' + contractId + ' · em aberto';
-    row.append(label, status);
+    const pnl = document.createElement('strong');
+    pnl.className = 'small';
+    pnl.textContent = 'P/L: a aguardar';
+    row.append(label, status, pnl);
     list.prepend(row);
-    derivOpenContracts.set(String(contractId), { row, status, label });
+    derivOpenContracts.set(String(contractId), { row, status, label, pnl, profit: 0, closed: false, currency });
+    renderManualTradeStats();
     return row;
+  }
+  function renderManualTradeStats() {
+    let floating = 0, realized = 0, wins = 0, losses = 0;
+    for (const trade of derivOpenContracts.values()) {
+      const value = Number(trade.profit);
+      if (!Number.isFinite(value)) continue;
+      if (trade.closed) { realized += value; if (value > 0) wins++; else if (value < 0) losses++; }
+      else floating += value;
+    }
+    const currency = String(derivConnectedAccount?.currency || '').toUpperCase();
+    const openEl = $('manualOpenPnl'), closedEl = $('manualClosedPnl'), wlEl = $('manualWinLoss');
+    const format = value => value.toFixed(2) + (currency ? ' ' + currency : '');
+    if (openEl) { openEl.textContent = format(floating); openEl.className = floating > 0 ? 'manual-pnl-positive' : floating < 0 ? 'manual-pnl-negative' : ''; }
+    if (closedEl) { closedEl.textContent = format(realized); closedEl.className = realized > 0 ? 'manual-pnl-positive' : realized < 0 ? 'manual-pnl-negative' : ''; }
+    if (wlEl) wlEl.textContent = wins + ' / ' + losses;
   }
   async function executeManualTrade(direction) {
     if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo') {
@@ -1012,13 +1042,10 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       message('manualTradeStatus', 'Confere o valor, o ativo, a duração e a moeda da conta.', 'error');
       return;
     }
-    const directionLabel = direction === 'CALL' ? 'COMPRA' : 'VENDA';
-    const accepted = window.confirm('CONFIRMAR ORDEM EM DEMO\n\n' + directionLabel + ' · ' + assetLabel + '\nValor: ' + amount.toFixed(2) + ' ' + currency + '\nDuração: ' + (duration / 60) + ' minuto(s)\n\nEsta ordem será enviada apenas para a conta DEMO. Continuar?');
-    if (!accepted) return;
-    const buyButton = $('manualBuyBtn'), sellButton = $('manualSellBtn');
-    if (buyButton) buyButton.disabled = true;
-    if (sellButton) sellButton.disabled = true;
-    message('manualTradeStatus', 'A pedir cotação à Deriv…');
+    if (manualTradeBusy) return;
+    manualTradeBusy = true;
+    updateManualTradeControls();
+    message('manualTradeStatus', 'A enviar entrada ' + (direction === 'CALL' ? 'COMPRA' : 'VENDA') + ' para a conta DEMO…');
     try {
       const quoteResponse = await sendDerivTradeRequest({
         proposal: 1, amount, basis: 'stake', contract_type: direction,
@@ -1043,6 +1070,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     } catch (error) {
       message('manualTradeStatus', error.message || 'Não foi possível executar a operação DEMO.', 'error');
     } finally {
+      manualTradeBusy = false;
       updateManualTradeControls();
     }
   }
@@ -1106,9 +1134,16 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
           if (tracked) {
             const profit = Number(contract.profit);
             const state = contract.status || (contract.is_sold ? 'fechado' : 'em aberto');
+            if (Number.isFinite(profit)) tracked.profit = profit;
+            tracked.closed = !!contract.is_sold;
             tracked.status.textContent = contract.is_sold
-              ? state.toUpperCase() + ' · ' + (Number.isFinite(profit) ? profit.toFixed(2) + ' ' + (contract.currency || '') : '')
+              ? state.toUpperCase() + ' · ' + (Number.isFinite(profit) ? profit.toFixed(2) + ' ' + (contract.currency || tracked.currency || '') : '')
               : 'Contrato #' + contract.contract_id + ' · em aberto';
+            if (tracked.pnl) {
+              tracked.pnl.textContent = 'P/L: ' + (Number.isFinite(profit) ? profit.toFixed(2) + ' ' + (contract.currency || tracked.currency || '') : 'a aguardar');
+              tracked.pnl.className = 'small ' + (profit > 0 ? 'manual-pnl-positive' : profit < 0 ? 'manual-pnl-negative' : '');
+            }
+            renderManualTradeStats();
             if (contract.is_sold && Number.isFinite(profit) && profit > 0 && !derivWinSoundPlayed.has(String(contract.contract_id))) {
               derivWinSoundPlayed.add(String(contract.contract_id));
               playWinAlert();
@@ -1896,23 +1931,45 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     }catch(e){$('signalSoundStatus').textContent='Não foi possível ativar o áudio.';}
   });
   let derivSignalCandidate='neutral',derivSignalConfirmations=0,derivSignalLastSide='neutral';
+  let derivActiveSignal=null;
+  const DERIV_SIGNAL_HOLD_MS=45000;
   function updateDerivLiveSignal(){
     const prices=derivFeedTicks.slice().reverse().map(x=>Number(x.quote));
     const latestTick=derivFeedTicks[0];
     const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
     const manualTag=$('manualSignalStatus'),manualDir=$('manualSignalDirection'),manualReason=$('manualSignalReason');
     if(!tag||!dir||!strength||!reason)return;
-    const wait=(msg)=>{
-      tag.textContent='● A aguardar';tag.className='signal-tag neutral';dir.textContent='A AGUARDAR';strength.textContent='—';reason.textContent=msg;
-      if(manualTag)manualTag.textContent='Aguardar confirmação';
-      if(manualDir)manualDir.innerHTML='— <span class="muted">Nenhum sinal confirmado</span>';
-      if(manualReason)manualReason.textContent=msg;
-      derivSignalCandidate='neutral';derivSignalConfirmations=0;derivSignalLastSide='neutral';lastSoundSignal='neutral';
+    const showActive=(extra='')=>{
+      const active=derivActiveSignal;
+      if(!active)return false;
+      const remaining=active.expiresAt-Date.now();
+      if(remaining<=0){derivActiveSignal=null;return false;}
+      const side=active.side,symbol=active.symbol;
+      tag.textContent='● Sinal '+side+' · '+Math.ceil(remaining/1000)+'s';
+      tag.className='signal-tag '+(side==='COMPRA'?'positive':'negative');
+      dir.textContent=side;dir.style.color=side==='COMPRA'?'var(--green)':'var(--red)';
+      strength.textContent=active.score+'/4 critérios';
+      reason.textContent=active.reason+' Sinal mantido durante até 45 segundos para evitar oscilações. '+extra;
+      if(manualTag)manualTag.textContent='SINAL ATIVO · '+symbol+' · '+Math.ceil(remaining/1000)+'s';
+      if(manualDir){manualDir.textContent=side;manualDir.style.color=side==='COMPRA'?'var(--green)':'var(--red)';}
+      if(manualReason)manualReason.textContent=reason.textContent+' A entrada continua manual.';
+      return true;
     };
-    if(!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN){wait('Feed de mercado desligado. Liga o mercado para iniciar a análise.');return;}
-    if(!latestTick||Date.now()-derivLastTickAt>20000){wait('Cotação desatualizada. Nenhum sinal é válido sem atualização recente do mercado.');return;}
-    if(prices.length<60){wait('A recolher histórico curto: '+prices.length+'/60 ticks recentes. Ainda não há dados suficientes para analisar.');return;}
-    if(prices.some(p=>!Number.isFinite(p)||p<=0)){wait('Dados de preço inválidos. A análise foi suspensa.');return;}
+    const wait=(msg,forceClear=false)=>{
+      if(!forceClear&&showActive(msg))return;
+      if(forceClear)derivActiveSignal=null;
+      tag.textContent='● A aguardar';tag.className='signal-tag neutral';
+      dir.textContent='A AGUARDAR';dir.style.color='';strength.textContent='—';reason.textContent=msg;
+      if(manualTag)manualTag.textContent='Aguardar sinal';
+      if(manualDir){manualDir.innerHTML='— <span class="muted">Nenhum sinal ativo</span>';manualDir.style.color='';}
+      if(manualReason)manualReason.textContent=msg;
+      derivSignalCandidate='neutral';derivSignalConfirmations=0;
+      if(forceClear){derivSignalLastSide='neutral';lastSoundSignal='neutral';}
+    };
+    if(!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN){wait('Feed de mercado desligado. Liga o mercado para iniciar a análise.',true);return;}
+    if(!latestTick||Date.now()-derivLastTickAt>20000){wait('Cotação desatualizada. Nenhum sinal é válido sem atualização recente do mercado.',true);return;}
+    if(prices.length<60){wait('A recolher histórico curto: '+prices.length+'/60 ticks recentes.');return;}
+    if(prices.some(p=>!Number.isFinite(p)||p<=0)){wait('Dados de preço inválidos. A análise foi suspensa.',true);return;}
     const ema=(arr,period)=>{
       const k=2/(period+1);let value=arr.slice(0,period).reduce((a,b)=>a+b,0)/period;
       for(let i=period;i<arr.length;i++)value=arr[i]*k+value*(1-k);
@@ -1940,23 +1997,24 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       wait(activeMarket?'Sem alinhamento completo: EMA 9/21, posição do preço, RSI e impulso precisam confirmar juntos. RSI: '+oscillator.toFixed(1)+'.':'Mercado sem variação suficiente nos últimos ticks. Aguardar movimento.');
       return;
     }
-    if(derivSignalCandidate===side)derivSignalConfirmations++;else{derivSignalCandidate=side;derivSignalConfirmations=1;}
+    if(derivSignalCandidate===side)derivSignalConfirmations++;
+    else{derivSignalCandidate=side;derivSignalConfirmations=1;}
     if(derivSignalConfirmations<3){
-      tag.textContent='● A confirmar '+derivSignalConfirmations+'/3';tag.className='signal-tag neutral';dir.textContent='A CONFIRMAR';strength.textContent=score+'/4 critérios';
-      reason.textContent='Possível '+side+' detetada. A aguardar confirmação em 3 atualizações consecutivas. Nenhuma ordem é enviada.';
+      if(showActive('Nova direção em validação ('+derivSignalConfirmations+'/3).'))return;
+      tag.textContent='● A confirmar '+derivSignalConfirmations+'/3';tag.className='signal-tag neutral';
+      dir.textContent='A CONFIRMAR';strength.textContent=score+'/4 critérios';
+      reason.textContent='Possível '+side+' detetada. A aguardar 3 confirmações consecutivas. Nenhuma ordem é enviada.';
       if(manualTag)manualTag.textContent='A confirmar '+derivSignalConfirmations+'/3';
       if(manualDir)manualDir.textContent='A CONFIRMAR';
       if(manualReason)manualReason.textContent=reason.textContent;
       return;
     }
     const symbol=$('derivFeedSymbol')?.selectedOptions?.[0]?.textContent||latestTick.symbol||'Mercado selecionado';
-    tag.textContent='● Sinal '+side;tag.className='signal-tag '+(side==='COMPRA'?'positive':'negative');
-    dir.textContent=side;strength.textContent=score+'/4 critérios';
-    reason.textContent=symbol+' · RSI '+oscillator.toFixed(1)+' · EMA 9/21 alinhadas · impulso confirmado em 3 atualizações. Sinal experimental; confirma no gráfico antes de decidir.';
-    if(manualTag)manualTag.textContent='Sinal ativo · '+symbol;
-    if(manualDir){manualDir.textContent=side;manualDir.style.color=side==='COMPRA'?'var(--green)':'var(--red)';}
-    if(manualReason)manualReason.textContent=reason.textContent+' A decisão de executar continua manual.';
-    if(derivSignalLastSide!==side){playSignalAlert();lastSoundSignal=side;derivSignalLastSide=side;}
+    const signalReason=symbol+' · RSI '+oscillator.toFixed(1)+' · EMA 9/21 alinhadas · impulso confirmado em 3 atualizações.';
+    const isNewSignal=!derivActiveSignal||derivActiveSignal.side!==side;
+    derivActiveSignal={side,symbol,score,reason:signalReason,expiresAt:Date.now()+DERIV_SIGNAL_HOLD_MS};
+    showActive();
+    if(isNewSignal&&derivSignalLastSide!==side){playSignalAlert();lastSoundSignal=side;derivSignalLastSide=side;}
   }
   function scheduleDerivReconnect(){
     if(!derivFeedWanted||derivReconnectTimer)return;

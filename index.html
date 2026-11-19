@@ -692,6 +692,15 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
               <p class="small" style="color:#e5d6b2;margin:5px 0 0">A área de receitas por utilizador será privada e só poderá mostrar valores reais quando existir uma função de proprietário validada no servidor. Não é seguro calcular ou revelar a receita global apenas no navegador.</p>
               <div class="row" style="margin-top:12px"><span class="pill">Regra comercial definida</span><span class="pill">Resumo financeiro: integração pendente</span></div>
             </div></div>
+          <div class="card" id="derivAccountCard" style="margin-top:14px;border-color:#087b42">
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <div><span class="badge">DERIV · CONTA</span><h2 style="margin:9px 0 4px">🔐 Ligar conta Deriv</h2></div>
+              <span id="derivAccountStatus" class="pill">Não ligada</span>
+            </div>
+            <p class="small muted">Autoriza a MendtradeR a aceder à tua conta Deriv. A palavra-passe é introduzida apenas no site oficial da Deriv. Nesta etapa nenhuma ordem é enviada.</p>
+            <div class="row"><button id="derivAccountConnect" type="button">Conectar à Deriv</button><button id="derivAccountDisconnect" class="secondary" type="button" disabled>Desligar conta</button></div>
+            <p id="derivAccountMsg" class="small muted" aria-live="polite">Ainda não existe uma conta Deriv autorizada nesta sessão.</p>
+          </div>
           <div class="card" style="margin-top:14px">
             <h2>🎨 Aparência da plataforma</h2>
             <p class="small muted">Escolhe uma cor visual. A preferência fica guardada neste dispositivo.</p>
@@ -763,6 +772,8 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
   let currentUser = null;
   let currentCountry = 'AO';
+  let derivAccountAccessToken = null;
+  let derivAccountExpiresAt = 0;
   function countryInfo(code) { return COUNTRIES.find(c => c.code === code) || COUNTRIES.find(c => c.code === 'AO'); }
   function fillCountrySelect(select) {
     select.innerHTML = COUNTRIES.map(c => `<option value="${c.code}">${c.name} (${c.currency})</option>`).join('');
@@ -799,7 +810,829 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   $('walletCountry').addEventListener('change', e => updateCountry(e.target.value));
 
   function message(id, text, kind='') { const el=$(id); el.textContent=text; el.className='small '+(kind || 'muted'); }
-  function money(n) { return '$'+(Number(n)||0).toFixed(2); }
+  function money(n) { return '
+  function showApp(user) {
+    currentUser=user; if (typeof ensureReferralAttribution === 'function') ensureReferralAttribution(user); $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
+    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); checkOwnerAccess();
+    // Ao entrar na plataforma, ligar automaticamente ao fluxo de cotações público.
+    // O servidor mantém a subscrição Deriv independentemente desta ligação do navegador.
+    setTimeout(()=>{ if(!derivFeedWanted) connectDerivFeed(); }, 250);
+  }
+  async function checkOwnerAccess(){
+    const nav=$('ownerNavBtn');
+    nav.classList.add('hidden');
+    $('owner').classList.remove('active');
+    const {data,error}=await client.rpc('is_platform_owner');
+    if(error){console.warn('Não foi possível validar o acesso do proprietário:',error.message);return;}
+    if(data===true) nav.classList.remove('hidden');
+  }
+  let ownerProfileCache = [];
+  function renderOwnerUsers(filter=''){
+    const q=filter.trim().toLocaleLowerCase();
+    const rows=ownerProfileCache.filter(u=>[u.full_name,u.email,u.id].some(v=>String(v||'').toLocaleLowerCase().includes(q)));
+    $('ownerUsersRows').innerHTML=rows.length?rows.map(u=>{
+      const status=u.suspended?'<span class="pill" style="color:#ff9b9b;border-color:#8b4545">Suspenso</span>':'<span class="pill" style="color:#9be8b2;border-color:#39734b">Ativo</span>';
+      const action=u.id===currentUser?.id?'<span class="small muted">Protegido</span>':u.suspended
+        ?'<button class="secondary owner-user-action" data-action="reactivate" data-user-id="'+escapeHtml(u.id)+'">Reativar</button>'
+        :'<button class="secondary owner-user-action" data-action="suspend" data-user-id="'+escapeHtml(u.id)+'" style="border-color:#8b4545;color:#ffb0b0">Suspender</button>';
+      return '<tr><td>'+escapeHtml(u.full_name||'—')+'</td><td>'+escapeHtml(u.email||'—')+'</td><td><span class="small">'+escapeHtml(u.id)+'</span></td><td>'+status+'</td><td>'+(u.created_at?new Date(u.created_at).toLocaleDateString('pt-PT'):'—')+'</td><td>'+action+'</td></tr>';
+    }).join(''):'<tr><td colspan="6" class="muted">Nenhum utilizador corresponde à pesquisa.</td></tr>';
+  }
+  $('ownerUserSearch')?.addEventListener('input',e=>renderOwnerUsers(e.target.value));
+  $('ownerUsersRows')?.addEventListener('click',async e=>{
+    const button=e.target.closest('.owner-user-action');
+    if(!button)return;
+    const action=button.dataset.action, userId=button.dataset.userId;
+    const target=ownerProfileCache.find(u=>u.id===userId);
+    if(!target)return;
+    const verb=action==='suspend'?'suspender':'reativar';
+    if(!confirm('Confirmas que pretendes '+verb+' a conta '+(target.email||userId)+'?'))return;
+    button.disabled=true;
+    const {data,error}=await client.functions.invoke('owner-user-management',{body:{action,user_id:userId}});
+    if(error||!data?.ok){
+      alert(data?.error||error?.message||'Não foi possível concluir a ação.');
+      button.disabled=false;
+      return;
+    }
+    alert(data.message||'Estado da conta atualizado.');
+    await loadOwnerDashboard();
+  });
+
+  async function loadOwnerDashboard(){
+    if(!currentUser)return;
+    const msg=$('ownerPanelMsg');
+    msg.textContent='A atualizar os dados administrativos…';
+    $('ownerUsersRows').innerHTML='<tr><td colspan="6" class="muted">A carregar…</td></tr>';
+    $('ownerTradesRows').innerHTML='<tr><td colspan="6" class="muted">A carregar…</td></tr>';
+    const [accounts, trades, bots]=await Promise.all([
+      client.functions.invoke('owner-user-management',{body:{action:'list'}}),
+      client.from('trade_history').select('user_id,created_at,asset,trade_type,result,commission,status').order('created_at',{ascending:false}).limit(100),
+      client.from('bot_settings').select('id',{count:'exact',head:true})
+    ]);
+    if(accounts.error||accounts.data?.error||trades.error||bots.error){
+      msg.textContent='Não foi possível carregar todos os dados. '+(accounts.data?.error||accounts.error?.message||trades.error?.message||bots.error?.message||'Erro desconhecido.');
+      return;
+    }
+    const profileRows=accounts.data?.users||[], tradeRows=trades.data||[];
+    ownerProfileCache=profileRows;
+    const auditRows=accounts.data?.audit_logs||[];
+    $('ownerAuditRows').innerHTML=auditRows.length?auditRows.map(a=>{
+      const label=a.action==='suspend'?'Suspensão':'Reativação';
+      const color=a.action==='suspend'?'#ffb0b0':'#9be8b2';
+      return '<tr><td>'+new Date(a.created_at).toLocaleString('pt-PT')+'</td><td><b style="color:'+color+'">'+label+'</b></td><td>'+escapeHtml(a.target_email||a.target_user_id||'—')+'</td><td>'+escapeHtml(a.actor_email||'Proprietário')+'</td></tr>';
+    }).join(''):'<tr><td colspan="4" class="muted">Ainda não existem ações administrativas registadas.</td></tr>';
+    $('ownerUsersCount').textContent=String(profileRows.length);
+    $('ownerTradesCount').textContent=String(tradeRows.length);
+    const totalCommission=tradeRows.reduce((sum,r)=>sum+Math.max(0,Number(r.commission)||0),0);
+    $('ownerCommissionTotal').textContent=money(totalCommission);
+    $('ownerBotsCount').textContent=String(bots.count??'—');
+    renderOwnerUsers($('ownerUserSearch')?.value||'');
+    if(!profileRows.length) $('ownerUsersRows').innerHTML='<tr><td colspan="6" class="muted">Ainda não existem contas registadas.</td></tr>';
+    $('ownerTradesRows').innerHTML=tradeRows.length?tradeRows.slice(0,30).map(r=>'<tr><td>'+new Date(r.created_at).toLocaleString('pt-PT')+'</td><td><span class="small">'+escapeHtml(r.user_id||'—')+'</span></td><td>'+escapeHtml(r.asset||'—')+'</td><td>'+money(r.result)+'</td><td>'+money(r.commission)+'</td><td>'+escapeHtml(r.status||'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="muted">Ainda não existem operações registadas.</td></tr>';
+    msg.textContent='Dados atualizados. A comissão total é a soma dos valores gravados nos últimos 100 registos consultados; não é prova de cobrança ou recebimento.';
+  }
+  $('ownerRefreshBtn')?.addEventListener('click',loadOwnerDashboard);
+  function showAuth() { $('appView').classList.add('hidden'); $('authView').classList.remove('hidden'); $('logoutBtn').classList.add('hidden'); $('menuToggle').classList.add('hidden'); openMenu(false); currentUser=null; }
+
+  $('loginBtn').addEventListener('click', async () => {
+    const email=$('email').value.trim(), password=$('password').value;
+    if(!email || !password) return message('authMsg','Preenche o e-mail e a palavra-passe.','error');
+    $('loginBtn').disabled=true; message('authMsg','A entrar...');
+    const {data,error}=await client.auth.signInWithPassword({email,password}); $('loginBtn').disabled=false;
+    if(error) return message('authMsg',error.message,'error'); showApp(data.user);
+  });
+  $('signupBtn').addEventListener('click', async () => {
+    const email=$('email').value.trim(), password=$('password').value;
+    if(!email || password.length<6) return message('authMsg','Introduz um e-mail válido e uma palavra-passe com pelo menos 6 caracteres.','error');
+    $('signupBtn').disabled=true; message('authMsg','A criar conta...');
+    const selected=countryInfo(currentCountry); const ref=new URLSearchParams(window.location.search).get('ref'); const validRef=ref&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ref)?ref:null; const {data,error}=await client.auth.signUp({email,password,options:{data:{country:selected.code,currency:selected.currency,...(validRef?{referred_by:validRef}:{})}}}); $('signupBtn').disabled=false;
+    if(error) return message('authMsg',error.message,'error');
+    if(data.session) showApp(data.user); else message('authMsg','Conta criada. Verifica o teu e-mail para confirmar o registo.','success');
+  });
+  $('logoutBtn').addEventListener('click', async()=>{await client.auth.signOut();showAuth();});
+
+  const mainNav = $('mainNav');
+  const navBackdrop = $('navBackdrop');
+  const menuToggle = $('menuToggle');
+  function openMenu(open=true){
+    mainNav.classList.toggle('open',open);
+    navBackdrop.classList.toggle('open',open);
+    menuToggle.setAttribute('aria-expanded',String(open));
+  }
+  menuToggle.addEventListener('click',()=>openMenu(!mainNav.classList.contains('open')));
+  $('menuClose').addEventListener('click',()=>openMenu(false));
+  navBackdrop.addEventListener('click',()=>openMenu(false));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')openMenu(false);});
+
+  document.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b===btn));
+    document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id===btn.dataset.page));
+    openMenu(false);
+    if(btn.dataset.page==='history') loadHistory();
+    if(btn.dataset.page==='invites') loadInvites();
+    if(btn.dataset.page==='owner') loadOwnerDashboard();
+  }));
+
+  async function loadBotSettings(){
+    if(!currentUser)return;
+    const {data,error}=await client.from('bot_settings').select('*').eq('user_id',currentUser.id).order('updated_at',{ascending:false}).limit(1).maybeSingle();
+    if(error){message('botMsg','Não foi possível ler as configurações: '+error.message,'error');return;}
+    if(!data)return;
+    $('asset').value=data.asset||'Volatility 100 Index'; $('strategy').value=data.strategy||'manual';
+    $('entryAmount').value=data.entry_amount??1; $('minStake').value=data.min_stake??0.35; $('maxStake').value=data.max_stake??5;
+    $('targetAmount').value=data.target_amount??10; $('lossLimit').value=data.loss_limit??5; $('maxTrades').value=data.max_trades??10;
+    $('sessionDuration').value=String(data.session_duration_minutes??60); $('progressionPercent').value=data.progression_percent??20; updateProgressionPreview();
+    $('botStatus').textContent=data.bot_enabled?'Configurado':'Desligado';
+  }
+  $('saveBotBtn').addEventListener('click',async()=>{
+    if(!currentUser)return;
+    const entry=Number($('entryAmount').value), min=Number($('minStake').value), max=Number($('maxStake').value), target=Number($('targetAmount').value), loss=Number($('lossLimit').value), trades=Number($('maxTrades').value);
+    if(![entry,min,max,target,loss,trades].every(Number.isFinite)||entry<=0||min<=0||max<min||entry<min||entry>max||target<0||loss<0||!Number.isInteger(trades)||trades<1||trades>100){return message('botMsg','Verifica os valores. A entrada deve ficar entre o mínimo e o máximo.','error');}
+    const duration=Number($('sessionDuration').value), progression=Number($('progressionPercent').value);
+    if(!Number.isInteger(duration)||duration<1||duration>4320||!Number.isFinite(progression)||progression<0||progression>20)return message('botMsg','A duração deve ser até 3 dias e a progressão entre 0% e 20%.','error');
+    const payload={user_id:currentUser.id,asset:$('asset').value.trim()||'Volatility 100 Index',strategy:$('strategy').value,entry_amount:entry,min_stake:min,max_stake:max,target_amount:target,profit_target:target,loss_limit:loss,stop_loss:loss,max_trades:trades,session_duration_minutes:duration,progression_enabled:true,progression_mode:'win',progression_percent:progression,bot_enabled:false,updated_at:new Date().toISOString()};
+    $('saveBotBtn').disabled=true; message('botMsg','A guardar...');
+    // Usa update se já existir uma linha; caso contrário, cria uma. A política RLS deve permitir apenas o próprio user_id.
+    const {data:existing}=await client.from('bot_settings').select('id').eq('user_id',currentUser.id).limit(1).maybeSingle();
+    let result;
+    if(existing) result=await client.from('bot_settings').update(payload).eq('id',existing.id).select().single();
+    else result=await client.from('bot_settings').insert(payload).select().single();
+    $('saveBotBtn').disabled=false;
+    if(result.error)return message('botMsg','Não foi possível guardar. Verifica a política RLS da tabela bot_settings: '+result.error.message,'error');
+    $('botStatus').textContent='Desligado'; message('botMsg','Configurações guardadas. O bot continua desligado até a integração Deriv ser implementada.','success');
+  });
+
+
+  // Laboratório offline: EMA, RSI, MACD simplificado, ATR e backtest candle-a-candle.
+  const csvBox = $('candleCsv');
+  $('loadExampleBtn').addEventListener('click',()=>{
+    // Série sintética apenas para demonstrar a interface; não representa um ativo real.
+    let rows=['timestamp,open,high,low,close'], price=100;
+    for(let i=0;i<260;i++){
+      const drift=Math.sin(i/13)*0.18 + (i%70<38?0.07:-0.055);
+      const open=price, close=Math.max(1,open+drift+(Math.sin(i*2.1)*0.32));
+      const high=Math.max(open,close)+0.12+Math.abs(Math.sin(i))*0.18;
+      const low=Math.min(open,close)-0.12-Math.abs(Math.cos(i))*0.18;
+      rows.push(`2026-01-${String(1+Math.floor(i/48)).padStart(2,'0')} ${String(Math.floor((i%48)*5/60)).padStart(2,'0')}:${String((i%12)*5).padStart(2,'0')},${open.toFixed(4)},${high.toFixed(4)},${low.toFixed(4)},${close.toFixed(4)}`);
+      price=close;
+    }
+    csvBox.value=rows.join('\n');
+    $('backtestStatus').textContent='Exemplo sintético carregado — não é cotação real.';
+  });
+  function parseCandles(text){
+    const lines=text.trim().split(/\r?\n/).filter(Boolean);
+    if(lines.length<3) throw Error('Insere o cabeçalho e pelo menos 2 linhas de candles.');
+    const start=/open/i.test(lines[0])?1:0, out=[];
+    for(let i=start;i<lines.length;i++){
+      const p=lines[i].split(/[;,]/).map(x=>x.trim());
+      if(p.length<5) continue;
+      const vals=p.slice(-4).map(Number);
+      if(vals.some(v=>!Number.isFinite(v))||vals[0]<=0||vals[1]<Math.max(vals[0],vals[3])||vals[2]>Math.min(vals[0],vals[3])) {
+        // A validação abaixo é permissiva quanto à ordem OHLC, mas rejeita números impossíveis.
+        const [o,h,l,c]=vals;
+        if(![o,h,l,c].every(Number.isFinite)||h<Math.max(o,c)||l>Math.min(o,c)||l<=0) continue;
+      }
+      const [open,high,low,close]=vals;
+      if(high<Math.max(open,close)||low>Math.min(open,close)||low<=0) continue;
+      out.push({time:p.slice(0,p.length-4).join(' '),open,high,low,close});
+    }
+    if(out.length<60) throw Error('Dados válidos insuficientes. Fornece pelo menos 60 candles (ideal: 200 ou mais).');
+    return out;
+  }
+  function ema(values,period){
+    const k=2/(period+1), a=Array(values.length).fill(null);
+    let seed=values.slice(0,period).reduce((x,y)=>x+y,0)/period;
+    a[period-1]=seed;
+    for(let i=period;i<values.length;i++) a[i]=values[i]*k+a[i-1]*(1-k);
+    return a;
+  }
+  function rsi(values,period=14){
+    const out=Array(values.length).fill(null); let gains=0,losses=0;
+    for(let i=1;i<=period;i++){const d=values[i]-values[i-1];gains+=Math.max(d,0);losses+=Math.max(-d,0);}
+    let ag=gains/period, al=losses/period;
+    out[period]=al===0?100:100-100/(1+ag/al);
+    for(let i=period+1;i<values.length;i++){
+      const d=values[i]-values[i-1];ag=(ag*(period-1)+Math.max(d,0))/period;al=(al*(period-1)+Math.max(-d,0))/period;
+      out[i]=al===0?100:100-100/(1+ag/al);
+    } return out;
+  }
+  function runStrategy(c,style,risk){
+    const close=c.map(x=>x.close), fast=ema(close,9), slow=ema(close,21), long=ema(close,50), mom=rsi(close,14), macdLine=ema(close,12).map((v,i)=>v===null||ema(close,26)[i]===null?null:v-ema(close,26)[i]);
+    const minScore=risk==='conservative'?4:risk==='aggressive'?2:3;
+    let equity=0,peak=0,maxDD=0,wins=0,losses=0,signals=0, skipped=0, sumWin=0,sumLoss=0;
+    const trades=[];
+    for(let i=55;i<c.length-1;i++){
+      const bull=fast[i]>slow[i]&&slow[i]>long[i], bear=fast[i]<slow[i]&&slow[i]<long[i];
+      const r=mom[i], m=macdLine[i], prev=macdLine[i-1];
+      if(r===null||m===null||prev===null) continue;
+      let side=null,score=0;
+      if(style==='trend'){
+        if(bull){side='COMPRA';score=2+(r>50&&r<72?1:0)+(m>0?1:0);}
+        if(bear){side='VENDA';score=2+(r<50&&r>28?1:0)+(m<0?1:0);}
+      } else if(style==='reversal'){
+        if(r<30&&m>prev){side='COMPRA';score=2+(close[i]>close[i-1]?1:0)+(m>0?1:0);}
+        if(r>70&&m<prev){side='VENDA';score=2+(close[i]<close[i-1]?1:0)+(m<0?1:0);}
+      } else {
+        if(bull&&r>50&&r<70&&m>prev){side='COMPRA';score=2+(m>0?1:0)+(close[i]>fast[i]?1:0);}
+        if(bear&&r<50&&r>30&&m<prev){side='VENDA';score=2+(m<0?1:0)+(close[i]<fast[i]?1:0);}
+      }
+      if(!side||score<minScore){skipped++;continue;}
+      const entry=c[i+1].open, exit=c[i+1].close;
+      const result=side==='COMPRA'?exit-entry:entry-exit;
+      equity+=result;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);
+      signals++;
+      if(result>0){wins++;sumWin+=result;}else{losses++;sumLoss+=Math.abs(result);}
+      trades.push({time:c[i+1].time,side,result,score});
+    }
+    return {signals,wins,losses,skipped,equity,maxDD,winRate:signals?wins/signals*100:0,profitFactor:sumLoss?sumWin/sumLoss:(sumWin?Infinity:0),trades};
+  }
+  $('runBacktestBtn').addEventListener('click',()=>{
+    try{
+      $('runBacktestBtn').disabled=true;$('backtestStatus').textContent='A calcular…';
+      const candles=parseCandles(csvBox.value), result=runStrategy(candles,$('strategyStyle').value,$('strategyRisk').value);
+      $('btWinRate').textContent=result.signals?result.winRate.toFixed(1)+'%':'—';
+      $('btNet').textContent=result.equity.toFixed(4);
+      $('btDrawdown').textContent=result.maxDD.toFixed(4);
+      $('btDetails').textContent=`${candles.length} candles analisados · ${result.signals} sinais testados · ${result.wins} positivos · ${result.losses} negativos · ${result.skipped} candles sem entrada. O resultado usa a variação do candle seguinte, sem spreads, comissões, slippage ou latência; por isso é apenas uma primeira triagem e pode sobrestimar o desempenho.`;
+      const pf=Number.isFinite(result.profitFactor)?result.profitFactor.toFixed(2):'∞';
+      $('btMetrics').innerHTML=[
+        ['Total de candles',candles.length],['Operações simuladas',result.signals],['Operações vencedoras',result.wins],['Operações perdedoras',result.losses],['Profit factor bruto',pf],['Perfil de risco',$('strategyRisk').selectedOptions[0].text],['Estratégia',$('strategyStyle').selectedOptions[0].text]
+      ].map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+      $('backtestStatus').textContent='Teste concluído.';
+    }catch(e){$('backtestStatus').textContent='';$('btDetails').textContent=e.message;}
+    finally{$('runBacktestBtn').disabled=false;}
+  });
+
+  async function loadHistory(){
+    if(!currentUser)return; $('historyRows').innerHTML='<tr><td colspan="6" class="muted">A carregar...</td></tr>';
+    const {data,error}=await client.from('trade_history').select('created_at,asset,trade_type,result,commission,status').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(50);
+    if(error){$('historyRows').innerHTML='<tr><td colspan="6">Não foi possível carregar o histórico.</td></tr>';return message('historyMsg','Verifica a política RLS: '+error.message,'error');}
+    if(!data?.length){$('historyRows').innerHTML='<tr><td colspan="6" class="muted">Ainda não existem operações registadas.</td></tr>';return message('historyMsg','As operações aparecerão aqui depois da integração.');}
+    $('historyRows').innerHTML=data.map(r=>`<tr><td>${new Date(r.created_at).toLocaleString('pt-PT')}</td><td>${escapeHtml(r.asset||'—')}</td><td>${escapeHtml(r.trade_type||'—')}</td><td>${money(r.result)}</td><td>${money(r.commission)}</td><td>${escapeHtml(r.status||'—')}</td></tr>`).join('');
+    message('historyMsg','A mostrar até 50 operações.');
+  }
+  function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  $('refreshHistory').addEventListener('click',loadHistory);
+
+  // Janelas de gráfico separadas: abre uma janela do navegador a partir do clique do utilizador.
+  let chartWindowCount=0;
+  function openChartWindow(symbol){
+    const asset=symbol||$('manualAsset')?.value||$('asset')?.value||'EUR/USD';
+    const win=window.open('',`mendtrade_chart_${++chartWindowCount}`,'width=1050,height=700,resizable=yes,scrollbars=yes');
+    if(!win){message('botMsg','O navegador bloqueou a janela. Permite pop-ups para este ficheiro e tenta novamente.','error');return;}
+    const safe=escapeHtml(asset);
+    win.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MendtradeR · ${safe}</title><style>body{margin:0;background:#050806;color:#effff5;font:16px system-ui;padding:22px}header,.panel{background:#0d1711;border:1px solid #245438;border-radius:14px;padding:16px;margin-bottom:14px}.green{color:#00df75}svg{width:100%;height:420px;background:#070c09;border-radius:10px}.muted{color:#9eb0a4}
+  </style></head><body><header><h2 class="green">MendtradeR · Janela de gráfico</h2><b>${safe}</b> <span class="muted">· MODO DEMO</span></header><div class="panel"><b>Gráfico independente</b><p class="muted">Área preparada para gráfico e dados de mercado. O desenho abaixo é ilustrativo e não representa cotações ao vivo.</p><svg viewBox="0 0 900 400" preserveAspectRatio="none"><path d="M0 80H900M0 160H900M0 240H900M0 320H900" stroke="#23382c"/><path d="M10 300 L70 250 L130 270 L190 190 L250 220 L310 145 L370 175 L430 110 L490 155 L550 90 L610 125 L670 70 L730 120 L790 60 L890 85" fill="none" stroke="#00d978" stroke-width="4"/></svg><p class="muted">Quando a integração de cotações for concluída, esta janela poderá apresentar candles, indicadores e períodos selecionáveis.</p></div></body></html>`);
+    win.document.close();
+  }
+  $('openChartWindow')?.addEventListener('click',()=>openChartWindow());
+  document.querySelectorAll('.chart-shortcut').forEach(b=>b.addEventListener('click',()=>openChartWindow(b.dataset.symbol)));
+
+  // Centro de suporte: respostas locais de orientação e preparação de pedido ao proprietário.
+  $('sendAiQuestion')?.addEventListener('click',()=>{
+    const input=$('aiQuestion'), q=input.value.trim(); if(!q)return;
+    const box=$('aiChat'); const user=document.createElement('div');user.className='chat-msg user';user.textContent=q;box.appendChild(user);
+    const t=q.toLowerCase();let answer='Posso orientar sobre as áreas do MendtradeR. Para questões específicas da conta, usa também “Falar com o proprietário”.';
+    if(/bot|estrat|entrada|risco/.test(t)) answer='Na área Operações do Bot podes escolher o ativo, estratégia, valor por entrada, limites de perda e meta. Nesta prévia o bot permanece desligado e não envia ordens.';
+    else if(/manual|compra|venda|sinal/.test(t)) answer='Na janela Operações Manuais podes acompanhar sinais quando houver uma fonte de mercado validada. A decisão de executar manualmente continua contigo; nesta prévia os botões estão bloqueados.';
+    else if(/deriv|ligar|conectar/.test(t)) answer='A ligação à Deriv ainda precisa de OAuth seguro, callback HTTPS e validação em DEMO. Nunca coloques tokens privados no navegador ou os partilhes no chat.';
+    else if(/idioma|língua|language/.test(t)) answer='Usa o seletor de idioma no topo para alternar entre Português, English e Español.';
+    const bot=document.createElement('div');bot.className='chat-msg';bot.textContent=answer;box.appendChild(bot);box.scrollTop=box.scrollHeight;input.value='';
+  });
+  $('aiQuestion')?.addEventListener('keydown',e=>{if(e.key==='Enter')$('sendAiQuestion').click();});
+  $('sendOwnerMessage')?.addEventListener('click',()=>{
+    const msg=$('ownerMessage').value.trim(); if(!msg){$('ownerSupportMsg').textContent='Escreve a mensagem antes de continuar.';return;}
+    localStorage.setItem('mendtrade_owner_support_draft',JSON.stringify({topic:$('ownerTopic').value,message:msg,createdAt:new Date().toISOString(),user:currentUser?.email||'visitante'}));
+    $('ownerSupportMsg').textContent='Mensagem preparada neste dispositivo. O envio ao proprietário só ficará disponível após configurar o serviço de suporte no backend.';
+  });
+
+  // Tradução centralizada da interface. Mantém valores, dados de mercado e conteúdo dinâmico intactos.
+  const translations={
+    pt:{nav:['Área de operações','Visão geral','Histórico','Instruções e técnicas','Depósitos','Levantamentos','Suporte IA / Proprietário','Conta e definições','Área do Proprietário'],hint:'Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.'},
+    en:{nav:['Trading workspace','Overview','History','Guides & techniques','Deposits','Withdrawals','AI / Owner support','Account & settings','Owner area'],hint:'Swipe left to view the other panels. BOT is always first.'},
+    es:{nav:['Área de operaciones','Resumen','Historial','Instrucciones y técnicas','Depósitos','Retiros','Soporte IA / Propietario','Cuenta y ajustes','Área del propietario'],hint:'Desliza hacia la izquierda para ver los otros paneles. BOT aparece primero.'}
+  };
+  const uiText={
+    en:{
+      'Bem-vindo ao MendtradeR':'Welcome to MendtradeR','Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.':'Sign in or create an account to access the dashboard. Available to users in multiple countries.',
+      'País':'Country','Palavra-passe':'Password','Entrar':'Sign in','Criar conta':'Create account','Sair':'Log out','MENU MENDTRADER':'MENDTRADER MENU','Fechar menu':'Close menu',
+      'Resumo da tua conta MendtradeR.':'Your MendtradeR account summary.','Saldo registado':'Recorded balance','Resultado registado':'Recorded result','O saldo real é consultado na Deriv quando a integração for concluída.':'The real balance will be retrieved from Deriv when integration is complete.',
+      'Estado do bot':'Bot status','Desligado':'Disconnected','Taxa de acerto':'Win rate','Aguardando operações reais':'Waiting for real trades','Lucro hoje':'Profit today','Dados não ligados':'Data not connected','Oportunidades':'Opportunities','Radar por integrar':'Radar integration pending','Risco da sessão':'Session risk','Protegido':'Protected','Controlos configuráveis':'Configurable controls',
+      'Radar inteligente · V5':'Smart radar · V5','Pré-visualização do painel de oportunidades.':'Preview of the opportunities panel.','MODO DEMO VISUAL':'VISUAL DEMO MODE','A aguardar dados de mercado':'Waiting for market data','Multimercado':'Multi-market','Melhor oportunidade':'Best opportunity','Sem sinal confirmado':'No confirmed signal','Qualidade do sinal':'Signal quality','Direção':'Direction','Mercado':'Market','Confirmações':'Confirmations','Estado':'Status','Não ligado':'Not connected',
+      'Regra de comissão da plataforma':'Platform commission rule','Aplicada apenas ao lucro positivo elegível de cada operação concluída.':'Applied only to eligible positive profit from each completed trade.','Exemplo: lucro elegível de 10 USD = 1 USD de comissão. O registo e a cobrança reais dependem do backend.':'Example: eligible profit of USD 10 = USD 1 commission. Actual recording and collection depend on the backend.',
+      'Importante:':'Important:','esta primeira versão ainda não executa operações, não movimenta dinheiro e não está ligada à conta Deriv. Use apenas como painel de configuração.':'this first version does not execute trades, move money, or connect to a Deriv account. Use it only as a configuration dashboard.','Próximas integrações':'Upcoming integrations',
+      'Ligação segura à Deriv, execução do bot com limites de risco, depósitos e levantamentos bancários confirmados por um prestador autorizado.':'Secure Deriv connection, bot execution with risk limits, and bank deposits and withdrawals confirmed by an authorized provider.',
+      'Central de operações':'Trading center','Escolhe entre operações automáticas do bot e operações manuais. Os sinais só serão apresentados quando existir uma fonte de dados validada; nesta prévia, o gráfico é ilustrativo.':'Choose between automated bot trading and manual trading. Signals will appear only when a validated data source is available; the chart in this preview is illustrative.',
+      'Janelas de gráfico':'Chart windows','＋ Abrir nova janela':'＋ Open new window','Abre um gráfico separado, ao estilo do MT5. Nesta versão é apenas visual DEMO.':'Opens a separate chart, similar to MT5. In this version it is visual DEMO only.',
+      'DERIV · DADOS PÚBLICOS':'DERIV · PUBLIC DATA','Mercado em tempo real':'Live market','Ligação apenas de leitura. Não acede à conta, saldo ou ordens.':'Read-only connection. It does not access your account, balance, or trades.',
+      'Última cotação recebida':'Latest quote received','A aguardar ligação':'Waiting for connection','Ligar mercado':'Connect market','Desligar':'Disconnect','Sem ligação à Deriv.':'Not connected to Deriv.','Ativar aviso sonoro':'Enable sound alert','Som desligado':'Sound off','Hora':'Time','Ativo':'Asset','Preço':'Price','Ainda sem cotações.':'No quotes yet.',
+      'ANÁLISE EXPERIMENTAL · SEM ORDENS':'EXPERIMENTAL ANALYSIS · NO TRADES','🧭 Sinal do mercado':'🧭 Market signal','● A aguardar dados':'● Waiting for data','Direção sugerida':'Suggested direction','Força técnica indicativa':'Indicative technical strength','A AGUARDAR':'WAITING','São necessários pelo menos 30 ticks consecutivos para uma primeira leitura.':'At least 30 consecutive ticks are required for an initial reading.',
+      'Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.':'Experimental signals based on tick movements, not candles. They are not financial advice or a guarantee of results. No trades will be executed.',
+      '🕯️ Candles reais · 1 minuto':'🕯️ Real candles · 1 minute','Os candles são construídos localmente a partir dos ticks recebidos. Só candles fechados entram na análise.':'Candles are built locally from received ticks. Only closed candles are included in the analysis.',
+      'Candles fechados recolhidos':'Closed candles collected','Estado da recolha':'Collection status','A aguardar ticks':'Waiting for ticks','Ainda sem candles fechados.':'No closed candles yet.','Testar estratégia em demo':'Test strategy in demo',
+      'O teste ficará disponível após recolher pelo menos 60 candles fechados (aproximadamente 1 hora).':'The test will be available after collecting at least 60 closed candles (approximately 1 hour).',
+      'As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.':'Quotes are provided by Deriv through a public connection. The connection does not place trades. Signals and the bot remain disabled until separately validated.',
+      'Saldo de demonstração':'Demo balance','Resultado do bot':'Bot result','Aguardando integração':'Waiting for integration','Resultado manual':'Manual result','Aguardando operações':'Waiting for trades','Estado da ligação':'Connection status','Deriv não conectada':'Deriv not connected',
+      '🤖 Operações do Bot':'🤖 Bot Operations','Gráfico do mercado':'Market chart','Ilustrativo · sem cotações ao vivo':'Illustrative · no live quotes','Sinal do motor: indisponível':'Engine signal: unavailable','Feed não ligado':'Feed not connected',
+      'Estratégia':'Strategy','Manual / por configurar':'Manual / to be configured','Conservadora (a implementar)':'Conservative (to be implemented)','Valor por entrada (USD)':'Stake per trade (USD)','Valor mínimo (USD)':'Minimum stake (USD)','Valor máximo (USD)':'Maximum stake (USD)','Tempo de expiração':'Expiry time','Meta de lucro (USD)':'Profit target (USD)','Limite de perda (USD)':'Loss limit (USD)','Máximo de operações':'Maximum number of trades','Guardar configurações':'Save settings','Iniciar Bot (indisponível)':'Start Bot (unavailable)',
+      'O bot permanece desligado até à integração segura e aos testes DEMO.':'The bot remains disabled until secure integration and DEMO testing are complete.',
+      '🎯 Operações Manuais':'🎯 Manual Trading','Execução manual':'Manual execution','📊 Sinal atual do Bot':'📊 Current Bot Signal','Aguardando feed':'Waiting for feed','Nenhum sinal confirmado':'No confirmed signal',
+      'Quando o motor receber dados reais e validar uma oportunidade, o sinal mostrará COMPRA ou VENDA, ativo, confiança e validade. Tu decides se executas.':'When the engine receives real data and validates an opportunity, the signal will show BUY or SELL, asset, confidence, and validity. You decide whether to execute.',
+      'Valor da operação (USD)':'Trade amount (USD)','↑ COMPRA':'↑ BUY','↓ VENDA':'↓ SELL','Disponível após integração segura':'Available after secure integration',
+      'Modo demonstração: os botões de compra e venda estão bloqueados. Nenhuma ordem será enviada. A execução manual será ativada apenas após integração e confirmação de segurança.':'Demo mode: buy and sell buttons are disabled. No order will be sent. Manual execution will be enabled only after integration and security confirmation.',
+      'Histórico manual':'Manual history','Ainda sem operações manuais':'No manual trades yet','Motor inteligente multimercado':'Intelligent multi-market engine','Configurações previstas para o motor do MendtradeR.':'Planned settings for the MendtradeR engine.','EM PREPARAÇÃO':'IN PREPARATION',
+      'Mercado preferencial':'Preferred market','Seleção automática pelo bot':'Automatic selection by bot','Índices sintéticos':'Synthetic indices','Índices financeiros':'Financial indices','Criptomoedas':'Cryptocurrencies','Commodities':'Commodities','Perfil de risco':'Risk profile','Equilibrado':'Balanced','Conservador':'Conservative','Agressivo':'Aggressive','Período de análise':'Analysis timeframe','Multi-timeframe automático':'Automatic multi-timeframe','Estilo de estratégia':'Strategy style','Híbrida inteligente':'Intelligent hybrid','Seguimento de tendência':'Trend following','Reversão confirmada':'Confirmed reversal',
+      'Estes seletores são uma pré-visualização: ainda não alteram a estratégia executada nem enviam ordens.':'These selectors are a preview: they do not yet change the active strategy or place trades.',
+      'Laboratório de sinais e backtest':'Signal and backtest laboratory','Testa a lógica com candles históricos antes de qualquer operação real.':'Test the logic with historical candles before any real trade.','MODO OFFLINE':'OFFLINE MODE',
+      'Importante: esta versão analisa dados históricos que forneces. Não recebe cotações ao vivo, não envia ordens e não prevê lucros.':'Important: this version analyzes historical data you provide. It does not receive live quotes, place trades, or predict profits.',
+      'Perfil de risco do teste':'Test risk profile','Lógica de entrada':'Entry logic','Híbrida (tendência + momentum)':'Hybrid (trend + momentum)','Dados históricos CSV':'Historical CSV data','Formato: timestamp,open,high,low,close. Usa dados exportados da corretora; mínimo recomendado: 200 candles.':'Format: timestamp,open,high,low,close. Use data exported from your broker; recommended minimum: 200 candles.',
+      'Executar backtest':'Run backtest','Carregar exemplo ilustrativo':'Load illustrative example','Resultado líquido (unidades)':'Net result (units)','Drawdown máximo':'Maximum drawdown','Indicador':'Indicator','Valor':'Value','O relatório do teste aparecerá aqui.':'The test report will appear here.','Ainda sem resultados.':'No results yet.',
+      'A execução automática e manual continuam desligadas até existir feed validado, ligação segura à corretora, testes DEMO e controlos de risco no servidor. Nenhum lucro é garantido.':'Automated and manual trading remain disabled until there is a validated feed, secure broker connection, DEMO tests, and server-side risk controls. No profit is guaranteed.',
+      'Histórico de operações':'Trade history','Operações guardadas na tua conta.':'Trades saved in your account.','Atualizar':'Refresh','Data':'Date','Tipo':'Type','Resultado':'Result','Comissão':'Commission','A carregar...':'Loading...',
+      'Mínimo previsto para Angola: 5.000 Kz.':'Expected minimum for Angola: 5,000 Kz.','Depósitos bancários ainda não estão ativos. Não transfiras dinheiro para contas apresentadas fora de um fluxo oficial confirmado.':'Bank deposits are not active yet. Do not transfer money to accounts shown outside a confirmed official process.',
+      'País da conta':'Account country','Valor do depósito (AOA)':'Deposit amount (AOA)','Banco / método de pagamento':'Bank / payment method','Outro banco angolano':'Other Angolan bank','Métodos disponíveis para Angola serão ativados após integração com um prestador autorizado.':'Methods available for Angola will be enabled after integration with an authorized provider.',
+      'Depósitos em preparação':'Deposits in preparation','A ativação exige contrato e integração com banco ou prestador de pagamentos autorizado, confirmação automática e reconciliação.':'Activation requires a contract and integration with an authorized bank or payment provider, automatic confirmation, and reconciliation.',
+      'Levantamentos bancários ainda não estão ativos. A plataforma não pode enviar dinheiro diretamente sem integração autorizada.':'Bank withdrawals are not active yet. The platform cannot send money directly without authorized integration.',
+      'Banco':'Bank','IBAN / número de conta':'IBAN / account number','Será recolhido apenas num formulário seguro quando a integração existir':'It will only be collected through a secure form once integration is available','Valor (AOA)':'Amount (AOA)','Levantamentos em preparação':'Withdrawals in preparation',
+      'Instruções e técnicas de operações':'Trading instructions and techniques','Guia educativo para compreender o MendtradeR e preparar uma utilização responsável.':'Educational guide to understand MendtradeR and prepare for responsible use.',
+      'Suporte IA / Proprietário':'AI / Owner support','Conta e definições':'Account & settings','Centro de suporte':'Support center'
+    },
+    es:{
+      'Bem-vindo ao MendtradeR':'Bienvenido a MendtradeR','Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.':'Inicia sesión o crea una cuenta para acceder al panel. Disponible para usuarios de varios países.',
+      'País':'País','Palavra-passe':'Contraseña','Entrar':'Entrar','Criar conta':'Crear cuenta','Sair':'Salir','MENU MENDTRADER':'MENÚ MENDTRADER','Fechar menu':'Cerrar menú',
+      'Resumo da tua conta MendtradeR.':'Resumen de tu cuenta MendtradeR.','Saldo registado':'Saldo registrado','Resultado registado':'Resultado registrado','Estado do bot':'Estado del bot','Desligado':'Desconectado',
+      'Taxa de acerto':'Tasa de aciertos','Aguardando operações reais':'Esperando operaciones reales','Lucro hoje':'Ganancia de hoy','Dados não ligados':'Datos no conectados','Oportunidades':'Oportunidades','Radar por integrar':'Radar pendiente de integración','Risco da sessão':'Riesgo de la sesión','Protegido':'Protegido',
+      'Radar inteligente · V5':'Radar inteligente · V5','Melhor oportunidade':'Mejor oportunidad','Sem sinal confirmado':'Sin señal confirmada','Qualidade do sinal':'Calidad de la señal','Direção':'Dirección','Mercado':'Mercado','Confirmações':'Confirmaciones','Estado':'Estado','Não ligado':'No conectado',
+      'Regra de comissão da plataforma':'Regla de comisión de la plataforma','Central de operações':'Centro de operaciones','Escolhe entre operações automáticas do bot e operações manuais. Os sinais só serão apresentados quando existir uma fonte de dados validada; nesta prévia, o gráfico é ilustrativo.':'Elige entre operaciones automáticas del bot y operaciones manuales. Las señales solo aparecerán cuando exista una fuente de datos validada; en esta vista previa, el gráfico es ilustrativo.',
+      'Janelas de gráfico':'Ventanas de gráficos','＋ Abrir nova janela':'＋ Abrir nueva ventana','Mercado em tempo real':'Mercado en tiempo real','Ligação apenas de leitura. Não acede à conta, saldo ou ordens.':'Conexión de solo lectura. No accede a la cuenta, saldo ni órdenes.',
+      'Última cotação recebida':'Última cotización recibida','A aguardar ligação':'Esperando conexión','Ligar mercado':'Conectar mercado','Desligar':'Desconectar','Sem ligação à Deriv.':'Sin conexión con Deriv.','Ativar aviso sonoro':'Activar alerta sonora','Som desligado':'Sonido apagado','Hora':'Hora','Ativo':'Activo','Preço':'Precio','Ainda sem cotações.':'Aún no hay cotizaciones.',
+      'Sinal do mercado':'Señal del mercado','A AGUARDAR':'ESPERANDO','Direção sugerida':'Dirección sugerida','Força técnica indicativa':'Fuerza técnica indicativa','A aguardar ticks':'Esperando ticks','Ainda sem candles fechados.':'Aún no hay velas cerradas.',
+      'Saldo de demonstração':'Saldo de demostración','Resultado do bot':'Resultado del bot','Resultado manual':'Resultado manual','Estado da ligação':'Estado de conexión','Deriv não conectada':'Deriv no conectada',
+      '🤖 Operações do Bot':'🤖 Operaciones del Bot','Gráfico do mercado':'Gráfico del mercado','Estratégia':'Estrategia','Valor por entrada (USD)':'Importe por operación (USD)','Valor mínimo (USD)':'Importe mínimo (USD)','Valor máximo (USD)':'Importe máximo (USD)','Tempo de expiração':'Tiempo de expiración','Meta de lucro (USD)':'Objetivo de beneficio (USD)','Limite de perda (USD)':'Límite de pérdida (USD)','Máximo de operações':'Máximo de operaciones','Guardar configurações':'Guardar configuración','Iniciar Bot (indisponível)':'Iniciar Bot (no disponible)',
+      '🎯 Operações Manuais':'🎯 Operaciones manuales','Execução manual':'Ejecución manual','📊 Sinal atual do Bot':'📊 Señal actual del Bot','Valor da operação (USD)':'Importe de la operación (USD)','↑ COMPRA':'↑ COMPRA','↓ VENDA':'↓ VENTA','Histórico manual':'Historial manual',
+      'Motor inteligente multimercado':'Motor inteligente multimercado','Mercado preferencial':'Mercado preferido','Perfil de risco':'Perfil de riesgo','Período de análise':'Periodo de análisis','Estilo de estratégia':'Estilo de estrategia',
+      'Laboratório de sinais e backtest':'Laboratorio de señales y backtest','Executar backtest':'Ejecutar backtest','Carregar exemplo ilustrativo':'Cargar ejemplo ilustrativo','Histórico de operações':'Historial de operaciones','Operações guardadas na tua conta.':'Operaciones guardadas en tu cuenta.','Atualizar':'Actualizar',
+      'Data':'Fecha','Tipo':'Tipo','Resultado':'Resultado','Comissão':'Comisión','A carregar...':'Cargando...','País da conta':'País de la cuenta','Valor do depósito (AOA)':'Importe del depósito (AOA)','Banco / método de pagamento':'Banco / método de pago','Banco':'Banco','IBAN / número de conta':'IBAN / número de cuenta','Valor (AOA)':'Importe (AOA)',
+      'Instruções e técnicas de operações':'Instrucciones y técnicas de operaciones','Guia educativo para compreender o MendtradeR e preparar uma utilização responsável.':'Guía educativa para comprender MendtradeR y prepararse para un uso responsable.','Suporte IA / Proprietário':'Soporte IA / Propietario','Conta e definições':'Cuenta y ajustes','Centro de suporte':'Centro de soporte'
+    }
+  };
+  // Tradução resiliente: preserva o texto original e também traduz elementos
+  // criados/atualizados dinamicamente após a troca de idioma.
+  const originalUiTextNodes=new WeakMap();
+  const originalUiAttributes=new WeakMap();
+  let activeLanguage='pt';
+  function translateTextNode(node){
+    if(!node || node.nodeType!==Node.TEXT_NODE || !node.parentElement) return;
+    if(node.parentElement.closest('script,style,noscript')) return;
+    if(!originalUiTextNodes.has(node)) originalUiTextNodes.set(node,node.nodeValue);
+    const original=originalUiTextNodes.get(node), trimmed=String(original||'').trim();
+    if(!trimmed) return;
+    const dictionary=uiText[activeLanguage]||{};
+    let translated=activeLanguage==='pt'?original:dictionary[trimmed];
+    if(!translated && activeLanguage!=='pt'){
+      const match=Object.keys(dictionary).find(k=>trimmed.startsWith(k+' '));
+      if(match) translated=original.replace(trimmed,dictionary[match]+trimmed.slice(match.length));
+    }
+    if(translated===undefined) translated=original;
+    else if(translated!==original && original!==trimmed) translated=original.replace(trimmed,translated);
+    if(node.nodeValue!==translated) node.nodeValue=translated;
+  }
+  function translateAttribute(el,attr){
+    const value=el.getAttribute(attr);
+    if(value===null)return;
+    let saved=originalUiAttributes.get(el);
+    if(!saved){saved={};originalUiAttributes.set(el,saved);}
+    if(!(attr in saved))saved[attr]=value;
+    const original=saved[attr],dictionary=uiText[activeLanguage]||{};
+    const translated=activeLanguage==='pt'?original:(dictionary[original]||original);
+    if(value!==translated)el.setAttribute(attr,translated);
+  }
+  function translateAddedTree(root){
+    if(root.nodeType===Node.TEXT_NODE){translateTextNode(root);return;}
+    if(root.nodeType!==Node.ELEMENT_NODE && root!==document.body)return;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    while(walker.nextNode())translateTextNode(walker.currentNode);
+    if(root.nodeType===Node.ELEMENT_NODE){
+      if(root.matches?.('input[placeholder],textarea[placeholder],[aria-label],[title]')){
+        ['placeholder','aria-label','title'].forEach(attr=>translateAttribute(root,attr));
+      }
+      root.querySelectorAll?.('input[placeholder],textarea[placeholder],[aria-label],[title]').forEach(el=>{
+        ['placeholder','aria-label','title'].forEach(attr=>translateAttribute(el,attr));
+      });
+    }
+  }
+  function applyLanguage(code){
+    activeLanguage=translations[code]?code:'pt';
+    const key=activeLanguage;
+    translateAddedTree(document.body);
+    const navLabels=Array.from(document.querySelectorAll('#mainNav [data-page]'));
+    navLabels.forEach((button,i)=>{
+      const label=translations[key].nav[i];
+      if(label){
+        const icon=button.textContent.trim().split(' ')[0];
+        const next=icon+' '+label;
+        if(button.textContent!==next)button.textContent=next;
+      }
+    });
+    const hint=document.querySelector('.ops-carousel-hint');
+    if(hint)hint.textContent=translations[key].hint;
+    const connect=$('derivFeedConnect');
+    if(connect&&!connect.disabled)connect.textContent=(uiText[key]||{})['Ligar mercado']||(key==='en'?'Connect market':key==='es'?'Conectar mercado':'Ligar mercado');
+    const disconnect=$('derivFeedDisconnect');
+    if(disconnect)disconnect.textContent=(uiText[key]||{})['Desligar']||(key==='en'?'Disconnect':key==='es'?'Desconectar':'Desligar');
+    document.documentElement.lang=key;
+    try{localStorage.setItem('mendtrade_language',key);}catch(e){}
+    const selector=$('languageSelect');
+    if(selector && selector.value!==key)selector.value=key;
+  }
+  // Seletor de idioma: aplica a tradução imediatamente e volta a aplicá-la
+  // após a atualização do DOM, para incluir painéis criados dinamicamente.
+  const languageSelector=$('languageSelect');
+  if(languageSelector){
+    const changeLanguage=()=>{
+      const selected=translations[languageSelector.value]?languageSelector.value:'pt';
+      applyLanguage(selected);
+      requestAnimationFrame(()=>applyLanguage(selected));
+      setTimeout(()=>applyLanguage(selected),120);
+    };
+    languageSelector.addEventListener('change',changeLanguage);
+    languageSelector.addEventListener('input',changeLanguage);
+  }
+  const savedLanguage=localStorage.getItem('mendtrade_language')||'pt';
+  if($('languageSelect'))$('languageSelect').value=translations[savedLanguage]?savedLanguage:'pt';
+  applyLanguage(savedLanguage);
+  const languageObserver=new MutationObserver(records=>{
+    for(const record of records){
+      if(record.type==='characterData')translateTextNode(record.target);
+      record.addedNodes?.forEach(translateAddedTree);
+      if(record.type==='attributes')translateAttribute(record.target,record.attributeName);
+    }
+  });
+  languageObserver.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['placeholder','aria-label','title']});
+
+  // Área de operações horizontal: BOT primeiro, restantes painéis por deslize.
+  function setupOperationsCarousel(){
+    const page=$('bot');
+    if(!page || page.querySelector('.ops-carousel')) return;
+    const botPanel=page.querySelector('.bot-panel');
+    const marketPanel=$('derivLivePanel');
+    const manualPanel=page.querySelector('.manual-panel');
+    const strategyLab=$('strategyLab');
+    const enginePanel=Array.from(page.children).find(el=>el.classList?.contains('card') && el.textContent.includes('Motor inteligente multimercado'));
+    if(!botPanel || !marketPanel || !manualPanel || !strategyLab) return;
+    const carousel=document.createElement('div');
+    carousel.className='ops-carousel';
+    carousel.innerHTML='<div class="ops-carousel-tabs" role="tablist" aria-label="Painéis de operações"></div><div class="ops-carousel-hint">Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.</div><div class="ops-carousel-track"></div>';
+    page.querySelector('.ops-hero').insertAdjacentElement('afterend',carousel);
+    const tabs=carousel.querySelector('.ops-carousel-tabs'),track=carousel.querySelector('.ops-carousel-track');
+    const panels=[['🤖 BOT',botPanel],['📡 MERCADO',marketPanel],['🎯 MANUAL',manualPanel],['🧠 MOTOR',enginePanel],['🧪 ESTRATÉGIA',strategyLab]].filter(([,el])=>!!el);
+    panels.forEach(([label,panel],index)=>{
+      const slide=document.createElement('div');slide.className='ops-slide';slide.appendChild(panel);track.appendChild(slide);
+      const tab=document.createElement('button');tab.type='button';tab.textContent=label;tab.setAttribute('role','tab');tab.setAttribute('aria-selected',index===0?'true':'false');if(index===0)tab.classList.add('active');
+      tab.addEventListener('click',()=>slide.scrollIntoView({behavior:'smooth',block:'nearest',inline:'start'}));tabs.appendChild(tab);
+    });
+    page.querySelector('.ops-layout.dual-ops')?.remove();
+    const dock=page.querySelector('.window-dock');if(dock)carousel.insertAdjacentElement('afterend',dock);
+    const updateActive=()=>{
+      const slides=[...track.querySelectorAll('.ops-slide')],mid=track.getBoundingClientRect().left+track.clientWidth*.35;
+      let active=0,best=Infinity;
+      slides.forEach((slide,i)=>{const d=Math.abs(slide.getBoundingClientRect().left-mid);if(d<best){best=d;active=i;}});
+      [...tabs.children].forEach((tab,i)=>{tab.classList.toggle('active',i===active);tab.setAttribute('aria-selected',i===active?'true':'false');});
+    };
+    track.addEventListener('scroll',()=>requestAnimationFrame(updateActive),{passive:true});window.addEventListener('resize',updateActive);updateActive();
+  }
+  setupOperationsCarousel();
+  applyLanguage(localStorage.getItem('mendtrade_language')||'pt');
+
+  function applyTheme(theme){
+    const allowed=['emerald','ocean','purple','light'];
+    const selected=allowed.includes(theme)?theme:'emerald';
+    document.documentElement.dataset.theme=selected;
+    if($('themeSelect'))$('themeSelect').value=selected;
+    try{localStorage.setItem('mendtrade_theme',selected);}catch(e){}
+  }
+  applyTheme(localStorage.getItem('mendtrade_theme')||'emerald');
+  $('themeSelect')?.addEventListener('change',e=>applyTheme(e.target.value));
+
+  function updateProgressionPreview(){
+    const base=Math.max(0,Number($('entryAmount')?.value)||1);
+    const max=Math.max(base,Number($('maxStake')?.value)||5);
+    const pct=Math.min(20,Math.max(0,Number($('progressionPercent')?.value)||0))/100;
+    const second=Math.min(max,base*(1+pct)),third=Math.min(max,second*(1+pct));
+    const fmt=n=>"USD "+n.toFixed(2);
+    const el=$('botProgressionPreview');
+    if(el)el.textContent='Exemplo após vitórias consecutivas: '+fmt(base)+' → '+fmt(second)+' → '+fmt(third)+'. Após uma perda, regressa a '+fmt(base)+'. O teto de entrada configurado é '+fmt(max)+'.';
+  }
+
+  // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
+  let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivTickWatchdogTimer=null, derivLastTickAt=0, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;
+  const DERIV_CANDLES_KEY='mendtrader_deriv_candles_v1';
+  try{derivLiveCandles=JSON.parse(localStorage.getItem(DERIV_CANDLES_KEY)||'[]').slice(-300);}catch(e){derivLiveCandles=[];}
+  function setDerivFeedStatus(label,kind='neutral'){
+    const el=$('derivFeedStatus'); if(!el)return;
+    el.textContent=label; el.className='signal-tag '+kind;
+  }
+  function closeDerivFeed(){
+    derivFeedWanted=false;clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
+    if(derivFeedSocket){
+      try{if(derivFeedSubscription&&derivFeedSocket.readyState===WebSocket.OPEN)derivFeedSocket.send(JSON.stringify({forget:derivFeedSubscription}));}catch(e){}
+      try{derivFeedSocket.close();}catch(e){}
+    }
+    derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
+    $('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Ligar mercado';$('derivFeedDisconnect').disabled=true;
+    setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
+  }
+  function addDerivCandleTick(tick){
+    const epoch=Number(tick.epoch);const price=Number(tick.quote);
+    if(!Number.isFinite(epoch)||!Number.isFinite(price))return;
+    const bucket=Math.floor(epoch/60)*60;
+    if(!derivCurrentCandle){
+      derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
+    }else if(bucket===derivCurrentCandle.epoch){
+      derivCurrentCandle.high=Math.max(derivCurrentCandle.high,price);
+      derivCurrentCandle.low=Math.min(derivCurrentCandle.low,price);
+      derivCurrentCandle.close=price;
+    }else if(bucket>derivCurrentCandle.epoch){
+      derivLiveCandles.push({...derivCurrentCandle,time:new Date(derivCurrentCandle.epoch*1000).toLocaleTimeString('pt-PT')});
+      derivLiveCandles=derivLiveCandles.slice(-300);
+      try{localStorage.setItem(DERIV_CANDLES_KEY,JSON.stringify(derivLiveCandles));}catch(e){}
+      derivCurrentCandle={epoch:bucket,open:price,high:price,low:price,close:price};
+      renderDerivCandles();
+      updateDerivCandleSignal();
+    }
+    $('derivCandleState').textContent='A recolher candle atual';
+  }
+  function renderDerivCandles(){
+    $('derivCandleCount').textContent=String(derivLiveCandles.length);
+    $('derivCandleRows').innerHTML=derivLiveCandles.slice(-8).reverse().map(c=>'<tr><td>'+escapeHtml(c.time)+'</td><td>'+c.open+'</td><td>'+c.high+'</td><td>'+c.low+'</td><td>'+c.close+'</td></tr>').join('')||'<tr><td colspan="5" class="muted">Ainda sem candles fechados.</td></tr>';
+    $('derivCandleTestResult').textContent=derivLiveCandles.length<60?'Faltam '+(60-derivLiveCandles.length)+' candles para o primeiro teste (aproximadamente '+(60-derivLiveCandles.length)+' minutos).':'Já existem dados suficientes para um primeiro teste histórico em demo.';
+  }
+  function updateDerivCandleSignal(){
+    const c=derivLiveCandles;if(c.length<55)return;
+    const close=c.map(x=>x.close);
+    const fast=ema(close,9),slow=ema(close,21),r=rsi(close,14),i=close.length-1;
+    const bull=fast[i]>slow[i]&&r[i]>=52&&r[i]<=68&&close[i]>close[i-1];
+    const bear=fast[i]<slow[i]&&r[i]>=32&&r[i]<=48&&close[i]<close[i-1];
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    if(bull||bear){
+      const side=bull?'COMPRA':'VENDA';tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');
+      dir.textContent=side;strength.textContent='3/3 condições';
+      reason.textContent='Análise dos candles fechados de 1 minuto: EMA 9/21 alinhadas, RSI '+r[i].toFixed(1)+' e fecho na direção do sinal. Experimental; aguardar confirmação.';
+    }else{
+      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
+      reason.textContent='Os candles fechados ainda não alinham EMA 9/21, RSI e direção. RSI atual: '+r[i].toFixed(1)+'.';
+    }
+  }
+  $('derivCandleBacktest').addEventListener('click',()=>{
+    const resultEl=$('derivCandleTestResult');
+    if(derivLiveCandles.length<60){resultEl.textContent='Ainda são necessários pelo menos 60 candles fechados. Mantém o mercado ligado.';return;}
+    try{
+      const style=$('strategyStyle')?.value||'trend',risk=$('strategyRisk')?.value||'balanced';
+      const result=runStrategy(derivLiveCandles,style,risk);
+      resultEl.textContent='TESTE DEMO · '+derivLiveCandles.length+' candles · '+result.signals+' operações simuladas · '+result.wins+' positivas · '+result.losses+' negativas · taxa positiva '+result.winRate.toFixed(1)+'% · resultado bruto '+result.equity.toFixed(5)+' pontos. Não inclui spread, custos, latência nem execução real.';
+    }catch(e){resultEl.textContent='Não foi possível executar o teste: '+e.message;}
+  });
+
+  // Aviso sonoro ao surgir um novo sinal técnico. Não indica lucro realizado.
+  let signalSoundEnabled=false, signalAudioContext=null, lastSoundSignal='neutral';
+  function playSignalAlert(){
+    if(!signalSoundEnabled)return;
+    try{
+      const AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx)return;
+      signalAudioContext=signalAudioContext||new AudioCtx();
+      if(signalAudioContext.state==='suspended')signalAudioContext.resume();
+      const now=signalAudioContext.currentTime;
+      [0,0.18].forEach((offset,index)=>{
+        const osc=signalAudioContext.createOscillator(),gain=signalAudioContext.createGain();
+        osc.type='sine';osc.frequency.value=index===0?880:1175;
+        gain.gain.setValueAtTime(0.0001,now+offset);
+        gain.gain.exponentialRampToValueAtTime(0.16,now+offset+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001,now+offset+0.13);
+        osc.connect(gain);gain.connect(signalAudioContext.destination);
+        osc.start(now+offset);osc.stop(now+offset+0.14);
+      });
+    }catch(e){}
+  }
+  $('toggleSignalSound')?.addEventListener('click',async()=>{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx){$('signalSoundStatus').textContent='Áudio não suportado neste navegador.';return;}
+    try{
+      signalAudioContext=signalAudioContext||new AudioCtx();
+      await signalAudioContext.resume();
+      signalSoundEnabled=!signalSoundEnabled;
+      $('toggleSignalSound').textContent=signalSoundEnabled?'🔕 Desativar aviso sonoro':'🔔 Ativar aviso sonoro';
+      $('signalSoundStatus').textContent=signalSoundEnabled?'Som ativo · alerta em novo sinal':'Som desligado';
+      if(signalSoundEnabled)playSignalAlert();
+    }catch(e){$('signalSoundStatus').textContent='Não foi possível ativar o áudio.';}
+  });
+  function updateDerivLiveSignal(){
+    const prices=derivFeedTicks.slice().reverse().map(x=>x.quote);
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    if(!tag||!dir||!strength||!reason)return;
+    const wait=(msg)=>{tag.textContent='● A aguardar';tag.className='signal-tag neutral';dir.textContent='A AGUARDAR';strength.textContent='—';reason.textContent=msg;};
+    if(prices.length<30){wait('A recolher dados: '+prices.length+'/30 ticks. Aguarda alguns instantes com o mercado ligado.');return;}
+    const ema=(arr,p)=>{const k=2/(p+1);let v=arr.slice(0,p).reduce((a,b)=>a+b,0)/p;for(let i=p;i<arr.length;i++)v=arr[i]*k+v*(1-k);return v;};
+    const last=prices[prices.length-1], fast=ema(prices.slice(-30),9), slow=ema(prices.slice(-30),21);
+    let gains=0,losses=0;for(let i=prices.length-14;i<prices.length;i++){const d=prices[i]-prices[i-1];gains+=Math.max(d,0);losses+=Math.max(-d,0);}
+    const avgGain=gains/14,avgLoss=losses/14,rsi=avgLoss===0?100:100-100/(1+avgGain/avgLoss);
+    const rising=last>prices[prices.length-4],falling=last<prices[prices.length-4];
+    const bull=fast>slow&&rsi>=52&&rsi<=68&&rising;
+    const bear=fast<slow&&rsi>=32&&rsi<=48&&falling;
+    if(bull||bear){
+      const signalKey=bull?'COMPRA':'VENDA';
+      if(signalKey!==lastSoundSignal){playSignalAlert();lastSoundSignal=signalKey;}
+      const side=bull?'COMPRA':'VENDA',score=[bull?fast>slow:fast<slow,bull?rsi>=52&&rsi<=68:rsi>=32&&rsi<=48,bull?rising:falling].filter(Boolean).length;
+      tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');dir.textContent=side;strength.textContent=Math.round(score/3*100)+'%';
+      reason.textContent='Condições técnicas alinhadas nos últimos ticks. RSI: '+rsi.toFixed(1)+' · EMA 9/21: '+(bull?'cruzamento relativo favorável à subida':'cruzamento relativo favorável à descida')+'.';
+    }else{
+      lastSoundSignal='neutral';
+      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
+      reason.textContent='Sem alinhamento suficiente entre EMA 9/21, RSI e direção recente. RSI: '+rsi.toFixed(1)+'.';
+    }
+  }
+  function scheduleDerivReconnect(){
+    if(!derivFeedWanted||derivReconnectTimer)return;
+    const delay=Math.min(30000,1500*Math.pow(2,Math.min(derivReconnectAttempts,4)));
+    derivReconnectAttempts++;
+    derivReconnectTimer=setTimeout(()=>{derivReconnectTimer=null;if(derivFeedWanted&&document.visibilityState!=='hidden')connectDerivFeed(true);},delay);
+  }
+  function connectDerivFeed(isReconnect=false){
+    if(!isReconnect){derivFeedWanted=true;derivReconnectAttempts=0;}
+    if(!('WebSocket' in window)){ $('derivFeedMessage').textContent='Este navegador não suporta WebSocket.';return; }
+    if(derivFeedSocket&&derivFeedSocket.readyState===WebSocket.OPEN){setDerivFeedStatus('● Ligado','positive');$('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='Mercado ligado';$('derivFeedDisconnect').disabled=false;return;}
+    const symbol=$('derivFeedSymbol').value;
+    $('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='A ligar…';$('derivFeedDisconnect').disabled=false;
+    $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
+    $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
+    setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
+    const ws=new WebSocket('wss://mendtrader-market-stream-j9w5.onrender.com/stream?symbol='+encodeURIComponent(symbol));
+    derivFeedSocket=ws;derivFeedTicks=[];renderDerivCandles();$('derivCandleState').textContent='A iniciar/reiniciar recolha';
+    ws.onopen=()=>{
+      if(derivFeedSocket!==ws)return;
+      derivReconnectAttempts=0;setDerivFeedStatus('● Ligado','positive');$('derivFeedConnect').disabled=true;$('derivFeedConnect').textContent='Mercado ligado';$('derivFeedDisconnect').disabled=false;$('derivFeedMessage').textContent='Ligado ao servidor MendtradeR. A receber cotações públicas da Deriv.';
+      clearInterval(derivFeedPingTimer);
+      derivFeedPingTimer=setInterval(()=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'ping'}));},15000);
+      derivLastTickAt=Date.now();clearInterval(derivTickWatchdogTimer);
+      derivTickWatchdogTimer=setInterval(()=>{
+        if(derivFeedSocket!==ws||ws.readyState!==WebSocket.OPEN)return;
+        if(Date.now()-derivLastTickAt>25000){
+          setDerivFeedStatus('● Preço parado','negative');
+          $('derivFeedMessage').textContent='Sem novas cotações há mais de 25 segundos. A reiniciar a ligação…';
+          try{ws.close(4000,'Sem atualização de preços');}catch(e){}
+        }
+      },5000);
+    };
+    ws.onmessage=(event)=>{
+      if(derivFeedSocket!==ws)return;
+      let data;try{data=JSON.parse(event.data);}catch(e){return;}
+      if(data.type==='status'){
+        if(data.status==='connected'){setDerivFeedStatus('● Deriv ligada','positive');$('derivFeedMessage').textContent='Servidor ligado à Deriv; a aguardar cotações…';}
+        else if(data.status==='connecting'||data.status==='reconnecting'){setDerivFeedStatus('● A ligar à Deriv','neutral');$('derivFeedMessage').textContent='O servidor está a estabelecer/repor a ligação à Deriv…';}
+        else if(data.status==='stale'){setDerivFeedStatus('● Preço parado','negative');$('derivFeedMessage').textContent='O servidor detetou ausência de cotações. A reconectar automaticamente…';}
+        else if(data.status==='upstream_error'){$('derivFeedMessage').textContent='Deriv: '+(data.message||'erro na resposta');setDerivFeedStatus('● Erro','negative');}
+        return;
+      }
+      if(data.type==='tick'&&data.tick){
+        derivLastTickAt=Date.now();
+        const t=data.tick, quote=Number(t.quote);
+        if(!Number.isFinite(quote))return;
+        const time=new Date((Number(t.epoch)||Date.now()/1000)*1000);
+        $('derivFeedPrice').textContent=quote.toLocaleString('pt-PT',{maximumFractionDigits:8});
+        $('derivFeedTime').textContent=time.toLocaleTimeString('pt-PT');
+        derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote});
+        derivFeedTicks=derivFeedTicks.slice(0,120);
+        $('derivFeedRows').innerHTML=derivFeedTicks.slice(0,12).map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
+        updateDerivLiveSignal();
+        addDerivCandleTick(t);
+        if(data.subscription?.id)derivFeedSubscription=data.subscription.id;
+      }
+    };
+    ws.onerror=()=>{
+      if(derivFeedSocket!==ws)return;
+      setDerivFeedStatus('● Falha','negative');$('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Tentar ligar novamente';$('derivFeedMessage').textContent='Falha de ligação. '+(derivFeedWanted?'A tentar novamente…':'Verifica a internet e tenta novamente.');
+      try{ws.close();}catch(e){}
+      $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    };
+    ws.onclose=()=>{
+      if(derivFeedSocket!==ws)return;
+      derivFeedSocket=null;derivFeedSubscription=null;clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
+      if(derivFeedWanted){$('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Reconectar mercado';$('derivFeedDisconnect').disabled=false;setDerivFeedStatus('● A reconectar','neutral');$('derivFeedMessage').textContent='Ligação interrompida. A tentar reconectar automaticamente…';scheduleDerivReconnect();return;}
+      setDerivFeedStatus('● Desligado');$('derivFeedConnect').textContent='Ligar mercado';$('derivFeedMessage').textContent='Ligação encerrada (código '+event.code+(event.reason?': '+event.reason:'')+'). Tenta novamente.';
+      $('derivFeedConnect').disabled=false;$('derivFeedDisconnect').disabled=true;
+    };
+  }
+  $('derivFeedConnect')?.addEventListener('click',connectDerivFeed);
+  // Ao regressar de segundo plano, alguns navegadores mantêm o WebSocket aberto
+  // mas deixam de entregar ticks. Verifica também a idade do último preço e renova
+  // a ligação quando o fluxo ficou congelado, sem exigir um clique manual.
+  function resumeDerivFeedIfStale(){
+    if(!derivFeedWanted || document.visibilityState==='hidden')return;
+    const socketUnavailable=!derivFeedSocket || derivFeedSocket.readyState===WebSocket.CLOSED || derivFeedSocket.readyState===WebSocket.CLOSING;
+    const priceStale=derivFeedSocket?.readyState===WebSocket.OPEN && (!derivLastTickAt || Date.now()-derivLastTickAt>20000);
+    if(socketUnavailable || priceStale){
+      clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
+      const oldSocket=derivFeedSocket;
+      derivFeedSocket=null;derivFeedSubscription=null;
+      if(oldSocket){try{oldSocket.close(4001,'Retomar fluxo após pausa');}catch(e){}}
+      clearInterval(derivFeedPingTimer);derivFeedPingTimer=null;
+      clearInterval(derivTickWatchdogTimer);derivTickWatchdogTimer=null;
+      connectDerivFeed(true);
+    }
+  }
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')resumeDerivFeedIfStale();});
+  window.addEventListener('pageshow',()=>{resumeDerivFeedIfStale();});
+  window.addEventListener('focus',()=>{resumeDerivFeedIfStale();});
+  window.addEventListener('online',()=>{if(derivFeedWanted)resumeDerivFeedIfStale();});
+  $('derivFeedDisconnect')?.addEventListener('click',closeDerivFeed);
+  $('derivFeedSymbol')?.addEventListener('change',()=>{if(derivFeedSocket||derivFeedWanted){closeDerivFeed();connectDerivFeed();}});
+  window.addEventListener('beforeunload',()=>{try{derivFeedSocket?.close();}catch(e){}});
+
+  $('depositBtn').addEventListener('click',()=>{});
+  client.auth.getSession().then(async ({data})=>{if(data.session?.user)showApp(data.session.user); await finishDerivAccountOAuth();}).catch(error=>message('derivAccountMsg',error.message||'Não foi possível verificar o retorno da Deriv.','error'));
+  client.auth.onAuthStateChange((_event,session)=>{if(session?.user&&!currentUser)showApp(session.user);else if(!session)showAuth();});
+})();
+</script>
+</body>
+</html>
++(Number(n)||0).toFixed(2); }
+  const DERIV_CLIENT_ID = '34TEm2Gavyti0dcVDw73V';
+  const DERIV_REDIRECT_URI = window.location.origin + '/callback';
+  function base64Url(bytes) {
+    return btoa(Array.from(bytes, b => String.fromCharCode(b)).join('')).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  }
+  function setDerivAccountStatus(connected, text) {
+    const status = $('derivAccountStatus');
+    if (status) { status.textContent = connected ? 'Autorizada' : 'Não ligada'; status.style.color = connected ? '#9be8b2' : ''; }
+    if ($('derivAccountConnect')) $('derivAccountConnect').disabled = connected;
+    if ($('derivAccountDisconnect')) $('derivAccountDisconnect').disabled = !connected;
+    if ($('derivAccountMsg')) message('derivAccountMsg', text, connected ? 'success' : 'muted');
+  }
+  async function startDerivAccountOAuth() {
+    if (!currentUser) return message('derivAccountMsg', 'Entra primeiro na tua conta MendtradeR.', 'error');
+    const { data } = await client.auth.getSession();
+    if (!data.session?.access_token) return message('derivAccountMsg', 'A sessão expirou. Sai e entra novamente na MendtradeR.', 'error');
+    const verifier = base64Url(crypto.getRandomValues(new Uint8Array(64)));
+    const state = base64Url(crypto.getRandomValues(new Uint8Array(24)));
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const challenge = base64Url(new Uint8Array(digest));
+    sessionStorage.setItem('mendtrader_deriv_pkce_verifier', verifier);
+    sessionStorage.setItem('mendtrader_deriv_oauth_state', state);
+    const params = new URLSearchParams({
+      response_type: 'code', client_id: DERIV_CLIENT_ID, redirect_uri: DERIV_REDIRECT_URI,
+      scope: 'trade', state, code_challenge: challenge, code_challenge_method: 'S256'
+    });
+    window.location.assign('https://auth.deriv.com/oauth2/auth?' + params.toString());
+  }
+  async function finishDerivAccountOAuth() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('error')) {
+      const errorText = params.get('error_description') || params.get('error') || 'Autorização cancelada.';
+      sessionStorage.removeItem('mendtrader_deriv_pkce_verifier');
+      sessionStorage.removeItem('mendtrader_deriv_oauth_state');
+      history.replaceState({}, document.title, '/');
+      return message('derivAccountMsg', 'A Deriv não concluiu a autorização: ' + errorText, 'error');
+    }
+    const code = params.get('code');
+    if (!code) return;
+    const returnedState = params.get('state') || '';
+    const savedState = sessionStorage.getItem('mendtrader_deriv_oauth_state') || '';
+    const verifier = sessionStorage.getItem('mendtrader_deriv_pkce_verifier') || '';
+    if (!savedState || returnedState !== savedState || !verifier) {
+      sessionStorage.removeItem('mendtrader_deriv_pkce_verifier');
+      sessionStorage.removeItem('mendtrader_deriv_oauth_state');
+      history.replaceState({}, document.title, '/');
+      return message('derivAccountMsg', 'Não foi possível validar a autorização (state/PKCE). Inicia a ligação novamente.', 'error');
+    }
+    const { data } = await client.auth.getSession();
+    if (!data.session?.access_token) return message('derivAccountMsg', 'A tua sessão MendtradeR não está ativa. Entra novamente e inicia a ligação Deriv.', 'error');
+    message('derivAccountMsg', 'A validar a autorização com segurança…');
+    try {
+      const response = await fetch('/oauth/deriv/token', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + data.session.access_token },
+        body: JSON.stringify({ code, code_verifier: verifier, redirect_uri: DERIV_REDIRECT_URI })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.access_token) throw new Error(result.error || 'A troca do código de autorização falhou.');
+      derivAccountAccessToken = result.access_token;
+      derivAccountExpiresAt = Date.now() + (Number(result.expires_in) * 1000);
+      sessionStorage.removeItem('mendtrader_deriv_pkce_verifier');
+      sessionStorage.removeItem('mendtrader_deriv_oauth_state');
+      history.replaceState({}, document.title, '/');
+      setDerivAccountStatus(true, 'Autorização concluída. O token fica apenas na memória desta sessão e expira conforme indicado pela Deriv. Ainda não são enviadas operações.');
+    } catch (error) {
+      message('derivAccountMsg', error.message || 'Erro ao concluir a ligação Deriv.', 'error');
+    }
+  }
+  $('derivAccountConnect')?.addEventListener('click', () => {
+    startDerivAccountOAuth().catch(error => message('derivAccountMsg', error.message || 'Não foi possível iniciar a ligação.', 'error'));
+  });
+  $('derivAccountDisconnect')?.addEventListener('click', () => {
+    derivAccountAccessToken = null; derivAccountExpiresAt = 0;
+    setDerivAccountStatus(false, 'Conta Deriv desligada desta sessão.');
+  });
+
   function showApp(user) {
     currentUser=user; if (typeof ensureReferralAttribution === 'function') ensureReferralAttribution(user); $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
     $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); checkOwnerAccess();

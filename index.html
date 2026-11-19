@@ -1140,6 +1140,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       };
     } catch (error) {
       message('derivAccountMsg', error.message || 'Não foi possível ligar a conta Deriv.', 'error');
+      scheduleDerivTradingReconnect();
     }
   }
   async function finishDerivAccountOAuth() {

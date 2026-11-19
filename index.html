@@ -609,6 +609,24 @@
     menuToggle.setAttribute('aria-expanded',String(open));
   }
   menuToggle.addEventListener('click',()=>openMenu(!mainNav.classList.contains('open')));
+  // Gesto móvel: deslizar da margem esquerda para a direita abre o menu.
+  // Não interfere com carrosséis, controlos de formulário ou movimentos verticais.
+  let menuSwipeStart=null;
+  document.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1)return;
+    const target=e.target;
+    if(target.closest('input,select,textarea,button,a,[contenteditable="true"],.ops-carousel-track,.ops-carousel-tabs'))return;
+    const t=e.touches[0];
+    menuSwipeStart={x:t.clientX,y:t.clientY,wasOpen:mainNav.classList.contains('open')};
+  },{passive:true});
+  document.addEventListener('touchend',e=>{
+    if(!menuSwipeStart||e.changedTouches.length!==1){menuSwipeStart=null;return;}
+    const t=e.changedTouches[0],dx=t.clientX-menuSwipeStart.x,dy=t.clientY-menuSwipeStart.y;
+    const start=menuSwipeStart;menuSwipeStart=null;
+    if(Math.abs(dy)>65||Math.abs(dx)<75)return;
+    if(!start.wasOpen&&start.x<=55&&dx>=75&&currentUser)openMenu(true);
+    else if(start.wasOpen&&dx<=-75)openMenu(false);
+  },{passive:true});
   $('menuClose').addEventListener('click',()=>openMenu(false));
   navBackdrop.addEventListener('click',()=>openMenu(false));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')openMenu(false);});

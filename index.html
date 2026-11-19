@@ -528,7 +528,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
                 <div class="field"><label>Direção sugerida</label><strong id="derivSignalDirection" style="font-size:22px">A AGUARDAR</strong></div>
                 <div class="field"><label>Força técnica indicativa</label><strong id="derivSignalStrength" style="font-size:22px">—</strong></div>
               </div>
-              <p id="derivSignalReason" class="small muted">São necessários pelo menos 30 ticks consecutivos para uma primeira leitura.</p>
+              <p id="derivSignalReason" class="small muted">São necessários pelo menos 60 ticks recentes e 3 confirmações consecutivas para uma primeira leitura.</p>
               <p id="derivSignalWarning" class="small muted">Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.</p>
             </div>
             <div id="derivCandlePanel" class="card" style="margin-top:14px">
@@ -1846,20 +1846,11 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     $('derivCandleTestResult').textContent=derivLiveCandles.length<60?'Faltam '+(60-derivLiveCandles.length)+' candles para o primeiro teste (aproximadamente '+(60-derivLiveCandles.length)+' minutos).':'Já existem dados suficientes para um primeiro teste histórico em demo.';
   }
   function updateDerivCandleSignal(){
-    const c=derivLiveCandles;if(c.length<55)return;
-    const close=c.map(x=>x.close);
-    const fast=ema(close,9),slow=ema(close,21),r=rsi(close,14),i=close.length-1;
-    const bull=fast[i]>slow[i]&&r[i]>=52&&r[i]<=68&&close[i]>close[i-1];
-    const bear=fast[i]<slow[i]&&r[i]>=32&&r[i]<=48&&close[i]<close[i-1];
-    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
-    if(bull||bear){
-      const side=bull?'COMPRA':'VENDA';tag.textContent='● Sinal '+side;tag.className='signal-tag '+(bull?'positive':'negative');
-      dir.textContent=side;strength.textContent='3/3 condições';
-      reason.textContent='Análise dos candles fechados de 1 minuto: EMA 9/21 alinhadas, RSI '+r[i].toFixed(1)+' e fecho na direção do sinal. Experimental; aguardar confirmação.';
-    }else{
-      tag.textContent='● Sem sinal';tag.className='signal-tag neutral';dir.textContent='AGUARDAR';strength.textContent='—';
-      reason.textContent='Os candles fechados ainda não alinham EMA 9/21, RSI e direção. RSI atual: '+r[i].toFixed(1)+'.';
-    }
+    // Candles são mantidos para histórico/backtest. O sinal principal só pode
+    // ser publicado pelo motor de ticks com frescura e confirmação consecutiva.
+    const count=derivLiveCandles.length;
+    $('derivCandleState').textContent=count>=55?'Histórico de candles disponível · sinal principal validado pelos ticks':'A recolher candles fechados · '+count+'/55';
+    renderDerivCandles();
   }
   $('derivCandleBacktest').addEventListener('click',()=>{
     const resultEl=$('derivCandleTestResult');

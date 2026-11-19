@@ -17,6 +17,18 @@ const FRONTEND_FILE = path.resolve(__dirname, '..', 'index.html');
 
 const server = http.createServer((req, res) => {
   const requestUrl = new URL(req.url, 'http://localhost');
+  if (requestUrl.pathname === '/callback' && req.method === 'GET') {
+    const hasOAuthResponse = requestUrl.searchParams.has('code') || requestUrl.searchParams.has('error');
+    res.writeHead(hasOAuthResponse ? 503 : 200, {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff'
+    });
+    const message = hasOAuthResponse
+      ? 'A resposta OAuth da Deriv chegou, mas a troca segura do código ainda não está ativada. Não tente repetir a autorização; conclua primeiro a configuração OAuth do servidor.'
+      : 'Endpoint de retorno MendtradeR disponível. Este endereço está pronto para ser registado na aplicação OAuth 2.0 da Deriv.';
+    return res.end('<!doctype html><html lang="pt"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MendtradeR · Retorno Deriv</title><body style="margin:0;background:#080d0b;color:#edf7f1;font:16px system-ui;min-height:100vh;display:grid;place-items:center"><main style="max-width:560px;margin:24px;padding:28px;border:1px solid #28513c;border-radius:18px;background:#101a14"><h1 style="color:#00d66b">MendtradeR</h1><h2>Retorno de autorização Deriv</h2><p>' + message + '</p><p style="color:#9aa9a0;font-size:13px">Não partilhe palavras-passe nem códigos de autorização.</p></main></body></html>');
+  }
   if (requestUrl.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     return res.end(JSON.stringify({ ok: true, service: 'MendtradeR market stream + frontend', uptime: Math.floor(process.uptime()) }));

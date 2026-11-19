@@ -700,6 +700,9 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             <p class="small muted">Autoriza a MendtradeR a aceder à tua conta Deriv. A palavra-passe é introduzida apenas no site oficial da Deriv. Nesta etapa nenhuma ordem é enviada.</p>
             <div class="row"><button id="derivAccountConnect" type="button">Conectar à Deriv</button><button id="derivAccountDisconnect" class="secondary" type="button" disabled>Desligar conta</button></div>
             <p id="derivAccountMsg" class="small muted" aria-live="polite">Ainda não existe uma conta Deriv autorizada nesta sessão.</p>
+            <div class="field"><label for="derivTradingAccount">Conta para consultar</label><select id="derivTradingAccount" disabled><option value="">Liga primeiro a Deriv</option></select></div>
+            <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>
+            <div id="derivBalanceMode" class="small muted" style="margin-top:10px">Saldo Deriv: ainda não consultado.</div>
           </div>
           <div class="card" style="margin-top:14px">
             <h2>🎨 Aparência da plataforma</h2>
@@ -774,6 +777,9 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   let currentCountry = 'AO';
   let derivAccountAccessToken = null;
   let derivAccountExpiresAt = 0;
+  let derivAccounts = [];
+  let derivTradingSocket = null;
+  let derivBalanceSubscription = null;
   function countryInfo(code) { return COUNTRIES.find(c => c.code === code) || COUNTRIES.find(c => c.code === 'AO'); }
   function fillCountrySelect(select) {
     select.innerHTML = COUNTRIES.map(c => `<option value="${c.code}">${c.name} (${c.currency})</option>`).join('');
@@ -839,6 +845,97 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     });
     window.location.assign('https://auth.deriv.com/oauth2/auth?' + params.toString());
   }
+  function derivAccountType(account) {
+    const raw = String(account.account_type || account.type || '').toLowerCase();
+    if (raw.includes('demo') || account.is_virtual === true || String(account.loginid || '').startsWith('VRTC')) return 'demo';
+    if (raw.includes('real') || account.is_virtual === false || String(account.loginid || '').startsWith('CR')) return 'real';
+    return 'unknown';
+  }
+  function renderDerivAccounts(accounts) {
+    derivAccounts = accounts;
+    const select = $('derivTradingAccount');
+    if (!select) return;
+    select.innerHTML = '<option value="">Escolhe a conta que queres consultar</option>';
+    accounts.forEach(account => {
+      const id = String(account.account_id || account.id || '');
+      if (!id) return;
+      const type = derivAccountType(account);
+      const label = type === 'demo' ? 'DEMO' : type === 'real' ? 'REAL' : 'CONTA';
+      const login = account.loginid || id;
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = label + ' · ' + login + ' · ' + (account.currency || 'moeda não indicada');
+      select.appendChild(option);
+    });
+    select.disabled = accounts.length === 0;
+    $('derivConnectTrading').disabled = accounts.length === 0;
+    $('derivLoadAccounts').disabled = false;
+    $('derivBalanceMode').textContent = accounts.length
+      ? accounts.length + ' conta(s) encontrada(s). Escolhe DEMO primeiro para testar; a conta REAL só será ligada se a selecionares.'
+      : 'A Deriv não devolveu contas de negociação para esta autorização.';
+  }
+  async function loadDerivAccounts() {
+    if (!derivAccountAccessToken || Date.now() >= derivAccountExpiresAt) throw new Error('A autorização Deriv expirou. Liga novamente a tua conta.');
+    message('derivAccountMsg', 'A consultar as contas disponíveis na Deriv…');
+    const response = await fetch('https://api.derivws.com/trading/v1/options/accounts', {
+      headers: { Authorization: 'Bearer ' + derivAccountAccessToken }
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result?.errors?.[0]?.message || result?.error || 'Não foi possível obter as contas Deriv (HTTP ' + response.status + ').');
+    const accounts = Array.isArray(result.data) ? result.data : Array.isArray(result.data?.accounts) ? result.data.accounts : result.data ? [result.data] : [];
+    renderDerivAccounts(accounts);
+    message('derivAccountMsg', 'Autorização Deriv confirmada. Foram consultadas as contas; ainda não é enviada nenhuma ordem.', 'success');
+  }
+  async function connectDerivTradingAccount() {
+    const accountId = $('derivTradingAccount')?.value;
+    const account = derivAccounts.find(item => String(item.account_id || item.id || '') === accountId);
+    if (!accountId || !account) return message('derivAccountMsg', 'Escolhe uma conta antes de continuar.', 'error');
+    if (derivAccountType(account) === 'unknown') return message('derivAccountMsg', 'Não foi possível identificar com segurança se esta conta é DEMO ou REAL. Não será ligada.', 'error');
+    if (!derivAccountAccessToken || Date.now() >= derivAccountExpiresAt) return message('derivAccountMsg', 'A autorização expirou. Liga novamente a tua conta Deriv.', 'error');
+    try {
+      if (derivTradingSocket) { try { derivTradingSocket.close(); } catch {} derivTradingSocket = null; }
+      message('derivAccountMsg', 'A preparar ligação segura à conta selecionada…');
+      const response = await fetch('https://api.derivws.com/trading/v1/options/accounts/' + encodeURIComponent(accountId) + '/otp', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + derivAccountAccessToken }
+      });
+      const result = await response.json().catch(() => ({}));
+      const socketUrl = result?.data?.url;
+      if (!response.ok || !socketUrl) throw new Error(result?.errors?.[0]?.message || 'A Deriv não forneceu o endereço seguro da conta (HTTP ' + response.status + ').');
+      const socket = new WebSocket(socketUrl);
+      derivTradingSocket = socket;
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ balance: 1, subscribe: 1, req_id: 1 }));
+        const type = derivAccountType(account).toUpperCase();
+        $('derivBalanceMode').textContent = 'Ligação estabelecida · ' + type + ' · ' + (account.loginid || accountId) + ' · a aguardar saldo…';
+        message('derivAccountMsg', 'Conta ' + type + ' ligada em modo de consulta. Nenhuma ordem será enviada.', 'success');
+      };
+      socket.onmessage = event => {
+        let data;
+        try { data = JSON.parse(event.data); } catch { return; }
+        if (data.error) return message('derivAccountMsg', data.error.message || 'Erro recebido da Deriv.', 'error');
+        if (data.msg_type === 'balance' && data.balance) {
+          const balance = data.balance;
+          const currency = balance.currency || account.currency || 'USD';
+          const amount = Number(balance.balance);
+          if (Number.isFinite(amount)) {
+            $('balance').textContent = amount.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + currency;
+            $('derivBalanceMode').textContent = 'SALDO ' + derivAccountType(account).toUpperCase() + ' · ' + (balance.loginid || account.loginid || accountId) + ' · atualizado em tempo real';
+            message('derivAccountMsg', 'Saldo recebido da Deriv com sucesso. Ligação apenas de leitura ativa.', 'success');
+          }
+          if (data.subscription?.id) derivBalanceSubscription = data.subscription.id;
+        }
+      };
+      socket.onerror = () => message('derivAccountMsg', 'A ligação de consulta à Deriv falhou. Tenta atualizar as contas e ligar novamente.', 'error');
+      socket.onclose = () => {
+        if (derivTradingSocket === socket) {
+          derivTradingSocket = null;
+          $('derivBalanceMode').textContent = 'Ligação à conta encerrada. A autorização pode continuar válida.';
+        }
+      };
+    } catch (error) {
+      message('derivAccountMsg', error.message || 'Não foi possível ligar a conta Deriv.', 'error');
+    }
+  }
   async function finishDerivAccountOAuth() {
     const params = new URLSearchParams(window.location.search);
     if (params.has('error')) {
@@ -875,7 +972,8 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       sessionStorage.removeItem('mendtrader_deriv_pkce_verifier');
       sessionStorage.removeItem('mendtrader_deriv_oauth_state');
       history.replaceState({}, document.title, '/');
-      setDerivAccountStatus(true, 'Autorização concluída. O token fica apenas na memória desta sessão e expira conforme indicado pela Deriv. Ainda não são enviadas operações.');
+      setDerivAccountStatus(true, 'Autorização concluída. A consultar as contas disponíveis…');
+      await loadDerivAccounts();
     } catch (error) {
       message('derivAccountMsg', error.message || 'Erro ao concluir a ligação Deriv.', 'error');
     }
@@ -884,9 +982,18 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     startDerivAccountOAuth().catch(error => message('derivAccountMsg', error.message || 'Não foi possível iniciar a ligação.', 'error'));
   });
   $('derivAccountDisconnect')?.addEventListener('click', () => {
-    derivAccountAccessToken = null; derivAccountExpiresAt = 0;
+    if (derivTradingSocket) { try { derivTradingSocket.close(); } catch {} }
+    derivTradingSocket = null; derivBalanceSubscription = null;
+    derivAccountAccessToken = null; derivAccountExpiresAt = 0; derivAccounts = [];
+    if ($('derivTradingAccount')) { $('derivTradingAccount').innerHTML = '<option value="">Liga primeiro a Deriv</option>'; $('derivTradingAccount').disabled = true; }
+    if ($('derivConnectTrading')) $('derivConnectTrading').disabled = true;
+    if ($('derivLoadAccounts')) $('derivLoadAccounts').disabled = true;
+    $('derivBalanceMode').textContent = 'Saldo Deriv: ainda não consultado.';
+    $('balance').textContent = '$0.00';
     setDerivAccountStatus(false, 'Conta Deriv desligada desta sessão.');
   });
+  $('derivLoadAccounts')?.addEventListener('click', () => loadDerivAccounts().catch(error => message('derivAccountMsg', error.message, 'error')));
+  $('derivConnectTrading')?.addEventListener('click', connectDerivTradingAccount);
 
   function showApp(user) {
     currentUser=user; if (typeof ensureReferralAttribution === 'function') ensureReferralAttribution(user); $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');

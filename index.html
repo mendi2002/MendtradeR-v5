@@ -290,7 +290,7 @@
               </div>
               <div class="field"><label>Ativo</label><select id="manualAsset"><option value="frxEURUSD">EUR/USD</option><option value="frxGBPUSD">GBP/USD</option><option value="frxUSDJPY">USD/JPY</option><option value="R_100">Volatility 100 Index</option></select></div>
               <div class="field"><label>Valor da operação (USD)</label><input id="manualAmount" type="number" min="0.35" max="100" step="0.01" value="1"></div>
-              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="1">1 minuto</option><option value="5">5 minutos</option><option value="15">15 minutos</option></select></div>
+              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="1|m">1 minuto</option><option value="5|m">5 minutos</option><option value="15|m">15 minutos</option><option value="30|m">30 minutos</option><option value="1|h">1 hora</option><option value="4|h">4 horas</option><option value="1|d">1 dia</option><option value="7|d">1 semana (7 dias)</option><option value="30|d">1 mês (30 dias)</option></select><p class="small muted">Os períodos disponíveis dependem do ativo e do contrato permitido pela Deriv.</p></div>
               <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" disabled>↓ VENDA</button></div>
               <div class="notice warning small">Entrada manual; a posição fecha automaticamente no vencimento escolhido. Confirma que estás na conta DEMO.</div>
               <p id="manualTradeMessage" class="small muted" aria-live="polite">Liga primeiro a conta DEMO.</p>
@@ -565,11 +565,11 @@
   async function placeManualDerivTrade(side){
     if(!derivTradeConnected||!derivTradeSocket||derivTradeSocket.readyState!==WebSocket.OPEN)return message('manualTradeMessage','Liga primeiro a conta DEMO.','error');
     if(derivOpenContractId)return message('manualTradeMessage','Já existe uma operação aberta. Aguarda o fecho automático.','error');
-    const stake=Number($('manualAmount').value),duration=Number($('manualExpiry').value),symbol=$('manualAsset').value;
+    const stake=Number($('manualAmount').value),expiry=$('manualExpiry').value.split('|'),duration=Number(expiry[0]),duration_unit=expiry[1],symbol=$('manualAsset').value;
     if(!Number.isFinite(stake)||stake<0.35||stake>100)return message('manualTradeMessage','Entrada permitida: 0,35 a 100 USD.','error');
     $('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;message('manualTradeMessage','A pedir cotação à Deriv…');
     try{
-      const quote=await derivTradeSend({proposal:1,amount:stake,basis:'stake',contract_type:side==='COMPRA'?'CALL':'PUT',currency:'USD',duration,duration_unit:'m',underlying_symbol:symbol});
+      const quote=await derivTradeSend({proposal:1,amount:stake,basis:'stake',contract_type:side==='COMPRA'?'CALL':'PUT',currency:'USD',duration,duration_unit,underlying_symbol:symbol});
       const p=quote.proposal;if(!p?.id||!Number.isFinite(Number(p.ask_price)))throw Error('Proposta indisponível para este ativo.');
       message('manualTradeMessage','Cotação recebida. A confirmar entrada DEMO…');
       const result=await derivTradeSend({buy:p.id,price:Number(p.ask_price)}),b=result.buy;if(!b?.contract_id)throw Error('A Deriv não confirmou a entrada.');
@@ -577,7 +577,7 @@
       derivTradeHistory.unshift({time:new Date().toLocaleTimeString('pt-PT'),side,asset:$('manualAsset').selectedOptions[0].textContent,stake,result:null});renderManualTradeHistory();
       message('manualTradeMessage','Entrada '+side+' confirmada na DEMO. Fecho automático no vencimento. ID: '+b.contract_id,'success');
       derivTradeSocket.send(JSON.stringify({proposal_open_contract:1,contract_id:b.contract_id,subscribe:1,req_id:++derivTradeReqId}));
-    }catch(err){message('manualTradeMessage',err.message||'Falha na operação.','error');}
+    }catch(err){const raw=String(err.message||'');const lower=raw.toLowerCase();const friendly=/duration|expiry|expiration|duration_unit|allowed|not allowed|invalid.*contract/.test(lower)?'A duração escolhida não é permitida para este ativo ou contrato na Deriv. Tenta um período menor ou outro ativo.':raw||'Falha na operação.';message('manualTradeMessage',friendly,'error');}
     finally{if(derivTradeConnected){$('manualBuyBtn').disabled=false;$('manualSellBtn').disabled=false;}}
   }
   function showApp(user) {

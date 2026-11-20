@@ -421,6 +421,21 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     :root[data-theme="midnight"] .nav{background:#05080b;border-right:1px solid #202a35}
     :root[data-theme="midnight"] .nav button.active,:root[data-theme="midnight"] .nav button:hover{background:#14231e;color:#eafff5}
     :root[data-theme="midnight"] .signal-card{background:#06130e;border-color:#17654b}
+
+    /* Identidade visual MendtradeR */
+    .brand{display:flex;align-items:center;gap:10px;white-space:nowrap}
+    .brand-logo{width:42px;height:42px;object-fit:contain;flex:0 0 auto}
+    .brand .brand-name{color:#f4f0e5}
+    .brand .brand-version{font-size:10px;letter-spacing:.12em;color:#d7ad55;border:1px solid #6b552c;border-radius:20px;padding:4px 7px}
+    .auth-brand{display:flex;align-items:center;justify-content:center;gap:12px;margin:0 auto 22px}
+    .auth-brand img{width:76px;height:76px;object-fit:contain}
+    .auth-brand div{display:flex;flex-direction:column;gap:3px}
+    .auth-brand strong{font-size:26px;letter-spacing:-.04em;color:#f5f0e5}
+    .auth-brand span{font-size:10px;letter-spacing:.22em;color:#d7ad55;font-weight:800}
+    .nav-brand{display:flex;align-items:center;gap:9px;color:#f5f0e5;font-size:18px;font-weight:900;letter-spacing:-.03em}
+    .nav-brand img{width:38px;height:38px;object-fit:contain}
+    @media(max-width:520px){.brand-logo{width:36px;height:36px}.brand .brand-version{display:none}.auth-brand img{width:66px;height:66px}}
+
 </style>
 </head>
 <body>
@@ -428,14 +443,14 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   <header class="top">
     <div class="top-left">
       <button id="menuToggle" class="menu-toggle hidden" aria-label="Abrir menu" aria-expanded="false">☰</button>
-      <div class="brand">Mendtrade<span>R V6</span></div>
+      <div class="brand"><img class="brand-logo" src="assets/mendtrader-logo.svg" alt="Logotipo MendtradeR"><span class="brand-name">MendtradeR</span><small class="brand-version">V6</small></div>
     </div>
     <div class="top-spacer"></div>
     <div class="top-tools"><select id="languageSelect" class="lang-select" aria-label="Idioma"><option value="pt">Português</option><option value="en">English</option><option value="es">Español</option></select><span class="badge">DEMO · PREVIEW</span><button id="logoutBtn" class="secondary hidden">Sair</button></div>
   </header>
 
   <section id="authView" class="card auth">
-    <h1 style="margin:0 0 6px">Bem-vindo ao MendtradeR</h1><p class="muted">Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.</p>
+    <div class="auth-brand"><img src="assets/mendtrader-logo.svg" alt="Logotipo MendtradeR"><div><strong>MendtradeR</strong><span>TRADING PLATFORM</span></div></div><h1 style="margin:0 0 6px">Bem-vindo ao MendtradeR</h1><p class="muted">Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.</p>
     <div class="field"><label for="signupCountry">País</label><select id="signupCountry"></select></div>
     <div class="field"><label for="email">E-mail</label><input id="email" type="email" autocomplete="email" placeholder="teuemail@exemplo.com"></div>
     <div class="field"><label for="password">Palavra-passe</label><input id="password" type="password" autocomplete="current-password" placeholder="Mínimo de 6 caracteres"></div>
@@ -446,7 +461,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
 
   <div id="navBackdrop" class="nav-backdrop"></div>
   <nav id="mainNav" class="card nav" aria-label="Menu principal">
-    <div class="nav-heading"><span>MENU MENDTRADER</span><button id="menuClose" class="nav-close" aria-label="Fechar menu">✕</button></div>
+    <div class="nav-heading"><div class="nav-brand"><img src="assets/mendtrader-logo.svg" alt=""><span>MendtradeR</span></div><button id="menuClose" class="nav-close" aria-label="Fechar menu">✕</button></div>
     <button data-page="bot" class="active">◉ Área de operações</button>
     <button data-page="overview">▦ Visão geral</button>
     <button data-page="history">▤ Histórico</button>

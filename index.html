@@ -739,13 +739,9 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             <p class="small muted">Autoriza a MendtradeR a aceder à tua conta Deriv. A palavra-passe é introduzida apenas no site oficial da Deriv. Nesta etapa nenhuma ordem é enviada.</p>
             <div class="row"><button id="derivAccountConnect" type="button">Conectar à Deriv</button><button id="derivAccountDisconnect" class="secondary" type="button" disabled>Desligar conta</button></div>
             <p id="derivAccountMsg" class="small muted" aria-live="polite">Ainda não existe uma conta Deriv autorizada nesta sessão.</p>
-            <div class="card" style="margin:12px 0;border:1px solid #315c45;background:#07110b">
-              <div class="row" style="justify-content:space-between;align-items:center"><b>🔐 Ligação por Token PAT · apenas DEMO</b><span id="derivPatStatus" class="pill">Não ligada</span></div>
-              <p class="small muted">Cola o token pessoal criado na Deriv com permissão Trade e o ID da conta de demonstração VRTC. O token é enviado apenas para gerar uma sessão temporária; não é guardado no navegador.</p>
-              <div class="field"><label for="derivPatToken">Token PAT (privado)</label><input id="derivPatToken" type="password" autocomplete="off" placeholder="Cola aqui o teu token PAT"></div>
-              <div class="formgrid"><div class="field"><label for="derivPatAccount">ID da conta DEMO (VRTC...)</label><input id="derivPatAccount" type="text" autocomplete="off" placeholder="VRTC..."></div><div class="field"><label for="derivPatAppId">App ID Deriv</label><input id="derivPatAppId" type="text" value="34TEm2Gavyti0dcVDw73V" autocomplete="off"></div></div>
-              <div class="row"><button id="derivPatConnect" type="button">Ligar conta DEMO</button><button id="derivPatDisconnect" class="secondary" type="button" disabled>Desligar PAT</button></div>
-              <p id="derivPatMessage" class="small muted" aria-live="polite">Aguardando ligação segura.</p>
+            <div class="notice success" style="margin:12px 0">
+              <b>Ligação automática por OAuth</b><br>
+              Não precisas de criar Token PAT nem procurar/copiar o ID VRTC. Clica em “Conectar à Deriv”, autoriza a tua própria conta no site oficial e depois escolhe DEMO ou REAL na lista recebida automaticamente.
             </div>
             <div class="field"><label for="derivTradingAccount">Conta para consultar</label><select id="derivTradingAccount" disabled><option value="">Liga primeiro a Deriv</option></select></div>
             <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>

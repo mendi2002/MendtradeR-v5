@@ -1218,7 +1218,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     if (!data.session?.access_token) return message('derivAccountMsg', 'A tua sessão MendtradeR não está ativa. Entra novamente e inicia a ligação Deriv.', 'error');
     message('derivAccountMsg', 'A validar a autorização com segurança…');
     try {
-      const response = await fetch('/oauth/deriv/token', {
+      const response = await fetch('https://mendtrader-market-stream-j9w5.onrender.com/oauth/deriv/token', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + data.session.access_token },
         body: JSON.stringify({ code, code_verifier: verifier, redirect_uri: DERIV_REDIRECT_URI })

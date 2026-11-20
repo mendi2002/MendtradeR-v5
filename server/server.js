@@ -17,10 +17,22 @@ const FRONTEND_FILE = path.resolve(__dirname, '..', 'index.html');
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rfgcsprgcbravydlnnuc.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_kF7ycrRT90LwZCW532E3Jg_MHE03QKf';
 const DERIV_CLIENT_ID = process.env.DERIV_CLIENT_ID || '34TEm2Gavyti0dcVDw73V';
-const DERIV_REDIRECT_URI = process.env.DERIV_REDIRECT_URI || 'https://mendtrader-market-stream-j9w5.onrender.com/callback';
+const DERIV_REDIRECT_URI = process.env.DERIV_REDIRECT_URI || 'https://mendtrader-v6-manual-test.onrender.com/callback';
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://mendtrader-v6-manual-test.onrender.com';
 
 const server = http.createServer((req, res) => {
   const requestUrl = new URL(req.url, 'http://localhost');
+  const origin = req.headers.origin || '';
+  if (origin === FRONTEND_ORIGIN) {
+    res.setHeader('access-control-allow-origin', FRONTEND_ORIGIN);
+    res.setHeader('vary', 'Origin');
+    res.setHeader('access-control-allow-methods', 'POST, OPTIONS');
+    res.setHeader('access-control-allow-headers', 'authorization, content-type');
+  }
+  if (requestUrl.pathname === '/oauth/deriv/token' && req.method === 'OPTIONS') {
+    if (origin !== FRONTEND_ORIGIN) { res.writeHead(403); return res.end(); }
+    res.writeHead(204); return res.end();
+  }
   if (requestUrl.pathname === '/callback' && req.method === 'GET') {
     fs.readFile(FRONTEND_FILE, (error, html) => {
       if (error) {

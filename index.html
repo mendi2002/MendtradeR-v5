@@ -1016,6 +1016,43 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       }
     });
   }
+  function parseDerivDurationSeconds(value) {
+    const match = String(value || '').trim().match(/^(\\d+(?:\\.\\d+)?)\\s*([smhdwty])$/i);
+    if (!match) return null;
+    const amount = Number(match[1]);
+    const unit = match[2].toLowerCase();
+    const factors = { s: 1, m: 60, h: 3600, d: 86400, w: 604800, t: null, y: 31536000 };
+    return Number.isFinite(amount) && factors[unit] !== null ? amount * factors[unit] : null;
+  }
+  async function validateManualTradeAvailability(symbol, direction, duration) {
+    const response = await sendDerivTradeRequest({ contracts_for: symbol });
+    const available = response.contracts_for?.available || response.data?.contracts_for?.available || response.data?.available;
+    if (!Array.isArray(available)) {
+      throw new Error('Não foi possível confirmar as condições de negociação deste ativo na Deriv. A entrada foi bloqueada por segurança.');
+    }
+    const contract = available.find(item => String(item.contract_type || '').toUpperCase() === direction);
+    if (!contract) {
+      throw new Error((direction === 'CALL' ? 'COMPRA' : 'VENDA') + ' não está disponível neste ativo na Deriv. Escolhe outro ativo.');
+    }
+    const min = parseDerivDurationSeconds(contract.min_contract_duration);
+    const max = parseDerivDurationSeconds(contract.max_contract_duration);
+    if ((min !== null && duration < min) || (max !== null && duration > max)) {
+      const minLabel = contract.min_contract_duration || 'não indicada';
+      const maxLabel = contract.max_contract_duration || 'não indicada';
+      throw new Error('A duração escolhida não é permitida para este ativo. A Deriv indica o intervalo ' + minLabel + ' a ' + maxLabel + '. Escolhe outra duração.');
+    }
+    return contract;
+  }
+  function friendlyManualTradeError(error) {
+    const raw = String(error?.message || '');
+    if (/Trading is not offered for this duration/i.test(raw)) {
+      return 'A Deriv não oferece este tempo de expiração para o ativo selecionado. Escolhe outra duração ou outro ativo.';
+    }
+    if (/Contract is not available|Contract unavailable/i.test(raw)) {
+      return 'Este tipo de operação não está disponível para o ativo selecionado na Deriv.';
+    }
+    return raw || 'Não foi possível executar a operação DEMO. Verifica a ligação e tenta novamente.';
+  }
   function addManualHistoryRow(contractId, direction, asset, amount, currency, duration) {
     const list = $('manualHistory');
     if (!list) return null;
@@ -1077,6 +1114,9 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     updateManualTradeControls();
     message('manualTradeStatus', 'A enviar entrada ' + (direction === 'CALL' ? 'COMPRA' : 'VENDA') + ' para a conta DEMO…');
     try {
+      message('manualTradeStatus', 'A verificar as condições deste ativo na Deriv…');
+      await validateManualTradeAvailability(symbol, direction, duration);
+      message('manualTradeStatus', 'Ativo e duração confirmados. A pedir cotação à Deriv…');
       const quoteResponse = await sendDerivTradeRequest({
         proposal: 1, amount, basis: 'stake', contract_type: direction,
         currency, duration, duration_unit: 's', underlying_symbol: symbol
@@ -1098,7 +1138,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
         }));
       }
     } catch (error) {
-      message('manualTradeStatus', error.message || 'Não foi possível executar a operação DEMO.', 'error');
+      message('manualTradeStatus', friendlyManualTradeError(error), 'error');
     } finally {
       manualTradeBusy = false;
       updateManualTradeControls();

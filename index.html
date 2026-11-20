@@ -577,7 +577,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             <div class="card operation-panel bot-panel">
               <div class="row panel-heading"><h2 style="margin:0">🤖 Operações do Bot</h2><span class="signal-tag neutral">● Desligado</span></div>
               <div class="market-screen">
-                <div class="row"><div><b>Gráfico do mercado</b><div class="small muted">Ilustrativo · sem cotações ao vivo</div></div><span class="pill right">DEMO</span></div>
+                <div class="row"><div><b>Gráfico do mercado</b><div class="small muted">Velas japonesas · cotações recebidas da Deriv</div></div><span class="pill right">DEMO</span></div>
                 <svg id="botCandlestickChart" viewBox="0 0 620 180" preserveAspectRatio="none" role="img" aria-label="Gráfico de velas japonesas com cotações recebidas da Deriv">
                   <g id="botCandlestickGrid"><path class="market-gridline" d="M0 25H620 M0 65H620 M0 105H620 M0 145H620"/></g>
                   <g id="botCandlestickBodies"><text x="310" y="92" text-anchor="middle" fill="#9aa9a0" font-size="13">A aguardar cotações da Deriv…</text></g>
@@ -1385,7 +1385,6 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const startedOpen=menuTouchStart.open;
     menuTouchStart=null;
     if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.35)return;
-    if(!startedOpen&&t.clientX>30&&dx>0&&arguments.length===-1)return;
     if(!startedOpen&&dx>55&&t.clientX>0&&t.clientX-dx<36)openMenu(true);
     else if(startedOpen&&dx< -55)openMenu(false);
   },{passive:true});

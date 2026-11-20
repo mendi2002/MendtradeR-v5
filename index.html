@@ -446,14 +446,14 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   <header class="top">
     <div class="top-left">
       <button id="menuToggle" class="menu-toggle hidden" aria-label="Abrir menu" aria-expanded="false">☰</button>
-      <div class="brand"><img class="brand-logo" src="assets/mendtrader-logo.svg" alt="Logotipo MendtradeR"><span class="brand-name">MendtradeR</span><small class="brand-version">V6</small></div>
+      <div class="brand"><span class="brand-name">MendtradeR</span><small class="brand-version">V6</small></div>
     </div>
     <div class="top-spacer"></div>
     <div class="top-tools"><select id="languageSelect" class="lang-select" aria-label="Idioma"><option value="pt">Português</option><option value="en">English</option><option value="es">Español</option></select><span class="badge">DEMO · PREVIEW</span><button id="logoutBtn" class="secondary hidden">Sair</button></div>
   </header>
 
   <section id="authView" class="card auth">
-    <div class="auth-brand"><img src="assets/mendtrader-logo.svg" alt="Logotipo MendtradeR"><div><strong>MendtradeR</strong><span>TRADING PLATFORM</span></div></div><h1 style="margin:0 0 6px">Bem-vindo ao MendtradeR</h1><p class="muted">Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.</p>
+    <div class="auth-brand"><div><strong>MendtradeR</strong><span>TRADING PLATFORM</span></div></div><h1 style="margin:0 0 6px">Bem-vindo ao MendtradeR</h1><p class="muted">Entre ou crie a sua conta para aceder ao painel. Disponível para utilizadores de vários países.</p>
     <div class="field"><label for="signupCountry">País</label><select id="signupCountry"></select></div>
     <div class="field"><label for="email">E-mail</label><input id="email" type="email" autocomplete="email" placeholder="teuemail@exemplo.com"></div>
     <div class="field"><label for="password">Palavra-passe</label><input id="password" type="password" autocomplete="current-password" placeholder="Mínimo de 6 caracteres"></div>
@@ -464,7 +464,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
 
   <div id="navBackdrop" class="nav-backdrop"></div>
   <nav id="mainNav" class="card nav" aria-label="Menu principal">
-    <div class="nav-heading"><div class="nav-brand"><img src="assets/mendtrader-logo.svg" alt=""><span>MendtradeR</span></div><button id="menuClose" class="nav-close" aria-label="Fechar menu">✕</button></div>
+    <div class="nav-heading"><div class="nav-brand"><span>MendtradeR</span></div><button id="menuClose" class="nav-close" aria-label="Fechar menu">✕</button></div>
     <button data-page="bot" class="active">◉ Área de operações</button>
     <button data-page="overview">▦ Visão geral</button>
     <button data-page="history">▤ Histórico</button>
@@ -607,6 +607,18 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             </div>
             <div class="card operation-panel manual-panel">
               <div class="row panel-heading"><h2 style="margin:0">🎯 Operações Manuais</h2><span class="signal-tag neutral">Execução manual</span></div>
+          <div class="card" id="derivAccountCard" style="margin-top:14px;border-color:#087b42">
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <div><span class="badge">DERIV · CONTA</span><h2 style="margin:9px 0 4px">🔐 Ligar conta Deriv</h2></div>
+              <span id="derivAccountStatus" class="pill">Não ligada</span>
+            </div>
+            <p class="small muted">Autoriza a MendtradeR a aceder à tua conta Deriv. A palavra-passe é introduzida apenas no site oficial da Deriv. Nesta etapa nenhuma ordem é enviada.</p>
+            <div class="row"><button id="derivAccountConnect" type="button">Conectar à Deriv</button><button id="derivAccountDisconnect" class="secondary" type="button" disabled>Desligar conta</button></div>
+            <p id="derivAccountMsg" class="small muted" aria-live="polite">Ainda não existe uma conta Deriv autorizada nesta sessão.</p>
+            <div class="field"><label for="derivTradingAccount">Conta para consultar</label><select id="derivTradingAccount" disabled><option value="">Liga primeiro a Deriv</option></select></div>
+            <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>
+            <div id="derivBalanceMode" class="small muted" style="margin-top:10px">Saldo Deriv: ainda não consultado.</div>
+          </div>
               <div class="signal-card">
                 <div class="row"><b>📊 Sinal atual do Bot</b><span id="manualSignalStatus" class="pill right">Aguardando feed</span></div>
                 <div id="manualSignalDirection" class="signal-direction">— <span class="muted">Nenhum sinal confirmado</span></div>
@@ -757,18 +769,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
               <p class="small" style="color:#e5d6b2;margin:5px 0 0">A área de receitas por utilizador será privada e só poderá mostrar valores reais quando existir uma função de proprietário validada no servidor. Não é seguro calcular ou revelar a receita global apenas no navegador.</p>
               <div class="row" style="margin-top:12px"><span class="pill">Regra comercial definida</span><span class="pill">Resumo financeiro: integração pendente</span></div>
             </div></div>
-          <div class="card" id="derivAccountCard" style="margin-top:14px;border-color:#087b42">
-            <div class="row" style="justify-content:space-between;align-items:center">
-              <div><span class="badge">DERIV · CONTA</span><h2 style="margin:9px 0 4px">🔐 Ligar conta Deriv</h2></div>
-              <span id="derivAccountStatus" class="pill">Não ligada</span>
-            </div>
-            <p class="small muted">Autoriza a MendtradeR a aceder à tua conta Deriv. A palavra-passe é introduzida apenas no site oficial da Deriv. Nesta etapa nenhuma ordem é enviada.</p>
-            <div class="row"><button id="derivAccountConnect" type="button">Conectar à Deriv</button><button id="derivAccountDisconnect" class="secondary" type="button" disabled>Desligar conta</button></div>
-            <p id="derivAccountMsg" class="small muted" aria-live="polite">Ainda não existe uma conta Deriv autorizada nesta sessão.</p>
-            <div class="field"><label for="derivTradingAccount">Conta para consultar</label><select id="derivTradingAccount" disabled><option value="">Liga primeiro a Deriv</option></select></div>
-            <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>
-            <div id="derivBalanceMode" class="small muted" style="margin-top:10px">Saldo Deriv: ainda não consultado.</div>
-          </div>
+
           <div class="card" style="margin-top:14px">
             <h2>🎨 Aparência da plataforma</h2>
             <p class="small muted">Escolhe uma cor visual. A preferência fica guardada neste dispositivo.</p>

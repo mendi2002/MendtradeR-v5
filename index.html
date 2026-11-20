@@ -1765,6 +1765,9 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       const slides=[...track.querySelectorAll('.ops-slide')],mid=track.getBoundingClientRect().left+track.clientWidth*.35;
       let active=0,best=Infinity;
       slides.forEach((slide,i)=>{const d=Math.abs(slide.getBoundingClientRect().left-mid);if(d<best){best=d;active=i;}});
+      /* A faixa acompanha a altura do painel visível; evita um vazio enorme no telemóvel. */
+      const activeHeight=slides[active]?.offsetHeight;
+      if(activeHeight){track.style.overflowY='hidden';track.style.height=activeHeight+'px';}
       [...tabs.children].forEach((tab,i)=>{tab.classList.toggle('active',i===active);tab.setAttribute('aria-selected',i===active?'true':'false');});
     };
     track.addEventListener('scroll',()=>requestAnimationFrame(updateActive),{passive:true});window.addEventListener('resize',updateActive);updateActive();

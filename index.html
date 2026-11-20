@@ -1017,7 +1017,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     });
   }
   function parseDerivDurationSeconds(value) {
-    const match = String(value || '').trim().match(/^(\\d+(?:\\.\\d+)?)\\s*([smhdwty])$/i);
+    const match = String(value || '').trim().match(/^(\d+(?:\.\d+)?)\s*([smhdwty])$/i);
     if (!match) return null;
     const amount = Number(match[1]);
     const unit = match[2].toLowerCase();

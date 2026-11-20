@@ -1128,7 +1128,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
           derivConnectedAccount = null;
           updateManualTradeControls();
           $('derivBalanceMode').textContent = 'Ligação à conta encerrada. A autorização pode continuar válida.';
-          if (derivPatConnection) { derivPatConnection = false; derivTradingReconnectWanted = false; message('derivAccountMsg', 'Sessão PAT encerrada. Liga novamente com o teu token DEMO.', 'error'); } else scheduleDerivTradingReconnect();
+          if (derivPatConnection) { derivPatConnection = false; derivTradingReconnectWanted = false; $('derivPatStatus').textContent = 'Desligada'; $('derivPatConnect').disabled = false; $('derivPatDisconnect').disabled = true; message('derivPatMessage', 'Sessão PAT interrompida. Liga novamente com o teu token DEMO.', 'error'); message('derivAccountMsg', 'Sessão PAT encerrada. Liga novamente com o teu token DEMO.', 'error'); } else scheduleDerivTradingReconnect();
         }
       };
   }

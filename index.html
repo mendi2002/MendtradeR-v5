@@ -739,6 +739,14 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             <p class="small muted">Autoriza a MendtradeR a aceder à tua conta Deriv. A palavra-passe é introduzida apenas no site oficial da Deriv. Nesta etapa nenhuma ordem é enviada.</p>
             <div class="row"><button id="derivAccountConnect" type="button">Conectar à Deriv</button><button id="derivAccountDisconnect" class="secondary" type="button" disabled>Desligar conta</button></div>
             <p id="derivAccountMsg" class="small muted" aria-live="polite">Ainda não existe uma conta Deriv autorizada nesta sessão.</p>
+            <div class="card" style="margin:12px 0;border:1px solid #315c45;background:#07110b">
+              <div class="row" style="justify-content:space-between;align-items:center"><b>🔐 Ligação por Token PAT · apenas DEMO</b><span id="derivPatStatus" class="pill">Não ligada</span></div>
+              <p class="small muted">Cola o token pessoal criado na Deriv com permissão Trade e o ID da conta de demonstração VRTC. O token é enviado apenas para gerar uma sessão temporária; não é guardado no navegador.</p>
+              <div class="field"><label for="derivPatToken">Token PAT (privado)</label><input id="derivPatToken" type="password" autocomplete="off" placeholder="Cola aqui o teu token PAT"></div>
+              <div class="formgrid"><div class="field"><label for="derivPatAccount">ID da conta DEMO (VRTC...)</label><input id="derivPatAccount" type="text" autocomplete="off" placeholder="VRTC..."></div><div class="field"><label for="derivPatAppId">App ID Deriv</label><input id="derivPatAppId" type="text" value="34TEm2Gavyti0dcVDw73V" autocomplete="off"></div></div>
+              <div class="row"><button id="derivPatConnect" type="button">Ligar conta DEMO</button><button id="derivPatDisconnect" class="secondary" type="button" disabled>Desligar PAT</button></div>
+              <p id="derivPatMessage" class="small muted" aria-live="polite">Aguardando ligação segura.</p>
+            </div>
             <div class="field"><label for="derivTradingAccount">Conta para consultar</label><select id="derivTradingAccount" disabled><option value="">Liga primeiro a Deriv</option></select></div>
             <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>
             <div id="derivBalanceMode" class="small muted" style="margin-top:10px">Saldo Deriv: ainda não consultado.</div>
@@ -1061,24 +1069,8 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       if (derivTradingReconnectWanted) connectDerivTradingAccount();
     }, delay);
   }
-  async function connectDerivTradingAccount() {
-    const accountId = $('derivTradingAccount')?.value;
-    const account = derivAccounts.find(item => String(item.account_id || item.id || '') === accountId);
-    if (!accountId || !account) return message('derivAccountMsg', 'Escolhe uma conta antes de continuar.', 'error');
-    if (derivAccountType(account) === 'unknown') return message('derivAccountMsg', 'Não foi possível identificar com segurança se esta conta é DEMO ou REAL. Não será ligada.', 'error');
-    localStorage.setItem(DERIV_SELECTED_ACCOUNT_KEY, accountId);
-    derivTradingReconnectWanted = true;
-    clearTimeout(derivTradingReconnectTimer); derivTradingReconnectTimer = null;
-    if (!derivAccountAccessToken || Date.now() >= derivAccountExpiresAt) return message('derivAccountMsg', 'A autorização expirou. Liga novamente a tua conta Deriv.', 'error');
-    try {
-      if (derivTradingSocket) { try { derivTradingSocket.close(); } catch {} derivTradingSocket = null; }
-      message('derivAccountMsg', 'A preparar ligação segura à conta selecionada…');
-      const response = await fetch('https://api.derivws.com/trading/v1/options/accounts/' + encodeURIComponent(accountId) + '/otp', {
-        method: 'POST', headers: { Authorization: 'Bearer ' + derivAccountAccessToken }
-      });
-      const result = await response.json().catch(() => ({}));
-      const socketUrl = result?.data?.url;
-      if (!response.ok || !socketUrl) throw new Error(result?.errors?.[0]?.message || 'A Deriv não forneceu o endereço seguro da conta (HTTP ' + response.status + ').');
+  let derivPatConnection = false;
+  function openDerivTradingSocket(socketUrl, account, accountId) {
       const socket = new WebSocket(socketUrl);
       derivTradingSocket = socket;
       socket.onopen = () => {
@@ -1089,6 +1081,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
         $('derivBalanceMode').textContent = 'Ligação estabelecida · ' + type + ' · ' + (account.loginid || accountId) + ' · a aguardar saldo…';
         message('derivAccountMsg', 'Conta ' + type + ' ligada. Ordens manuais desbloqueadas apenas em DEMO.', 'success');
         updateManualTradeControls();
+        if (derivPatConnection) { $('derivPatStatus').textContent = 'DEMO ligada'; $('derivPatConnect').disabled = true; $('derivPatDisconnect').disabled = false; message('derivPatMessage', 'Conta DEMO ligada. Saldo e operações disponíveis.', 'success'); }
       };
       socket.onmessage = event => {
         let data;
@@ -1135,9 +1128,29 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
           derivConnectedAccount = null;
           updateManualTradeControls();
           $('derivBalanceMode').textContent = 'Ligação à conta encerrada. A autorização pode continuar válida.';
-          scheduleDerivTradingReconnect();
+          if (derivPatConnection) { derivPatConnection = false; derivTradingReconnectWanted = false; $('derivPatStatus').textContent = 'Desligada'; $('derivPatConnect').disabled = false; $('derivPatDisconnect').disabled = true; message('derivPatMessage', 'Sessão PAT interrompida. Liga novamente com o teu token DEMO.', 'error'); message('derivAccountMsg', 'Sessão PAT encerrada. Liga novamente com o teu token DEMO.', 'error'); } else scheduleDerivTradingReconnect();
         }
       };
+  }
+  async function connectDerivTradingAccount() {
+    const accountId = $('derivTradingAccount')?.value;
+    const account = derivAccounts.find(item => String(item.account_id || item.id || '') === accountId);
+    if (!accountId || !account) return message('derivAccountMsg', 'Escolhe uma conta antes de continuar.', 'error');
+    if (derivAccountType(account) === 'unknown') return message('derivAccountMsg', 'Não foi possível identificar com segurança se esta conta é DEMO ou REAL. Não será ligada.', 'error');
+    localStorage.setItem(DERIV_SELECTED_ACCOUNT_KEY, accountId);
+    derivTradingReconnectWanted = true;
+    clearTimeout(derivTradingReconnectTimer); derivTradingReconnectTimer = null;
+    if (!derivAccountAccessToken || Date.now() >= derivAccountExpiresAt) return message('derivAccountMsg', 'A autorização expirou. Liga novamente a tua conta Deriv.', 'error');
+    try {
+      if (derivTradingSocket) { try { derivTradingSocket.close(); } catch {} derivTradingSocket = null; }
+      message('derivAccountMsg', 'A preparar ligação segura à conta selecionada…');
+      const response = await fetch('https://api.derivws.com/trading/v1/options/accounts/' + encodeURIComponent(accountId) + '/otp', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + derivAccountAccessToken }
+      });
+      const result = await response.json().catch(() => ({}));
+      const socketUrl = result?.data?.url;
+      if (!response.ok || !socketUrl) throw new Error(result?.errors?.[0]?.message || 'A Deriv não forneceu o endereço seguro da conta (HTTP ' + response.status + ').');
+      openDerivTradingSocket(socketUrl, account, accountId);
     } catch (error) {
       message('derivAccountMsg', error.message || 'Não foi possível ligar a conta Deriv.', 'error');
       scheduleDerivTradingReconnect();
@@ -1184,6 +1197,50 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     } catch (error) {
       message('derivAccountMsg', error.message || 'Erro ao concluir a ligação Deriv.', 'error');
     }
+  }
+  async function connectDerivWithPAT() {
+    if (!currentUser) return message('derivPatMessage', 'Entra primeiro na tua conta MendtradeR.', 'error');
+    const token = $('derivPatToken').value.trim();
+    const accountId = $('derivPatAccount').value.trim().toUpperCase();
+    const appId = $('derivPatAppId').value.trim();
+    if (!token || !accountId || !appId) return message('derivPatMessage', 'Preenche o Token PAT, o ID VRTC e o App ID.', 'error');
+    if (!/^VRTC[A-Z0-9]+$/.test(accountId)) return message('derivPatMessage', 'Por segurança, introduz o ID de uma conta DEMO que começa por VRTC.', 'error');
+    $('derivPatConnect').disabled = true;
+    message('derivPatMessage', 'A validar o token e a preparar a sessão DEMO…');
+    try {
+      const { data, error } = await client.functions.invoke('deriv-demo-otp', { body: { token, account_id: accountId, app_id: appId } });
+      $('derivPatToken').value = '';
+      if (error || !data?.url) throw new Error(data?.error || error?.message || 'A Deriv não forneceu uma sessão DEMO.');
+      if (derivTradingSocket) { try { derivTradingSocket.close(); } catch {} derivTradingSocket = null; }
+      derivTradingReconnectWanted = false;
+      derivPatConnection = true;
+      const account = { account_id: accountId, loginid: accountId, currency: 'USD', is_virtual: true, account_type: 'demo' };
+      openDerivTradingSocket(data.url, account, accountId);
+      $('derivPatStatus').textContent = 'A ligar…';
+      $('derivPatDisconnect').disabled = false;
+      message('derivPatMessage', 'Token validado. A estabelecer ligação segura…');
+    } catch (error) {
+      $('derivPatConnect').disabled = false;
+      $('derivPatStatus').textContent = 'Erro';
+      message('derivPatMessage', error.message || 'Não foi possível ligar a conta DEMO.', 'error');
+    }
+  }
+  $('derivPatConnect')?.addEventListener('click', connectDerivWithPAT);
+  $('derivPatDisconnect')?.addEventListener('click', () => {
+    derivPatConnection = false;
+    derivTradingReconnectWanted = false;
+    if (derivTradingSocket) { try { derivTradingSocket.close(); } catch {} }
+    derivTradingSocket = null;
+    derivConnectedAccount = null;
+    derivPatStatusReset();
+    updateManualTradeControls();
+    $('derivBalanceMode').textContent = 'Conta DEMO desligada.';
+    message('derivPatMessage', 'Sessão PAT desligada.');
+  });
+  function derivPatStatusReset() {
+    $('derivPatStatus').textContent = 'Não ligada';
+    $('derivPatDisconnect').disabled = true;
+    $('derivPatConnect').disabled = false;
   }
   $('derivAccountConnect')?.addEventListener('click', () => {
     startDerivAccountOAuth().catch(error => message('derivAccountMsg', error.message || 'Não foi possível iniciar a ligação.', 'error'));
@@ -1318,6 +1375,26 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     menuToggle.setAttribute('aria-expanded',String(open));
   }
   menuToggle.addEventListener('click',()=>openMenu(!mainNav.classList.contains('open')));
+  // Em telemóveis, deslizar da margem esquerda para a direita abre o menu.
+  // Ignora campos, botões, links e a faixa deslizante dos painéis de operações.
+  let menuSwipeStart = null;
+  document.addEventListener('touchstart', event => {
+    if (event.touches.length !== 1) return;
+    const target = event.target;
+    if (target.closest('input,select,textarea,button,a,[contenteditable="true"],.ops-carousel-track,.ops-carousel-tabs')) return;
+    const touch = event.touches[0];
+    menuSwipeStart = { x: touch.clientX, y: touch.clientY, wasOpen: mainNav.classList.contains('open') };
+  }, { passive: true });
+  document.addEventListener('touchend', event => {
+    if (!menuSwipeStart || event.changedTouches.length !== 1) { menuSwipeStart = null; return; }
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - menuSwipeStart.x, dy = touch.clientY - menuSwipeStart.y;
+    const start = menuSwipeStart; menuSwipeStart = null;
+    if (Math.abs(dy) > 65 || Math.abs(dx) < 75) return;
+    if (!start.wasOpen && start.x <= 55 && dx >= 75 && currentUser) openMenu(true);
+    else if (start.wasOpen && dx <= -75) openMenu(false);
+  }, { passive: true });
+
   $('menuClose').addEventListener('click',()=>openMenu(false));
   navBackdrop.addEventListener('click',()=>openMenu(false));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')openMenu(false);});

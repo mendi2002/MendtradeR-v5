@@ -73,6 +73,9 @@
     .market-gridline{stroke:#26364e;stroke-width:1;stroke-dasharray:4 5}
     .market-line{fill:none;stroke:#36d69a;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
     .market-fill{fill:url(#chartFill);opacity:.22}
+    #botCandlestickChart{width:100%;height:180px;display:block}
+    .candle-wick{stroke-width:2;stroke-linecap:round}
+    .candle-body{stroke-width:1}
     .ops-side{display:grid;gap:10px}
     .ops-mini{border:1px solid #2b405b;border-radius:15px;padding:14px;background:#121f32}
     .ops-mini strong{font-size:20px;display:block;margin-top:5px}
@@ -574,12 +577,10 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             <div class="card operation-panel bot-panel">
               <div class="row panel-heading"><h2 style="margin:0">🤖 Operações do Bot</h2><span class="signal-tag neutral">● Desligado</span></div>
               <div class="market-screen">
-                <div class="row"><div><b>Gráfico do mercado</b><div class="small muted">Ilustrativo · sem cotações ao vivo</div></div><span class="pill right">DEMO</span></div>
-                <svg viewBox="0 0 620 160" preserveAspectRatio="none" role="img" aria-label="Gráfico ilustrativo, sem dados de mercado em tempo real">
-                  <defs><linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#36d69a"/><stop offset="1" stop-color="#36d69a" stop-opacity="0"/></linearGradient></defs>
-                  <path class="market-gridline" d="M0 25H620 M0 65H620 M0 105H620 M0 145H620"/>
-                  <path class="market-fill" d="M0 119 L35 110 L70 120 L105 86 L140 96 L175 71 L210 83 L245 52 L280 68 L315 45 L350 61 L385 35 L420 54 L455 30 L490 48 L525 23 L560 39 L590 18 L620 28 L620 160 L0 160Z"/>
-                  <path class="market-line" d="M0 119 L35 110 L70 120 L105 86 L140 96 L175 71 L210 83 L245 52 L280 68 L315 45 L350 61 L385 35 L420 54 L455 30 L490 48 L525 23 L560 39 L590 18 L620 28"/>
+                <div class="row"><div><b>Gráfico do mercado</b><div class="small muted">Velas japonesas · cotações recebidas da Deriv</div></div><span class="pill right">DEMO</span></div>
+                <svg id="botCandlestickChart" viewBox="0 0 620 180" preserveAspectRatio="none" role="img" aria-label="Gráfico de velas japonesas com cotações recebidas da Deriv">
+                  <g id="botCandlestickGrid"><path class="market-gridline" d="M0 25H620 M0 65H620 M0 105H620 M0 145H620"/></g>
+                  <g id="botCandlestickBodies"><text x="310" y="92" text-anchor="middle" fill="#9aa9a0" font-size="13">A aguardar cotações da Deriv…</text></g>
                 </svg>
                 <div class="row"><span class="small muted">Sinal do motor: indisponível</span><span class="small muted right">Feed não ligado</span></div>
               </div>
@@ -1371,6 +1372,22 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   $('menuClose').addEventListener('click',()=>openMenu(false));
   navBackdrop.addEventListener('click',()=>openMenu(false));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')openMenu(false);});
+  // Menu por gesto: deslizar da borda esquerda para abrir e para a esquerda para fechar.
+  let menuTouchStart=null;
+  document.addEventListener('touchstart',e=>{
+    if(!e.touches||e.touches.length!==1)return;
+    const t=e.touches[0];
+    menuTouchStart={x:t.clientX,y:t.clientY,open:mainNav.classList.contains('open')};
+  },{passive:true});
+  document.addEventListener('touchend',e=>{
+    if(!menuTouchStart||!e.changedTouches||!e.changedTouches.length)return;
+    const t=e.changedTouches[0],dx=t.clientX-menuTouchStart.x,dy=t.clientY-menuTouchStart.y;
+    const startedOpen=menuTouchStart.open;
+    menuTouchStart=null;
+    if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.35)return;
+    if(!startedOpen&&dx>55&&t.clientX>0&&t.clientX-dx<36)openMenu(true);
+    else if(startedOpen&&dx< -55)openMenu(false);
+  },{passive:true});
 
   document.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
     document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b===btn));
@@ -1856,6 +1873,25 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     derivCurrentCandle=null;renderDerivCandles();
   }
   loadDerivCandlesForSymbol(derivCandleSymbol);
+  function renderBotCandlestickChart(){
+    const layer=$('botCandlestickBodies');
+    if(!layer)return;
+    const candles=derivLiveCandles.slice(-44).map(c=>({open:Number(c.open),high:Number(c.high),low:Number(c.low),close:Number(c.close)}));
+    if(derivCurrentCandle)candles.push({open:derivCurrentCandle.open,high:derivCurrentCandle.high,low:derivCurrentCandle.low,close:derivCurrentCandle.close});
+    const valid=candles.filter(c=>[c.open,c.high,c.low,c.close].every(Number.isFinite));
+    if(!valid.length){layer.innerHTML='<text x="310" y="92" text-anchor="middle" fill="#9aa9a0" font-size="13">A aguardar cotações da Deriv…</text>';return;}
+    const lo=Math.min(...valid.map(c=>c.low)),hi=Math.max(...valid.map(c=>c.high));
+    const span=Math.max(hi-lo,Math.abs(hi)*1e-8,1e-8),y=p=>166-((p-lo)/span)*148;
+    const step=620/valid.length,bodyW=Math.max(3,Math.min(11,step*.58));
+    const parts=valid.map((c,i)=>{
+      const x=step*i+step/2,up=c.close>=c.open,color=up?'#00d66b':'#ff394b';
+      const top=Math.min(y(c.open),y(c.close)),height=Math.max(2,Math.abs(y(c.open)-y(c.close)));
+      return '<line class="candle-wick" x1="'+x.toFixed(2)+'" y1="'+y(c.high).toFixed(2)+'" x2="'+x.toFixed(2)+'" y2="'+y(c.low).toFixed(2)+'" stroke="'+color+'"/>'+
+        '<rect class="candle-body" x="'+(x-bodyW/2).toFixed(2)+'" y="'+top.toFixed(2)+'" width="'+bodyW.toFixed(2)+'" height="'+height.toFixed(2)+'" fill="'+color+'" stroke="'+color+'"/>';
+    });
+    layer.innerHTML=parts.join('');
+  }
+  renderBotCandlestickChart();
   function setDerivFeedStatus(label,kind='neutral'){
     const el=$('derivFeedStatus'); if(!el)return;
     el.textContent=label; el.className='signal-tag '+kind;
@@ -1889,8 +1925,10 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       updateDerivCandleSignal();
     }
     $('derivCandleState').textContent='A recolher candle atual';
+    renderBotCandlestickChart();
   }
   function renderDerivCandles(){
+    renderBotCandlestickChart();
     $('derivCandleCount').textContent=String(derivLiveCandles.length);
     $('derivCandleRows').innerHTML=derivLiveCandles.slice(-8).reverse().map(c=>'<tr><td>'+escapeHtml(c.time)+'</td><td>'+c.open+'</td><td>'+c.high+'</td><td>'+c.low+'</td><td>'+c.close+'</td></tr>').join('')||'<tr><td colspan="5" class="muted">Ainda sem candles fechados.</td></tr>';
     $('derivCandleTestResult').textContent=derivLiveCandles.length<60?'Faltam '+(60-derivLiveCandles.length)+' candles para o primeiro teste (aproximadamente '+(60-derivLiveCandles.length)+' minutos).':'Já existem dados suficientes para um primeiro teste histórico em demo.';

@@ -2120,10 +2120,18 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       if(manualReason)manualReason.textContent=reason.textContent;
       return;
     }
-    const symbol=$('derivFeedSymbol')?.selectedOptions?.[0]?.textContent||latestTick.symbol||'Mercado selecionado';
-    const signalReason=symbol+' · RSI '+oscillator.toFixed(1)+' · EMA 9/21 alinhadas · impulso confirmado em 3 atualizações.';
-    const isNewSignal=!derivActiveSignal||derivActiveSignal.side!==side;
-    derivActiveSignal={side,symbol,score,reason:signalReason,expiresAt:Date.now()+DERIV_SIGNAL_HOLD_MS};
+    const feedSelect=$('derivFeedSymbol');
+    const symbolCode=feedSelect?.value||latestTick.symbol||'';
+    const symbol=feedSelect?.selectedOptions?.[0]?.textContent||latestTick.symbol||'Mercado selecionado';
+    const manualAssetSelect=$('manualAsset');
+    const matchingManualAsset=!!manualAssetSelect&&Array.from(manualAssetSelect.options).some(option=>option.value===symbolCode);
+    const isNewSignal=!derivActiveSignal||derivActiveSignal.side!==side||derivActiveSignal.symbolCode!==symbolCode;
+    if(isNewSignal&&matchingManualAsset)manualAssetSelect.value=symbolCode;
+    const signalAssetNote=matchingManualAsset
+      ? ' Ativo da entrada manual alinhado com o sinal.'
+      : ' Atenção: confirma se o ativo escolhido na entrada manual corresponde a este sinal.';
+    const signalReason=symbol+' · RSI '+oscillator.toFixed(1)+' · EMA 9/21 alinhadas · impulso confirmado em 3 atualizações.'+signalAssetNote;
+    derivActiveSignal={side,symbol,symbolCode,score,reason:signalReason,expiresAt:Date.now()+DERIV_SIGNAL_HOLD_MS};
     showActive();
     if(isNewSignal&&derivSignalLastSide!==side){playSignalAlert();lastSoundSignal=side;derivSignalLastSide=side;}
   }

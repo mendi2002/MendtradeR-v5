@@ -996,6 +996,16 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     derivOpenContracts.set(String(contractId), { row, status, label });
     return row;
   }
+  function derivDurationToSeconds(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value !== 'string') return null;
+    const match = value.trim().match(/^(\\d+(?:\\.\\d+)?)\\s*([smhd])$/i);
+    if (!match) return null;
+    const amount = Number(match[1]);
+    const unit = match[2].toLowerCase();
+    const factor = { s: 1, m: 60, h: 3600, d: 86400 }[unit];
+    return Number.isFinite(amount) && factor ? amount * factor : null;
+  }
   async function executeManualTrade(direction) {
     if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo') {
       message('manualTradeStatus', 'Por segurança, as ordens manuais só estão disponíveis numa conta DEMO ligada.', 'error');
@@ -1024,9 +1034,30 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     if (sellButton) sellButton.disabled = true;
     message('manualTradeStatus', 'A pedir cotação à Deriv…');
     try {
+      // Consulta primeiro os contratos realmente disponíveis para este ativo.
+      // Isto evita enviar CALL/PUT com uma duração que o contrato não aceita.
+      const contractsResponse = await sendDerivTradeRequest({ contracts_for: symbol });
+      const availableContracts = contractsResponse.contracts_for?.available
+        || contractsResponse.data?.contracts_for?.available || [];
+      if (!Array.isArray(availableContracts) || !availableContracts.length) {
+        throw new Error('A Deriv não devolveu a lista de contratos deste ativo. Nenhuma ordem foi enviada.');
+      }
+      const selectedContract = availableContracts.find(item => item.contract_type === direction);
+      if (!selectedContract) {
+        const types = [...new Set(availableContracts.map(item => item.contract_type).filter(Boolean))];
+        throw new Error('O contrato ' + direction + ' não está disponível neste ativo. Tipos disponíveis: ' + (types.join(', ') || 'não identificados') + '. Nenhuma ordem foi enviada.');
+      }
+      const minDuration = derivDurationToSeconds(selectedContract.min_contract_duration);
+      const maxDuration = derivDurationToSeconds(selectedContract.max_contract_duration);
+      if (minDuration !== null && duration < minDuration) {
+        throw new Error('A Deriv exige pelo menos ' + selectedContract.min_contract_duration + ' para este contrato neste ativo. Escolhe uma duração permitida. Nenhuma ordem foi enviada.');
+      }
+      if (maxDuration !== null && duration > maxDuration) {
+        throw new Error('A duração máxima permitida pela Deriv para este contrato é ' + selectedContract.max_contract_duration + '. Nenhuma ordem foi enviada.');
+      }
       const quoteResponse = await sendDerivTradeRequest({
         proposal: 1, amount, basis: 'stake', contract_type: direction,
-        currency, duration, duration_unit: 's', underlying_symbol: symbol
+        currency, duration, duration_unit: 's', underlying_symbol: symbol, subscribe: 1
       });
       const quote = quoteResponse.proposal || quoteResponse.data?.proposal;
       if (!quote?.id || !Number.isFinite(Number(quote.ask_price))) {

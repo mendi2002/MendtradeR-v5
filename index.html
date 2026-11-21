@@ -1040,6 +1040,13 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     if (seconds >= 60 && seconds % 60 === 0) return { duration: seconds / 60, duration_unit: 'm' };
     return { duration: seconds, duration_unit: 's' };
   }
+  function formatDerivDuration(seconds) {
+    if (!Number.isFinite(seconds)) return 'não indicado';
+    if (seconds % 86400 === 0) return (seconds / 86400) + ' dia(s)';
+    if (seconds % 3600 === 0) return (seconds / 3600) + ' hora(s)';
+    if (seconds % 60 === 0) return (seconds / 60) + ' minuto(s)';
+    return seconds + ' segundo(s)';
+  }
   const derivPublicContractsCache = new Map();
   async function getPublicDerivContracts(symbol) {
     const cached = derivPublicContractsCache.get(symbol);

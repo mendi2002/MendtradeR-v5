@@ -999,7 +999,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   function derivDurationToSeconds(value) {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value !== 'string') return null;
-    const match = value.trim().match(/^(\\d+(?:\\.\\d+)?)\\s*([smhd])$/i);
+    const match = value.trim().match(/^(\d+(?:\.\d+)?)\s*([smhd])$/i);
     if (!match) return null;
     const amount = Number(match[1]);
     const unit = match[2].toLowerCase();

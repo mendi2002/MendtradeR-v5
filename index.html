@@ -1079,20 +1079,30 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     derivPublicContractsCache.set(symbol, { time: Date.now(), available });
     return available;
   }
-  async function validateManualTradeAvailability(symbol, direction, duration) {
-    const available = await getPublicDerivContracts(symbol);
-    const contract = available.find(item => String(item.contract_type || '').toUpperCase() === direction);
-    if (!contract) {
-      throw new Error((direction === 'CALL' ? 'COMPRA' : 'VENDA') + ' não está disponível neste ativo na Deriv. Escolhe outro ativo.');
-    }
+  function derivContractSupportsDuration(contract, duration) {
     const min = parseDerivDurationSeconds(contract.min_contract_duration);
     const max = parseDerivDurationSeconds(contract.max_contract_duration);
-    if ((min !== null && duration < min) || (max !== null && duration > max)) {
-      const minLabel = contract.min_contract_duration || 'não indicada';
-      const maxLabel = contract.max_contract_duration || 'não indicada';
-      throw new Error('A duração escolhida não é permitida para este ativo/contrato. A Deriv indica o intervalo ' + minLabel + ' a ' + maxLabel + '.');
+    return (min === null || duration >= min) && (max === null || duration <= max);
+  }
+  async function validateManualTradeAvailability(symbol, direction, duration) {
+    const available = await getPublicDerivContracts(symbol);
+    const candidates = available.filter(item => String(item.contract_type || '').toUpperCase() === direction);
+    const label = direction === 'CALL' ? 'COMPRA' : 'VENDA';
+    if (!candidates.length) {
+      throw new Error(label + ' não está disponível neste ativo na Deriv. Escolhe outro ativo.');
     }
-    return contract;
+    // Um ativo pode anunciar mais de uma variante do mesmo tipo de contrato.
+    // Não bloquear pela primeira variante: procurar uma que aceite o prazo pedido.
+    const compatible = candidates.find(item => derivContractSupportsDuration(item, duration));
+    if (!compatible) {
+      const ranges = candidates.map(item => {
+        const min = item.min_contract_duration || 'mínimo não indicado';
+        const max = item.max_contract_duration || 'máximo não indicado';
+        return min + ' a ' + max;
+      });
+      throw new Error('A duração escolhida não está disponível para ' + label + ' neste ativo. Limites publicados pela Deriv: ' + ranges.join('; ') + '. Escolhe um prazo ou ativo compatível.');
+    }
+    return compatible;
   }
   async function checkManualDurationAvailability() {
     const status = $('manualDurationStatus');
@@ -1110,21 +1120,14 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
         status.className = 'small warning';
         return;
       }
-      const describe = item => {
-        const min = parseDerivDurationSeconds(item.min_contract_duration);
-        const max = parseDerivDurationSeconds(item.max_contract_duration);
-        return (item.contract_type === 'CALL' ? 'COMPRA' : 'VENDA') + ': ' +
-          (min === null ? 'mínimo não indicado' : formatDerivDuration(min)) + ' até ' +
-          (max === null ? 'máximo não indicado' : formatDerivDuration(max));
-      };
-      status.textContent = relevant.map(describe).join(' · ');
-      const selected = relevant.some(item => {
-        const min = parseDerivDurationSeconds(item.min_contract_duration);
-        const max = parseDerivDurationSeconds(item.max_contract_duration);
-        return (min === null || duration >= min) && (max === null || duration <= max);
-      });
-      status.textContent += selected ? ' Prazo selecionado dentro de pelo menos um intervalo.' : ' O prazo selecionado está fora dos intervalos anunciados.';
-      status.className = 'small ' + (selected ? 'success' : 'warning');
+      const canBuy = relevant.some(item =>
+        String(item.contract_type || '').toUpperCase() === 'CALL' && derivContractSupportsDuration(item, duration));
+      const canSell = relevant.some(item =>
+        String(item.contract_type || '').toUpperCase() === 'PUT' && derivContractSupportsDuration(item, duration));
+      status.textContent = 'Prazo escolhido: ' + formatDerivDuration(duration) +
+        ' · COMPRA: ' + (canBuy ? 'permitida' : 'não permitida') +
+        ' · VENDA: ' + (canSell ? 'permitida' : 'não permitida') + '.';
+      status.className = 'small ' + ((canBuy || canSell) ? 'success' : 'warning');
     } catch (error) {
       status.textContent = 'Não foi possível consultar agora: ' + error.message;
       status.className = 'small warning';

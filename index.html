@@ -593,7 +593,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
               </div>
               <div class="field"><label>Ativo</label><select id="manualAsset"><option value="frxEURUSD">EUR/USD</option><option value="frxGBPUSD">GBP/USD</option><option value="frxUSDJPY">USD/JPY</option><option value="1HZ100V">Volatility 100 (1s)</option></select></div>
               <div class="field"><label id="manualAmountLabel">Valor da operação</label><input id="manualAmount" type="number" min="0.35" step="0.01" value="1" inputmode="decimal"></div>
-              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option></select></div>
+              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option><option value="86400">1 dia</option><option value="604800">1 semana</option><option value="2592000">1 mês (30 dias)</option></select></div>
               <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" type="button" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" type="button" disabled>↓ VENDA</button></div>
               <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
               <div class="notice warning small">Negociação disponível apenas em DEMO nesta fase. Cada clique exige confirmação. Verifica o valor, o ativo e a duração antes de confirmar. A conta REAL permanece bloqueada para ordens.</div>
@@ -1006,6 +1006,12 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const factor = { s: 1, m: 60, h: 3600, d: 86400 }[unit];
     return Number.isFinite(amount) && factor ? amount * factor : null;
   }
+  function derivDurationForApi(seconds) {
+    if (seconds >= 86400 && seconds % 86400 === 0) return { duration: seconds / 86400, duration_unit: 'd' };
+    if (seconds >= 3600 && seconds % 3600 === 0) return { duration: seconds / 3600, duration_unit: 'h' };
+    if (seconds >= 60 && seconds % 60 === 0) return { duration: seconds / 60, duration_unit: 'm' };
+    return { duration: seconds, duration_unit: 's' };
+  }
   async function executeManualTrade(direction) {
     if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo') {
       message('manualTradeStatus', 'Por segurança, as ordens manuais só estão disponíveis numa conta DEMO ligada.', 'error');
@@ -1055,9 +1061,11 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       if (maxDuration !== null && duration > maxDuration) {
         throw new Error('A duração máxima permitida pela Deriv para este contrato é ' + selectedContract.max_contract_duration + '. Nenhuma ordem foi enviada.');
       }
+      const apiDuration = derivDurationForApi(duration);
       const quoteResponse = await sendDerivTradeRequest({
         proposal: 1, amount, basis: 'stake', contract_type: direction,
-        currency, duration, duration_unit: 's', underlying_symbol: symbol, subscribe: 1
+        currency, duration: apiDuration.duration, duration_unit: apiDuration.duration_unit,
+        underlying_symbol: symbol, subscribe: 1
       });
       const quote = quoteResponse.proposal || quoteResponse.data?.proposal;
       if (!quote?.id || !Number.isFinite(Number(quote.ask_price))) {

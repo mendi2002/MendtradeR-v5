@@ -1024,6 +1024,12 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const factors = { s: 1, m: 60, h: 3600, d: 86400, w: 604800, t: null, y: 31536000 };
     return Number.isFinite(amount) && factors[unit] !== null ? amount * factors[unit] : null;
   }
+  function derivDurationForApi(seconds) {
+    if (seconds >= 86400 && seconds % 86400 === 0) return { duration: seconds / 86400, duration_unit: 'd' };
+    if (seconds >= 3600 && seconds % 3600 === 0) return { duration: seconds / 3600, duration_unit: 'h' };
+    if (seconds >= 60 && seconds % 60 === 0) return { duration: seconds / 60, duration_unit: 'm' };
+    return { duration: seconds, duration_unit: 's' };
+  }
   async function validateManualTradeAvailability(symbol, direction, duration) {
     const response = await sendDerivTradeRequest({ contracts_for: symbol });
     const available = response.contracts_for?.available || response.data?.contracts_for?.available || response.data?.available;
@@ -1117,9 +1123,11 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       message('manualTradeStatus', 'A verificar as condições deste ativo na Deriv…');
       await validateManualTradeAvailability(symbol, direction, duration);
       message('manualTradeStatus', 'Ativo e duração confirmados. A pedir cotação à Deriv…');
+      const apiDuration = derivDurationForApi(duration);
       const quoteResponse = await sendDerivTradeRequest({
         proposal: 1, amount, basis: 'stake', contract_type: direction,
-        currency, duration, duration_unit: 's', underlying_symbol: symbol
+        currency, duration: apiDuration.duration, duration_unit: apiDuration.duration_unit,
+        underlying_symbol: symbol, subscribe: 1
       });
       const quote = quoteResponse.proposal || quoteResponse.data?.proposal;
       if (!quote?.id || !Number.isFinite(Number(quote.ask_price))) {

@@ -569,7 +569,17 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             </div>
             <div id="derivCandlePanel" class="card" style="margin-top:14px">
               <h3>🕯️ Candles reais · 1 minuto</h3>
-              <p class="small muted">Os candles são construídos localmente a partir dos ticks recebidos. Só candles fechados entram na análise.</p>
+              <p class="small muted">A análise técnica pode consultar candles históricos da Deriv e comparar diferentes horizontes. Os sinais são indicativos, não garantem resultados.</p>
+              <div class="formgrid">
+                <div class="field"><label for="derivAnalysisTimeframe">Período da análise</label><select id="derivAnalysisTimeframe"><option value="AUTO">Multi-timeframe automático</option><option value="M1">M1 · 1 minuto</option><option value="M5">M5 · 5 minutos</option><option value="M15">M15 · 15 minutos</option><option value="M30">M30 · 30 minutos</option><option value="H1">H1 · 1 hora</option><option value="H4">H4 · 4 horas</option><option value="D1">D1 · 1 dia</option><option value="W1">W1 · 1 semana</option><option value="MN1">MN1 · 1 mês</option></select></div>
+                <div class="field"><label>Candles usados na análise</label><strong id="derivAnalysisCount">A aguardar</strong></div>
+              </div>
+              <div class="ops-mini" style="margin:10px 0">
+                <span class="label">Leitura do período selecionado</span>
+                <strong id="derivAnalysisTrend">A aguardar histórico</strong>
+                <p id="derivAnalysisDetails" class="small muted" style="margin:7px 0 0">Liga o mercado e seleciona um período para consultar a análise.</p>
+                <p id="derivAnalysisStatus" class="small muted" style="margin:6px 0 0">Dados históricos serão pedidos diretamente à Deriv.</p>
+              </div>
               <div class="formgrid">
                 <div class="field"><label>Candles fechados recolhidos</label><strong id="derivCandleCount">0</strong></div>
                 <div class="field"><label>Estado da recolha</label><strong id="derivCandleState">A aguardar ticks</strong></div>
@@ -659,7 +669,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
               <div class="field"><label for="v5Timeframe">Período de análise</label><select id="v5Timeframe"><option value="AUTO">Multi-timeframe automático</option><option value="M1">M1 · 1 minuto</option><option value="M5">M5 · 5 minutos</option><option value="M15">M15 · 15 minutos</option><option value="M30">M30 · 30 minutos</option><option value="H1">H1 · 1 hora</option><option value="H4">H4 · 4 horas</option><option value="D1">D1 · Diário</option><option value="W1">W1 · Semanal</option><option value="MN1">MN1 · Mensal</option></select></div>
               <div class="field"><label for="v5Signal">Estilo de estratégia</label><select id="v5Signal"><option>Híbrida inteligente</option><option>Seguimento de tendência</option><option>Reversão confirmada</option></select></div>
             </div>
-            <div class="notice warning small">Podes escolher períodos de M1 até MN1 (mensal). Nesta versão, o seletor guarda a preferência visual; a análise multi-timeframe real ainda precisa de histórico de candles de cada período e validação antes de alimentar sinais ou ordens. O bot continua sem executar operações automaticamente.</div>
+            <div class="notice warning small">O seletor de períodos alimenta agora a análise de candles históricos. A análise não altera automaticamente a duração da operação: cada contrato continua sujeito aos limites reais de duração e disponibilidade definidos pela Deriv. A execução automática do bot permanece separada.</div>
           </div>
           <div class="card" id="strategyLab" style="margin-top:16px">
             <div class="row" style="justify-content:space-between"><div><span class="badge">MOTOR DE ESTRATÉGIA</span><h2 style="margin:10px 0 4px">Laboratório de sinais e backtest</h2><p class="muted small">Testa a lógica com candles históricos antes de qualquer operação real.</p></div><div class="badge">MODO OFFLINE</div></div>
@@ -1052,7 +1062,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   function friendlyManualTradeError(error) {
     const raw = String(error?.message || '');
     if (/Trading is not offered for this duration|duration.{0,30}(not allowed|not permitted)|not allowed.{0,30}duration/i.test(raw)) {
-      return 'A Deriv não oferece este tempo de expiração para o ativo selecionado. Escolhe outra duração ou outro ativo.';
+      return 'A Deriv não permite este prazo neste ativo/contrato. A análise pode usar qualquer período, mas a entrada só pode usar prazos aceites pela Deriv. Escolhe um ativo ou contrato com duração mínima compatível; não é seguro forçar 1 minuto.';
     }
     if (/Contract is not available|Contract unavailable/i.test(raw)) {
       return 'Este tipo de operação não está disponível para o ativo selecionado na Deriv.';
@@ -1938,6 +1948,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     derivCurrentCandle=null;renderDerivCandles();
   }
   loadDerivCandlesForSymbol(derivCandleSymbol);
+  setTimeout(()=>updateDerivTimeframeAnalysis(),1200);
   function renderBotCandlestickChart(){
     const layer=$('botCandlestickBodies');
     if(!layer)return;
@@ -1971,6 +1982,124 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     $('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Ligar mercado';$('derivFeedDisconnect').disabled=true;
     setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
   }
+  // Análise multi-timeframe com histórico público da Deriv.
+  const DERIV_HISTORY_APP_ID='34TEm2Gavyti0dcVDw73V';
+  const DERIV_ANALYSIS_SECONDS={M1:60,M5:300,M15:900,M30:1800,H1:3600,H4:14400,D1:86400,W1:604800,MN1:2592000};
+  let derivAnalysisRequestToken=0;
+  const derivAnalysisCache=new Map();
+  function requestDerivHistoricalCandles(symbol,granularity,count){
+    return new Promise((resolve,reject)=>{
+      let socket,settled=false;
+      const finish=(error,value)=>{
+        if(settled)return;settled=true;clearTimeout(timer);
+        try{socket?.close();}catch(e){}
+        error?reject(error):resolve(value);
+      };
+      const timer=setTimeout(()=>finish(new Error('A Deriv demorou a devolver o histórico. Tenta novamente.')),18000);
+      try{
+        socket=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id='+encodeURIComponent(DERIV_HISTORY_APP_ID));
+        socket.onopen=()=>socket.send(JSON.stringify({ticks_history:symbol,adjust_start_time:1,count,end:'latest',style:'candles',granularity,req_id:1}));
+        socket.onmessage=event=>{
+          let data;try{data=JSON.parse(event.data);}catch(e){return;}
+          if(data.error){finish(new Error(data.error.message||'A Deriv recusou o pedido de histórico.'));return;}
+          if(Array.isArray(data.candles)){finish(null,data.candles);return;}
+        };
+        socket.onerror=()=>finish(new Error('Não foi possível ligar ao histórico público da Deriv.'));
+      }catch(error){finish(error);}
+    });
+  }
+  function aggregateDerivCandles(candles,timeframe){
+    const groups=new Map();
+    for(const candle of candles){
+      const epoch=Number(candle.epoch),open=Number(candle.open),high=Number(candle.high),low=Number(candle.low),close=Number(candle.close);
+      if(![epoch,open,high,low,close].every(Number.isFinite))continue;
+      const date=new Date(epoch*1000);
+      let bucket;
+      if(timeframe==='W1'){
+        const day=(date.getUTCDay()+6)%7;
+        bucket=Math.floor(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()-day)/1000);
+      }else if(timeframe==='MN1'){
+        bucket=Math.floor(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),1)/1000);
+      }else{
+        const seconds=DERIV_ANALYSIS_SECONDS[timeframe]||60;
+        bucket=Math.floor(epoch/seconds)*seconds;
+      }
+      const existing=groups.get(bucket);
+      if(!existing)groups.set(bucket,{epoch:bucket,open,high,low,close});
+      else{existing.high=Math.max(existing.high,high);existing.low=Math.min(existing.low,low);existing.close=close;}
+    }
+    return [...groups.values()].sort((a,b)=>a.epoch-b.epoch);
+  }
+  async function fetchTimeframeCandles(symbol,timeframe){
+    const cacheKey=symbol+':'+timeframe;
+    const cached=derivAnalysisCache.get(cacheKey);
+    if(cached&&Date.now()-cached.at<60000)return cached.candles;
+    const useDaily=timeframe==='W1'||timeframe==='MN1';
+    const raw=await requestDerivHistoricalCandles(symbol,useDaily?86400:DERIV_ANALYSIS_SECONDS[timeframe],useDaily?2000:500);
+    const candles=aggregateDerivCandles(raw,timeframe);
+    derivAnalysisCache.set(cacheKey,{at:Date.now(),candles});
+    return candles;
+  }
+  function calculateTimeframeReading(candles){
+    const close=candles.map(c=>Number(c.close)).filter(Number.isFinite);
+    if(close.length<30)return {side:'INSUFFICIENT',count:close.length,detail:'Histórico insuficiente: são necessários pelo menos 30 candles fechados neste período.'};
+    const ema=(values,period)=>{
+      const k=2/(period+1);let value=values.slice(0,period).reduce((a,b)=>a+b,0)/period;
+      for(let i=period;i<values.length;i++)value=values[i]*k+value*(1-k);
+      return value;
+    };
+    let gains=0,losses=0;
+    for(let i=close.length-14;i<close.length;i++){const change=close[i]-close[i-1];gains+=Math.max(change,0);losses+=Math.max(-change,0);}
+    const avgGain=gains/14,avgLoss=losses/14;
+    const rsi=avgGain===0&&avgLoss===0?50:avgLoss===0?100:100-(100/(1+avgGain/avgLoss));
+    const fast=ema(close,9),slow=ema(close,21),last=close[close.length-1];
+    let side='LATERAL';
+    if(fast>slow&&last>fast&&rsi>=50&&rsi<72)side='ALTA';
+    else if(fast<slow&&last<fast&&rsi<=50&&rsi>28)side='BAIXA';
+    return {side,count:close.length,rsi,fast,slow,last,detail:'EMA 9: '+fast.toPrecision(8)+' · EMA 21: '+slow.toPrecision(8)+' · RSI 14: '+rsi.toFixed(1)+' · Último fecho: '+last.toPrecision(8)};
+  }
+  async function updateDerivTimeframeAnalysis(){
+    const symbol=$('derivFeedSymbol')?.value;
+    const selected=$('derivAnalysisTimeframe')?.value||$('v5Timeframe')?.value||'M1';
+    const token=++derivAnalysisRequestToken;
+    const trend=$('derivAnalysisTrend'),details=$('derivAnalysisDetails'),count=$('derivAnalysisCount'),status=$('derivAnalysisStatus');
+    if(!symbol||!trend||!details||!count||!status)return;
+    trend.textContent='A consultar a Deriv…';details.textContent='A carregar candles históricos fechados.';count.textContent='—';status.textContent='Pedido em curso para '+symbol+'.';
+    try{
+      const periods=selected==='AUTO'?['M15','H1','H4','D1']:[selected];
+      const results=await Promise.all(periods.map(async timeframe=>({timeframe,candles:await fetchTimeframeCandles(symbol,timeframe)})));
+      if(token!==derivAnalysisRequestToken)return;
+      const readings=results.map(item=>({timeframe:item.timeframe,...calculateTimeframeReading(item.candles)}));
+      count.textContent=readings.map(item=>item.timeframe+': '+item.count).join(' · ');
+      if(selected==='AUTO'){
+        const valid=readings.filter(item=>item.side==='ALTA'||item.side==='BAIXA');
+        const bullish=valid.filter(item=>item.side==='ALTA').length,bearish=valid.filter(item=>item.side==='BAIXA').length;
+        const direction=valid.length===4&&bullish===4?'ALTA':valid.length===4&&bearish===4?'BAIXA':'MISTA / SEM CONFIRMAÇÃO';
+        trend.textContent='Leitura combinada: '+direction;
+        details.textContent=readings.map(item=>item.timeframe+' '+item.side+(item.rsi===undefined?'':' · RSI '+item.rsi.toFixed(1))).join(' | ');
+        status.textContent='Comparação de M15, H1, H4 e D1. Só existe alinhamento quando os quatro períodos confirmam a mesma direção.';
+      }else{
+        const reading=readings[0];
+        trend.textContent=reading.side==='INSUFFICIENT'?'Histórico insuficiente':'Tendência '+reading.side;
+        details.textContent=reading.detail;
+        status.textContent=reading.count+' candles históricos de '+selected+' consultados para '+symbol+'.';
+      }
+    }catch(error){
+      if(token!==derivAnalysisRequestToken)return;
+      trend.textContent='Análise indisponível';details.textContent=error.message||'Não foi possível consultar o histórico.';
+      status.textContent='Confere a ligação à internet e tenta novamente. Nenhuma ordem foi enviada.';
+    }
+  }
+  function syncDerivAnalysisTimeframes(source){
+    const analysis=$('derivAnalysisTimeframe'),engine=$('v5Timeframe');
+    if(source==='analysis'&&analysis&&engine)engine.value=analysis.value;
+    if(source==='engine'&&analysis&&engine)analysis.value=engine.value;
+    updateDerivTimeframeAnalysis();
+  }
+  $('derivAnalysisTimeframe')?.addEventListener('change',()=>syncDerivAnalysisTimeframes('analysis'));
+  $('v5Timeframe')?.addEventListener('change',()=>syncDerivAnalysisTimeframes('engine'));
+  $('derivFeedSymbol')?.addEventListener('change',()=>{derivAnalysisCache.clear();updateDerivTimeframeAnalysis();});
+
   function addDerivCandleTick(tick){
     const epoch=Number(tick.epoch);const price=Number(tick.quote);
     if(!Number.isFinite(epoch)||!Number.isFinite(price))return;

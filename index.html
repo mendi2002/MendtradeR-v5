@@ -649,7 +649,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
               </div>
               <div class="field"><label>Ativo</label><select id="manualAsset"><option value="frxEURUSD">EUR/USD</option><option value="frxGBPUSD">GBP/USD</option><option value="frxUSDJPY">USD/JPY</option><option value="1HZ100V">Volatility 100 (1s)</option></select></div>
               <div class="field"><label id="manualAmountLabel">Valor da operação</label><input id="manualAmount" type="number" min="0.35" step="0.01" value="1" inputmode="decimal"></div>
-              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option><option value="1800">30 minutos</option><option value="3600">1 hora</option><option value="14400">4 horas</option><option value="86400">1 dia</option><option value="604800">1 semana</option><option value="2592000">1 mês (30 dias)</option></select><p class="small muted">A duração é validada automaticamente conforme os limites do ativo na Deriv.</p></div>
+              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option><option value="1800">30 minutos</option><option value="3600">1 hora</option><option value="14400">4 horas</option><option value="86400">1 dia</option><option value="604800">1 semana</option><option value="2592000">1 mês (30 dias)</option></select><p id="manualDurationStatus" class="small muted" aria-live="polite">Os limites de duração serão consultados na Deriv.</p><p class="small muted">A duração é validada automaticamente conforme os limites do ativo na Deriv.</p></div>
               <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" type="button" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" type="button" disabled>↓ VENDA</button></div>
               <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
               <div class="manual-result-grid">
@@ -1040,12 +1040,40 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     if (seconds >= 60 && seconds % 60 === 0) return { duration: seconds / 60, duration_unit: 'm' };
     return { duration: seconds, duration_unit: 's' };
   }
+  const derivPublicContractsCache = new Map();
+  async function getPublicDerivContracts(symbol) {
+    const cached = derivPublicContractsCache.get(symbol);
+    if (cached && Date.now() - cached.time < 30000) return cached.available;
+    const available = await new Promise((resolve, reject) => {
+      let settled = false;
+      const ws = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+      const finish = (error, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        try { ws.close(); } catch {}
+        error ? reject(error) : resolve(value);
+      };
+      const timer = setTimeout(() => finish(new Error('A Deriv não respondeu à consulta dos contratos em 9 segundos.')), 9000);
+      ws.onopen = () => ws.send(JSON.stringify({ contracts_for: symbol }));
+      ws.onmessage = event => {
+        let data;
+        try { data = JSON.parse(event.data); } catch { return; }
+        if (data.error) return finish(new Error(data.error.message || 'A Deriv recusou a consulta dos contratos.'));
+        if (data.msg_type === 'contracts_for' && data.contracts_for) {
+          const list = data.contracts_for.available;
+          if (!Array.isArray(list)) return finish(new Error('A Deriv não devolveu a lista de contratos disponíveis.'));
+          finish(null, list);
+        }
+      };
+      ws.onerror = () => finish(new Error('Falha na ligação pública para consultar os contratos da Deriv.'));
+      ws.onclose = () => { if (!settled) finish(new Error('A ligação pública de consulta foi encerrada antes da resposta.')); };
+    });
+    derivPublicContractsCache.set(symbol, { time: Date.now(), available });
+    return available;
+  }
   async function validateManualTradeAvailability(symbol, direction, duration) {
-    const response = await sendDerivTradeRequest({ contracts_for: symbol });
-    const available = response.contracts_for?.available || response.data?.contracts_for?.available || response.data?.available;
-    if (!Array.isArray(available)) {
-      throw new Error('Não foi possível confirmar as condições de negociação deste ativo na Deriv. A entrada foi bloqueada por segurança.');
-    }
+    const available = await getPublicDerivContracts(symbol);
     const contract = available.find(item => String(item.contract_type || '').toUpperCase() === direction);
     if (!contract) {
       throw new Error((direction === 'CALL' ? 'COMPRA' : 'VENDA') + ' não está disponível neste ativo na Deriv. Escolhe outro ativo.');
@@ -1055,9 +1083,45 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     if ((min !== null && duration < min) || (max !== null && duration > max)) {
       const minLabel = contract.min_contract_duration || 'não indicada';
       const maxLabel = contract.max_contract_duration || 'não indicada';
-      throw new Error('A duração escolhida não é permitida para este ativo. A Deriv indica o intervalo ' + minLabel + ' a ' + maxLabel + '. Escolhe outra duração.');
+      throw new Error('A duração escolhida não é permitida para este ativo/contrato. A Deriv indica o intervalo ' + minLabel + ' a ' + maxLabel + '.');
     }
     return contract;
+  }
+  async function checkManualDurationAvailability() {
+    const status = $('manualDurationStatus');
+    if (!status) return;
+    const symbol = $('manualAsset')?.value;
+    const duration = Number($('manualExpiry')?.value);
+    if (!symbol || !duration) return;
+    status.textContent = 'A consultar os prazos reais anunciados pela Deriv…';
+    status.className = 'small muted';
+    try {
+      const contracts = await getPublicDerivContracts(symbol);
+      const relevant = contracts.filter(item => ['CALL', 'PUT'].includes(String(item.contract_type || '').toUpperCase()));
+      if (!relevant.length) {
+        status.textContent = 'A Deriv não anunciou contratos de COMPRA/VENDA para este ativo.';
+        status.className = 'small warning';
+        return;
+      }
+      const describe = item => {
+        const min = parseDerivDurationSeconds(item.min_contract_duration);
+        const max = parseDerivDurationSeconds(item.max_contract_duration);
+        return (item.contract_type === 'CALL' ? 'COMPRA' : 'VENDA') + ': ' +
+          (min === null ? 'mínimo não indicado' : formatDerivDuration(min)) + ' até ' +
+          (max === null ? 'máximo não indicado' : formatDerivDuration(max));
+      };
+      status.textContent = relevant.map(describe).join(' · ');
+      const selected = relevant.some(item => {
+        const min = parseDerivDurationSeconds(item.min_contract_duration);
+        const max = parseDerivDurationSeconds(item.max_contract_duration);
+        return (min === null || duration >= min) && (max === null || duration <= max);
+      });
+      status.textContent += selected ? ' Prazo selecionado dentro de pelo menos um intervalo.' : ' O prazo selecionado está fora dos intervalos anunciados.';
+      status.className = 'small ' + (selected ? 'success' : 'warning');
+    } catch (error) {
+      status.textContent = 'Não foi possível consultar agora: ' + error.message;
+      status.className = 'small warning';
+    }
   }
   function friendlyManualTradeError(error) {
     const raw = String(error?.message || '');
@@ -1330,6 +1394,8 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   $('derivConnectTrading')?.addEventListener('click', connectDerivTradingAccount);
   $('manualBuyBtn')?.addEventListener('click', () => executeManualTrade('CALL'));
   $('manualSellBtn')?.addEventListener('click', () => executeManualTrade('PUT'));
+  $('manualAsset')?.addEventListener('change', checkManualDurationAvailability);
+  $('manualExpiry')?.addEventListener('change', checkManualDurationAvailability);
   updateManualTradeControls();
 
   function showApp(user) {

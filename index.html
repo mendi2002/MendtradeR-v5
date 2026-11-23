@@ -649,7 +649,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
               </div>
               <div class="field"><label>Ativo</label><select id="manualAsset"><option value="frxEURUSD">EUR/USD</option><option value="frxGBPUSD">GBP/USD</option><option value="frxUSDJPY">USD/JPY</option><option value="1HZ100V">Volatility 100 (1s)</option></select></div>
               <div class="field"><label id="manualAmountLabel">Valor da operação</label><input id="manualAmount" type="number" min="0.35" step="0.01" value="1" inputmode="decimal"></div>
-              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option><option value="1800">30 minutos</option><option value="3600">1 hora</option><option value="14400">4 horas</option><option value="86400">1 dia</option><option value="604800">1 semana</option><option value="2592000">1 mês (30 dias)</option></select><p id="manualDurationStatus" class="small muted" aria-live="polite">Os limites de duração serão consultados na Deriv.</p><p class="small muted">A duração é validada automaticamente conforme os limites do ativo na Deriv.</p></div>
+              <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option><option value="1800">30 minutos</option><option value="3600">1 hora</option><option value="14400">4 horas</option><option value="86400">1 dia</option><option value="604800">1 semana</option><option value="2592000">1 mês (30 dias)</option></select><p class="small muted">A duração escolhida é guardada automaticamente neste navegador.</p><p id="manualDurationStatus" class="small muted" aria-live="polite">Os limites de duração serão consultados na Deriv.</p><p class="small muted">A duração é validada automaticamente conforme os limites do ativo na Deriv.</p></div>
               <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" type="button" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" type="button" disabled>↓ VENDA</button></div>
               <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
               <div class="manual-result-grid">
@@ -1409,11 +1409,19 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   $('manualBuyBtn')?.addEventListener('click', () => executeManualTrade('CALL'));
   $('manualSellBtn')?.addEventListener('click', () => executeManualTrade('PUT'));
   $('manualAsset')?.addEventListener('change', checkManualDurationAvailability);
-  $('manualExpiry')?.addEventListener('change', checkManualDurationAvailability);
+  $('manualExpiry')?.addEventListener('change', () => {
+    if (currentUser) localStorage.setItem('mendtrader_manual_expiry_' + currentUser.id, $('manualExpiry').value);
+    checkManualDurationAvailability();
+  });
   updateManualTradeControls();
 
   function showApp(user) {
-    currentUser=user; if (typeof ensureReferralAttribution === 'function') ensureReferralAttribution(user); $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
+    currentUser=user;
+    // Recupera a duração manual guardada neste navegador para este utilizador.
+    const manualDurationKey = 'mendtrader_manual_expiry_' + user.id;
+    const savedManualDuration = Number(localStorage.getItem(manualDurationKey));
+    if ([60,300,900,1800,3600,14400,86400,604800,2592000].includes(savedManualDuration)) $('manualExpiry').value = String(savedManualDuration);
+    if (typeof ensureReferralAttribution === 'function') ensureReferralAttribution(user); $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
     $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); checkOwnerAccess(); checkManualDurationAvailability();
     // Ao entrar na plataforma, ligar automaticamente ao fluxo de cotações público.
     // O servidor mantém a subscrição Deriv independentemente desta ligação do navegador.

@@ -613,7 +613,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
                 <div class="field"><label>Valor por entrada (USD)</label><input id="entryAmount" type="number" min="0.35" step="0.01" value="1"></div>
                 <div class="field"><label>Valor mínimo (USD)</label><input id="minStake" type="number" min="0.35" step="0.01" value="0.35"></div>
                 <div class="field"><label>Valor máximo (USD)</label><input id="maxStake" type="number" min="0.35" step="0.01" value="5"></div>
-                <div class="field"><label>Tempo de expiração</label><select id="botExpiry"><option>1 minuto</option><option>5 minutos</option><option>15 minutos</option></select></div>
+                <div class="field"><label>Duração de cada operação</label><select id="botExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option><option value="1800">30 minutos</option><option value="3600">1 hora</option><option value="14400">4 horas</option><option value="86400">1 dia</option><option value="604800">1 semana</option><option value="2592000">1 mês (30 dias)</option></select></div>
                 <div class="field"><label>Meta de lucro (USD)</label><input id="targetAmount" type="number" min="0" step="0.01" value="10"></div>
                 <div class="field"><label>Limite de perda (USD)</label><input id="lossLimit" type="number" min="0" step="0.01" value="5"></div>
                 <div class="field"><label>Máximo de operações</label><input id="maxTrades" type="number" min="1" max="100" step="1" value="10"></div>
@@ -1558,16 +1558,16 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     $('asset').value=data.asset||'Volatility 100 Index'; $('strategy').value=data.strategy||'manual';
     $('entryAmount').value=data.entry_amount??1; $('minStake').value=data.min_stake??0.35; $('maxStake').value=data.max_stake??5;
     $('targetAmount').value=data.target_amount??10; $('lossLimit').value=data.loss_limit??5; $('maxTrades').value=data.max_trades??10;
-    $('sessionDuration').value=String(data.session_duration_minutes??60); $('progressionPercent').value=data.progression_percent??20; updateProgressionPreview();
+    $('sessionDuration').value=String(data.session_duration_minutes??60); $('botExpiry').value=String(data.trade_duration_seconds??60); $('progressionPercent').value=data.progression_percent??20; updateProgressionPreview();
     $('botStatus').textContent=data.bot_enabled?'Configurado':'Desligado';
   }
   $('saveBotBtn').addEventListener('click',async()=>{
     if(!currentUser)return;
     const entry=Number($('entryAmount').value), min=Number($('minStake').value), max=Number($('maxStake').value), target=Number($('targetAmount').value), loss=Number($('lossLimit').value), trades=Number($('maxTrades').value);
     if(![entry,min,max,target,loss,trades].every(Number.isFinite)||entry<=0||min<=0||max<min||entry<min||entry>max||target<0||loss<0||!Number.isInteger(trades)||trades<1||trades>100){return message('botMsg','Verifica os valores. A entrada deve ficar entre o mínimo e o máximo.','error');}
-    const duration=Number($('sessionDuration').value), progression=Number($('progressionPercent').value);
-    if(!Number.isInteger(duration)||duration<1||duration>4320||!Number.isFinite(progression)||progression<0||progression>20)return message('botMsg','A duração deve ser até 3 dias e a progressão entre 0% e 20%.','error');
-    const payload={user_id:currentUser.id,asset:$('asset').value.trim()||'Volatility 100 Index',strategy:$('strategy').value,entry_amount:entry,min_stake:min,max_stake:max,target_amount:target,profit_target:target,loss_limit:loss,stop_loss:loss,max_trades:trades,session_duration_minutes:duration,progression_enabled:true,progression_mode:'win',progression_percent:progression,bot_enabled:false,updated_at:new Date().toISOString()};
+    const duration=Number($('sessionDuration').value), tradeDuration=Number($('botExpiry').value), progression=Number($('progressionPercent').value);
+    if(!Number.isInteger(duration)||duration<1||duration>4320||![60,300,900,1800,3600,14400,86400,604800,2592000].includes(tradeDuration)||!Number.isFinite(progression)||progression<0||progression>20)return message('botMsg','Confere a duração da sessão, a duração da operação e a progressão entre 0% e 20%.','error');
+    const payload={user_id:currentUser.id,asset:$('asset').value.trim()||'Volatility 100 Index',strategy:$('strategy').value,entry_amount:entry,min_stake:min,max_stake:max,target_amount:target,profit_target:target,loss_limit:loss,stop_loss:loss,max_trades:trades,session_duration_minutes:duration,trade_duration_seconds:tradeDuration,progression_enabled:true,progression_mode:'win',progression_percent:progression,bot_enabled:false,updated_at:new Date().toISOString()};
     $('saveBotBtn').disabled=true; message('botMsg','A guardar...');
     // Usa update se já existir uma linha; caso contrário, cria uma. A política RLS deve permitir apenas o próprio user_id.
     const {data:existing}=await client.from('bot_settings').select('id').eq('user_id',currentUser.id).limit(1).maybeSingle();

@@ -2128,49 +2128,63 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     derivAnalysisCache.set(cacheKey,{at:Date.now(),candles});
     return candles;
   }
-  function calculateTimeframeReading(candles){
+  function getBotDurationProfile(durationSeconds){
+    const duration=Number(durationSeconds)||60;
+    if(duration<=300)return {label:'curto prazo',periods:['M1','M5'],fast:5,slow:13,rsi:9,minCandles:30};
+    if(duration<=900)return {label:'curto/intermédio prazo',periods:['M5','M15'],fast:7,slow:18,rsi:12,minCandles:30};
+    if(duration<=1800)return {label:'intermédio prazo',periods:['M15','M30'],fast:9,slow:21,rsi:14,minCandles:35};
+    if(duration<=3600)return {label:'intermédio prazo',periods:['M15','H1'],fast:9,slow:21,rsi:14,minCandles:35};
+    if(duration<=14400)return {label:'médio prazo',periods:['H1','H4'],fast:12,slow:26,rsi:14,minCandles:40};
+    if(duration<=86400)return {label:'médio/longo prazo',periods:['H4','D1'],fast:12,slow:26,rsi:18,minCandles:40};
+    if(duration<=604800)return {label:'longo prazo',periods:['D1','W1'],fast:16,slow:30,rsi:18,minCandles:45};
+    return {label:'muito longo prazo',periods:['W1','MN1'],fast:16,slow:30,rsi:21,minCandles:50};
+  }
+  function calculateTimeframeReading(candles,profile){
     const close=candles.map(c=>Number(c.close)).filter(Number.isFinite);
-    if(close.length<30)return {side:'INSUFFICIENT',count:close.length,detail:'Histórico insuficiente: são necessários pelo menos 30 candles fechados neste período.'};
+    const fastPeriod=profile?.fast||9,slowPeriod=profile?.slow||21,rsiPeriod=profile?.rsi||14;
+    const minimum=Math.max(profile?.minCandles||30,slowPeriod+5,rsiPeriod+1);
+    if(close.length<minimum)return {side:'INSUFFICIENT',count:close.length,detail:'Histórico insuficiente: são necessários pelo menos '+minimum+' candles fechados neste período.'};
     const ema=(values,period)=>{
       const k=2/(period+1);let value=values.slice(0,period).reduce((a,b)=>a+b,0)/period;
       for(let i=period;i<values.length;i++)value=values[i]*k+value*(1-k);
       return value;
     };
     let gains=0,losses=0;
-    for(let i=close.length-14;i<close.length;i++){const change=close[i]-close[i-1];gains+=Math.max(change,0);losses+=Math.max(-change,0);}
-    const avgGain=gains/14,avgLoss=losses/14;
+    for(let i=close.length-rsiPeriod;i<close.length;i++){const change=close[i]-close[i-1];gains+=Math.max(change,0);losses+=Math.max(-change,0);}
+    const avgGain=gains/rsiPeriod,avgLoss=losses/rsiPeriod;
     const rsi=avgGain===0&&avgLoss===0?50:avgLoss===0?100:100-(100/(1+avgGain/avgLoss));
-    const fast=ema(close,9),slow=ema(close,21),last=close[close.length-1];
+    const fast=ema(close,fastPeriod),slow=ema(close,slowPeriod),last=close[close.length-1];
     let side='LATERAL';
     if(fast>slow&&last>fast&&rsi>=50&&rsi<72)side='ALTA';
     else if(fast<slow&&last<fast&&rsi<=50&&rsi>28)side='BAIXA';
-    return {side,count:close.length,rsi,fast,slow,last,detail:'EMA 9: '+fast.toPrecision(8)+' · EMA 21: '+slow.toPrecision(8)+' · RSI 14: '+rsi.toFixed(1)+' · Último fecho: '+last.toPrecision(8)};
+    return {side,count:close.length,rsi,fast,slow,last,detail:'EMA '+fastPeriod+': '+fast.toPrecision(8)+' · EMA '+slowPeriod+': '+slow.toPrecision(8)+' · RSI '+rsiPeriod+': '+rsi.toFixed(1)+' · Último fecho: '+last.toPrecision(8)};
   }
   async function updateDerivTimeframeAnalysis(){
     const symbol=$('derivFeedSymbol')?.value;
     const selected=$('derivAnalysisTimeframe')?.value||$('v5Timeframe')?.value||'M1';
     const token=++derivAnalysisRequestToken;
+    const botProfile=getBotDurationProfile($('botExpiry')?.value);
     const trend=$('derivAnalysisTrend'),details=$('derivAnalysisDetails'),count=$('derivAnalysisCount'),status=$('derivAnalysisStatus');
     if(!symbol||!trend||!details||!count||!status)return;
     trend.textContent='A consultar a Deriv…';details.textContent='A carregar candles históricos fechados.';count.textContent='—';status.textContent='Pedido em curso para '+symbol+'.';
     try{
-      const periods=selected==='AUTO'?['M15','H1','H4','D1']:[selected];
+      const periods=selected==='AUTO'?botProfile.periods:[selected];
       const results=await Promise.all(periods.map(async timeframe=>({timeframe,candles:await fetchTimeframeCandles(symbol,timeframe)})));
       if(token!==derivAnalysisRequestToken)return;
-      const readings=results.map(item=>({timeframe:item.timeframe,...calculateTimeframeReading(item.candles)}));
+      const readings=results.map(item=>({timeframe:item.timeframe,...calculateTimeframeReading(item.candles,botProfile)}));
       count.textContent=readings.map(item=>item.timeframe+': '+item.count).join(' · ');
       if(selected==='AUTO'){
-        const valid=readings.filter(item=>item.side==='ALTA'||item.side==='BAIXA');
-        const bullish=valid.filter(item=>item.side==='ALTA').length,bearish=valid.filter(item=>item.side==='BAIXA').length;
-        const direction=valid.length===4&&bullish===4?'ALTA':valid.length===4&&bearish===4?'BAIXA':'MISTA / SEM CONFIRMAÇÃO';
-        trend.textContent='Leitura combinada: '+direction;
+        const aligned=readings.length===2&&readings.every(item=>item.side==='ALTA'||item.side==='BAIXA');
+        const bullish=readings.filter(item=>item.side==='ALTA').length,bearish=readings.filter(item=>item.side==='BAIXA').length;
+        const direction=aligned&&bullish===readings.length?'ALTA':aligned&&bearish===readings.length?'BAIXA':'MISTA / SEM CONFIRMAÇÃO';
+        trend.textContent='Leitura para '+formatDerivDuration(Number($('botExpiry')?.value||60))+': '+direction;
         details.textContent=readings.map(item=>item.timeframe+' '+item.side+(item.rsi===undefined?'':' · RSI '+item.rsi.toFixed(1))).join(' | ');
-        status.textContent='Comparação de M15, H1, H4 e D1. Só existe alinhamento quando os quatro períodos confirmam a mesma direção.';
+        status.textContent='Perfil '+botProfile.label+' · EMA '+botProfile.fast+'/'+botProfile.slow+' · RSI '+botProfile.rsi+' · Confirmação exigida em '+periods.join(' e ')+'.';
       }else{
         const reading=readings[0];
         trend.textContent=reading.side==='INSUFFICIENT'?'Histórico insuficiente':'Tendência '+reading.side;
         details.textContent=reading.detail;
-        status.textContent=reading.count+' candles históricos de '+selected+' consultados para '+symbol+'.';
+        status.textContent=reading.count+' candles históricos de '+selected+' consultados para '+symbol+'. Parâmetros ajustados ao prazo de '+formatDerivDuration(Number($('botExpiry')?.value||60))+'.';
       }
     }catch(error){
       if(token!==derivAnalysisRequestToken)return;
@@ -2187,6 +2201,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   $('derivAnalysisTimeframe')?.addEventListener('change',()=>syncDerivAnalysisTimeframes('analysis'));
   $('v5Timeframe')?.addEventListener('change',()=>syncDerivAnalysisTimeframes('engine'));
   $('derivFeedSymbol')?.addEventListener('change',()=>{derivAnalysisCache.clear();updateDerivTimeframeAnalysis();});
+  $('botExpiry')?.addEventListener('change',()=>{if(($('derivAnalysisTimeframe')?.value||'AUTO')==='AUTO')updateDerivTimeframeAnalysis();});
 
   function addDerivCandleTick(tick){
     const epoch=Number(tick.epoch);const price=Number(tick.quote);

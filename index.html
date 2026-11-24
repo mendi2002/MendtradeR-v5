@@ -2125,7 +2125,6 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   $('botExpiry')?.addEventListener('change',()=>{$('simAnalysisDuration').textContent=formatDerivDuration(Number($('botExpiry').value)||60)+' · perfil atualizado';});
 
   // Análise multi-timeframe com histórico público da Deriv.
-  const DERIV_HISTORY_APP_ID='34TEm2Gavyti0dcVDw73V';
   const DERIV_ANALYSIS_SECONDS={M1:60,M5:300,M15:900,M30:1800,H1:3600,H4:14400,D1:86400,W1:604800,MN1:2592000};
   let derivAnalysisRequestToken=0;
   const derivAnalysisCache=new Map();
@@ -2139,7 +2138,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       };
       const timer=setTimeout(()=>finish(new Error('A Deriv demorou a devolver o histórico. Tenta novamente.')),18000);
       try{
-        socket=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id='+encodeURIComponent(DERIV_HISTORY_APP_ID));
+        socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
         socket.onopen=()=>socket.send(JSON.stringify({ticks_history:symbol,adjust_start_time:1,count,end:'latest',style:'candles',granularity,req_id:1}));
         socket.onmessage=event=>{
           let data;try{data=JSON.parse(event.data);}catch(e){return;}

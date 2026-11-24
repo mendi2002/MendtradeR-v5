@@ -2208,9 +2208,11 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const avgGain=gains/rsiPeriod,avgLoss=losses/rsiPeriod;
     const rsi=avgGain===0&&avgLoss===0?50:avgLoss===0?100:100-(100/(1+avgGain/avgLoss));
     const fast=ema(close,fastPeriod),slow=ema(close,slowPeriod),last=close[close.length-1];
+    // Tolerância numérica evita classificar candles planos como tendência por ruído de ponto flutuante.
+    const epsilon=Math.max(Math.abs(last)*1e-10,1e-12);
     let side='LATERAL';
-    if(fast>slow&&last>fast&&rsi>=50&&rsi<72)side='ALTA';
-    else if(fast<slow&&last<fast&&rsi<=50&&rsi>28)side='BAIXA';
+    if(fast-slow>epsilon&&last-fast>epsilon&&rsi>=50&&rsi<72)side='ALTA';
+    else if(slow-fast>epsilon&&fast-last>epsilon&&rsi<=50&&rsi>28)side='BAIXA';
     return {side,count:close.length,rsi,fast,slow,last,detail:'EMA '+fastPeriod+': '+fast.toPrecision(8)+' · EMA '+slowPeriod+': '+slow.toPrecision(8)+' · RSI '+rsiPeriod+': '+rsi.toFixed(1)+' · Último fecho: '+last.toPrecision(8)};
   }
   async function updateDerivTimeframeAnalysis(){

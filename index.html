@@ -2176,7 +2176,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const cached=derivAnalysisCache.get(cacheKey);
     if(cached&&Date.now()-cached.at<60000)return cached.candles;
     const useDaily=timeframe==='W1'||timeframe==='MN1';
-    const raw=await requestDerivHistoricalCandles(symbol,useDaily?86400:DERIV_ANALYSIS_SECONDS[timeframe],useDaily?2000:500);
+    const raw=await requestDerivHistoricalCandles(symbol,useDaily?86400:DERIV_ANALYSIS_SECONDS[timeframe],useDaily?5000:500);
     const candles=aggregateDerivCandles(raw,timeframe);
     derivAnalysisCache.set(cacheKey,{at:Date.now(),candles});
     return candles;

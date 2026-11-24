@@ -2223,10 +2223,21 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     if(!symbol||!trend||!details||!count||!status)return;
     trend.textContent='A consultar a Deriv…';details.textContent='A carregar candles históricos fechados.';count.textContent='—';status.textContent='Pedido em curso para '+symbol+'.';
     try{
-      const periods=selected==='AUTO'?botProfile.periods:[selected];
-      const results=await Promise.all(periods.map(async timeframe=>({timeframe,candles:await fetchTimeframeCandles(symbol,timeframe)})));
+      let periods=selected==='AUTO'?botProfile.periods:[selected];
+      let results=await Promise.all(periods.map(async timeframe=>({timeframe,candles:await fetchTimeframeCandles(symbol,timeframe)})));
       if(token!==derivAnalysisRequestToken)return;
-      const readings=results.map(item=>({timeframe:item.timeframe,...calculateTimeframeReading(item.candles,botProfile)}));
+      let readings=results.map(item=>({timeframe:item.timeframe,...calculateTimeframeReading(item.candles,botProfile)}));
+      let monthlyFallbackCount=null;
+      if(selected==='AUTO'&&periods.includes('MN1')){
+        const monthly=readings.find(item=>item.timeframe==='MN1');
+        if(monthly&&monthly.side==='INSUFFICIENT'){
+          monthlyFallbackCount=monthly.count;
+          periods=['W1','D1'];
+          results=await Promise.all(periods.map(async timeframe=>({timeframe,candles:await fetchTimeframeCandles(symbol,timeframe)})));
+          if(token!==derivAnalysisRequestToken)return;
+          readings=results.map(item=>({timeframe:item.timeframe,...calculateTimeframeReading(item.candles,botProfile)}));
+        }
+      }
       count.textContent=readings.map(item=>item.timeframe+': '+item.count).join(' · ');
       if(selected==='AUTO'){
         const aligned=readings.length===2&&readings.every(item=>item.side==='ALTA'||item.side==='BAIXA');
@@ -2234,7 +2245,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
         const direction=aligned&&bullish===readings.length?'ALTA':aligned&&bearish===readings.length?'BAIXA':'MISTA / SEM CONFIRMAÇÃO';
         trend.textContent='Leitura para '+formatDerivDuration(Number($('botExpiry')?.value||60))+': '+direction;
         details.textContent=readings.map(item=>item.timeframe+' '+item.side+(item.rsi===undefined?'':' · RSI '+item.rsi.toFixed(1))).join(' | ');
-        status.textContent='Perfil '+botProfile.label+' · EMA '+botProfile.fast+'/'+botProfile.slow+' · RSI '+botProfile.rsi+' · Confirmação exigida em '+periods.join(' e ')+'.';
+        status.textContent='Perfil '+botProfile.label+' · EMA '+botProfile.fast+'/'+botProfile.slow+' · RSI '+botProfile.rsi+' · '+(monthlyFallbackCount!==null?'MN1 insuficiente ('+monthlyFallbackCount+' candles); usado D1 como alternativa. ':'')+'Confirmação exigida em '+periods.join(' e ')+'.';
       }else{
         const reading=readings[0];
         trend.textContent=reading.side==='INSUFFICIENT'?'Histórico insuficiente':'Tendência '+reading.side;

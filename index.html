@@ -2092,9 +2092,11 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const candles=[];
     for(let i=0;i<total;i++){
       const phase=i+run+seed;
-      const pattern=phase%3===2?-0.00012:0.00024;
-      const trend=scenario==='up'?pattern:scenario==='down'?-pattern:((phase%2===0)?0.00012:-0.00012);
-      const noise=Math.sin(phase*0.37)*0.000025;
+      // Em alta/baixa: 2 movimentos na direção principal para cada correção,
+      // mantendo o RSI numa faixa útil e terminando sempre com impulso direcional.
+      const pattern=i%3===1?-0.00020:0.00020;
+      const trend=scenario==='up'?pattern:scenario==='down'?-pattern:((i%2===0)?0.00012:-0.00012);
+      const noise=Math.sin(phase*0.37)*0.000008;
       const drift=(trend+noise)*amplitude;
       const close=previous*(1+drift);
       const open=previous;

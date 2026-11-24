@@ -580,6 +580,16 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
                 <p id="derivAnalysisDetails" class="small muted" style="margin:7px 0 0">Liga o mercado e seleciona um período para consultar a análise.</p>
                 <p id="derivAnalysisStatus" class="small muted" style="margin:6px 0 0">Dados históricos serão pedidos diretamente à Deriv.</p>
               </div>
+              <div class="ops-mini" id="simAnalysisPanel" style="margin:10px 0;border-color:#80652e">
+                <div class="row" style="justify-content:space-between"><strong>🧪 Modo de simulação da análise</strong><span class="pill">SEM DERIV</span></div>
+                <p class="small muted">Usa candles fictícios para verificar os cálculos EMA/RSI e a confirmação entre períodos. Não representa cotações nem sinais reais.</p>
+                <div class="formgrid">
+                  <div class="field"><label for="simAnalysisScenario">Cenário fictício</label><select id="simAnalysisScenario"><option value="up">Tendência de alta</option><option value="down">Tendência de baixa</option><option value="side">Mercado lateral</option></select></div>
+                  <div class="field"><label>Duração usada</label><strong id="simAnalysisDuration">A usar duração do bot</strong></div>
+                </div>
+                <div class="row"><button type="button" id="runSimAnalysis">Executar simulação</button></div>
+                <div class="notice warning small" id="simAnalysisResult" aria-live="polite">Aguardando execução. Os resultados serão identificados como simulados.</div>
+              </div>
               <div class="formgrid">
                 <div class="field"><label>Candles fechados recolhidos</label><strong id="derivCandleCount">0</strong></div>
                 <div class="field"><label>Estado da recolha</label><strong id="derivCandleState">A aguardar ticks</strong></div>
@@ -2070,6 +2080,43 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     $('derivFeedConnect').disabled=false;$('derivFeedConnect').textContent='Ligar mercado';$('derivFeedDisconnect').disabled=true;
     setDerivFeedStatus('● Desligado');$('derivFeedMessage').textContent='Ligação encerrada.';
   }
+  // Simulador isolado: gera candles artificiais e reutiliza o mesmo cálculo EMA/RSI.
+  let simAnalysisRun=0;
+  function buildSyntheticCandles(timeframe,scenario,run){
+    const interval=DERIV_ANALYSIS_SECONDS[timeframe]||60;
+    const total=180,base=100+(run%7)*0.03;
+    let previous=base;
+    const candles=[];
+    for(let i=0;i<total;i++){
+      const wave=Math.sin((i+run*3)*0.31)*0.0015+Math.sin((i+run)*0.087)*0.0008;
+      const slope=scenario==='up'?0.00022:scenario==='down'?-0.00022:0;
+      const drift=scenario==='side'?wave:slope+wave*0.55;
+      const close=previous*(1+drift);
+      const open=previous;
+      const spread=Math.max(Math.abs(close-open)*0.7,base*0.00012);
+      candles.push({epoch:Math.floor(Date.now()/1000)-(total-i)*interval,open,high:Math.max(open,close)+spread,low:Math.min(open,close)-spread,close});
+      previous=close;
+    }
+    return candles;
+  }
+  function runSyntheticAnalysis(){
+    const scenario=$('simAnalysisScenario')?.value||'up';
+    const duration=Number($('botExpiry')?.value)||60;
+    const profile=getBotDurationProfile(duration);
+    const selected=$('derivAnalysisTimeframe')?.value||'AUTO';
+    const periods=selected==='AUTO'?profile.periods:[selected];
+    const run=++simAnalysisRun;
+    const readings=periods.map(timeframe=>({timeframe,...calculateTimeframeReading(buildSyntheticCandles(timeframe,scenario,run),profile)}));
+    const valid=readings.filter(item=>item.side==='ALTA'||item.side==='BAIXA');
+    const direction=valid.length===readings.length&&valid.every(item=>item.side===valid[0].side)?valid[0].side:'MISTA / SEM CONFIRMAÇÃO';
+    const scenarioLabel={up:'Alta',down:'Baixa',side:'Lateral'}[scenario]||scenario;
+    const lines=readings.map(item=>item.timeframe+': '+item.side+' · '+item.count+' candles'+(item.rsi!==undefined?' · RSI '+item.rsi.toFixed(1):'')+(item.detail?' · '+item.detail:''));
+    $('simAnalysisDuration').textContent=formatDerivDuration(duration)+' · '+profile.label;
+    $('simAnalysisResult').textContent='SIMULAÇÃO #'+run+' · Cenário: '+scenarioLabel+' · Resultado conjunto: '+direction+'. '+lines.join(' | ')+' Parâmetros: EMA '+profile.fast+'/'+profile.slow+' e RSI '+profile.rsi+'. Dados artificiais; não são preços reais nem recomendação de entrada.';
+  }
+  $('runSimAnalysis')?.addEventListener('click',runSyntheticAnalysis);
+  $('botExpiry')?.addEventListener('change',()=>{$('simAnalysisDuration').textContent=formatDerivDuration(Number($('botExpiry').value)||60)+' · perfil atualizado';});
+
   // Análise multi-timeframe com histórico público da Deriv.
   const DERIV_HISTORY_APP_ID='34TEm2Gavyti0dcVDw73V';
   const DERIV_ANALYSIS_SECONDS={M1:60,M5:300,M15:900,M30:1800,H1:3600,H4:14400,D1:86400,W1:604800,MN1:2592000};

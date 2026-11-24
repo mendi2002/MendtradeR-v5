@@ -2086,12 +2086,15 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   function buildSyntheticCandles(timeframe,scenario,run){
     const interval=DERIV_ANALYSIS_SECONDS[timeframe]||60;
     const total=180,base=100+(run%7)*0.03;
+    const timeframeSeed=[...timeframe].reduce((sum,char)=>sum+char.charCodeAt(0),0);
+    const scale=1+Math.log2(Math.max(1,interval/60));
     let previous=base;
     const candles=[];
     for(let i=0;i<total;i++){
-      const wave=Math.sin((i+run*3)*0.31)*0.0015+Math.sin((i+run)*0.087)*0.0008;
-      const slope=scenario==='up'?0.00022:scenario==='down'?-0.00022:0;
-      const drift=scenario==='side'?wave:slope+wave*0.55;
+      const phase=i+run*3+timeframeSeed;
+      const wave=Math.sin(phase*(0.19/Math.sqrt(scale)))*0.00042+Math.sin((phase+timeframeSeed)*0.061)*0.00018;
+      const slope=scenario==='up'?0.00012:scenario==='down'?-0.00012:0;
+      const drift=scenario==='side'?wave:slope+wave;
       const close=previous*(1+drift);
       const open=previous;
       const spread=Math.max(Math.abs(close-open)*0.7,base*0.00012);
@@ -2111,9 +2114,9 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const valid=readings.filter(item=>item.side==='ALTA'||item.side==='BAIXA');
     const direction=valid.length===readings.length&&valid.every(item=>item.side===valid[0].side)?valid[0].side:'MISTA / SEM CONFIRMAÇÃO';
     const scenarioLabel={up:'Alta',down:'Baixa',side:'Lateral'}[scenario]||scenario;
-    const lines=readings.map(item=>item.timeframe+': '+item.side+' · '+item.count+' candles'+(item.rsi!==undefined?' · RSI '+item.rsi.toFixed(1):'')+(item.detail?' · '+item.detail:''));
+    const lines=readings.map(item=>item.timeframe+': '+item.side+(item.rsi!==undefined?' (RSI '+item.rsi.toFixed(1)+')':''));
     $('simAnalysisDuration').textContent=formatDerivDuration(duration)+' · '+profile.label;
-    $('simAnalysisResult').textContent='SIMULAÇÃO #'+run+' · Cenário: '+scenarioLabel+' · Resultado conjunto: '+direction+'. '+lines.join(' | ')+' Parâmetros: EMA '+profile.fast+'/'+profile.slow+' e RSI '+profile.rsi+'. Dados artificiais; não são preços reais nem recomendação de entrada.';
+    $('simAnalysisResult').textContent='Simulação #'+run+' · '+scenarioLabel+'\nResultado: '+direction+'\n'+lines.join(' | ')+'\nDados fictícios; não são preços reais nem sinais de entrada.';
   }
   $('runSimAnalysis')?.addEventListener('click',runSyntheticAnalysis);
   $('botExpiry')?.addEventListener('change',()=>{$('simAnalysisDuration').textContent=formatDerivDuration(Number($('botExpiry').value)||60)+' · perfil atualizado';});

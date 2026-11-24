@@ -2092,14 +2092,14 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const candles=[];
     for(let i=0;i<total;i++){
       const phase=i+run+seed;
-      // Em alta/baixa: 2 movimentos na direção principal para cada correção,
-      // mantendo o RSI numa faixa útil e terminando sempre com impulso direcional.
+      // Alta/baixa usam impulsos direcionais; lateral mantém fechos estáveis
+      // para testar a classificação neutra sem introduzir tendência artificial.
       const pattern=i%3===1?-0.00020:0.00020;
-      const trend=scenario==='up'?pattern:scenario==='down'?-pattern:((i%2===0)?0.00012:-0.00012);
-      const noise=Math.sin(phase*0.37)*0.000008;
+      const trend=scenario==='up'?pattern:scenario==='down'?-pattern:0;
+      const noise=scenario==='side'?0:Math.sin(phase*0.37)*0.000008;
       const drift=(trend+noise)*amplitude;
-      const close=previous*(1+drift);
-      const open=previous;
+      const close=scenario==='side'?base:previous*(1+drift);
+      const open=scenario==='side'?base:previous;
       const spread=Math.max(Math.abs(close-open)*0.7,base*0.00012);
       candles.push({epoch:Math.floor(Date.now()/1000)-(total-i)*interval,open,high:Math.max(open,close)+spread,low:Math.min(open,close)-spread,close});
       previous=close;

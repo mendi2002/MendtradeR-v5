@@ -542,6 +542,17 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             <div class="ops-title">Central de operações</div>
             <p class="ops-sub">Escolhe entre operações automáticas do bot e operações manuais. Os sinais só serão apresentados quando existir uma fonte de dados validada; nesta prévia, o gráfico é ilustrativo.</p>
           </div>
+          <div class="ops-mini" id="simAnalysisPanel" style="margin:10px 0;border-color:#80652e">
+            <div class="row" style="justify-content:space-between"><strong>🧪 Modo de simulação da análise</strong><span class="pill">SEM DERIV</span></div>
+            <p class="small muted">Usa candles fictícios para verificar os cálculos EMA/RSI e a confirmação entre períodos. Não representa cotações nem sinais reais.</p>
+            <div class="formgrid">
+              <div class="field"><label for="simAnalysisScenario">Cenário fictício</label><select id="simAnalysisScenario"><option value="up">Tendência de alta</option><option value="down">Tendência de baixa</option><option value="side">Mercado lateral</option></select></div>
+              <div class="field"><label>Duração usada</label><strong id="simAnalysisDuration">A usar duração do bot</strong></div>
+            </div>
+            <div class="row"><button type="button" id="runSimAnalysis">Executar simulação</button></div>
+            <div class="notice warning small" id="simAnalysisResult" aria-live="polite">Aguardando execução. Os resultados serão identificados como simulados.</div>
+          </div>
+
           <div class="window-dock"><b>Janelas de gráfico</b><button id="openChartWindow" class="window-chip">＋ Abrir nova janela</button><button class="window-chip chart-shortcut" data-symbol="EUR/USD">EUR/USD</button><button class="window-chip chart-shortcut" data-symbol="GBP/USD">GBP/USD</button><button class="window-chip chart-shortcut" data-symbol="Volatility 100 Index">Volatility 100</button><span class="small muted">Abre um gráfico separado, ao estilo do MT5. Nesta versão é apenas visual DEMO.</span></div>
           <div class="card" id="derivLivePanel" style="margin:14px 0;border:1px solid #286052">
             <div class="row" style="justify-content:space-between;align-items:center">
@@ -579,16 +590,6 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
                 <strong id="derivAnalysisTrend">A aguardar histórico</strong>
                 <p id="derivAnalysisDetails" class="small muted" style="margin:7px 0 0">Liga o mercado e seleciona um período para consultar a análise.</p>
                 <p id="derivAnalysisStatus" class="small muted" style="margin:6px 0 0">Dados históricos serão pedidos diretamente à Deriv.</p>
-              </div>
-              <div class="ops-mini" id="simAnalysisPanel" style="margin:10px 0;border-color:#80652e">
-                <div class="row" style="justify-content:space-between"><strong>🧪 Modo de simulação da análise</strong><span class="pill">SEM DERIV</span></div>
-                <p class="small muted">Usa candles fictícios para verificar os cálculos EMA/RSI e a confirmação entre períodos. Não representa cotações nem sinais reais.</p>
-                <div class="formgrid">
-                  <div class="field"><label for="simAnalysisScenario">Cenário fictício</label><select id="simAnalysisScenario"><option value="up">Tendência de alta</option><option value="down">Tendência de baixa</option><option value="side">Mercado lateral</option></select></div>
-                  <div class="field"><label>Duração usada</label><strong id="simAnalysisDuration">A usar duração do bot</strong></div>
-                </div>
-                <div class="row"><button type="button" id="runSimAnalysis">Executar simulação</button></div>
-                <div class="notice warning small" id="simAnalysisResult" aria-live="polite">Aguardando execução. Os resultados serão identificados como simulados.</div>
               </div>
               <div class="formgrid">
                 <div class="field"><label>Candles fechados recolhidos</label><strong id="derivCandleCount">0</strong></div>

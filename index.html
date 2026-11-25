@@ -445,6 +445,7 @@
             </div>
             <p id="currencyRateStatus" class="small muted" role="status" style="margin-top:12px">A consultar taxas de câmbio online…</p>
             <p class="small muted">As taxas são indicativas, não incluem comissões bancárias e não garantem o valor que receberás numa transferência ou levantamento.</p>
+            <p class="small muted">Fonte das taxas: <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer">Rates By Exchange Rate API</a>.</p>
           </div>
         </section>
 
@@ -736,10 +737,13 @@
   navBackdrop.addEventListener('click',()=>openMenu(false));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')openMenu(false);});
 
-  // Conversor de moedas: taxas públicas com cache local para consulta offline.
+  // Conversor de moedas: cache diário e atualização apenas quando necessário.
   const currencyCacheKey='mendtrader_currency_rates_usd_v1';
+  const currencyCacheMaxAge=24*60*60*1000;
   let currencyRates=null;
   let currencyRatesUpdated=null;
+  let currencyRatesSavedAt=0;
+  let currencyRefreshPromise=null;
   function renderCurrencyConversion(){
     const amount=Number($('currencyAmount')?.value);
     const from=$('currencyFrom')?.value;
@@ -763,33 +767,48 @@
   function applyCurrencyCache(){
     try{
       const saved=JSON.parse(localStorage.getItem(currencyCacheKey)||'null');
-      if(saved&&saved.rates&&saved.base==='USD'){
+      if(saved&&saved.rates&&saved.base==='USD'&&Number.isFinite(saved.rates.AOA)&&Number.isFinite(saved.rates.USD)){
         currencyRates=saved.rates;currencyRatesUpdated=saved.updated||null;
-        showCurrencyRateStatus('Última taxa guardada: '+(currencyRatesUpdated||'data não indicada')+' · modo offline/cache. Os valores podem estar desatualizados.',true);
+        currencyRatesSavedAt=Number(saved.savedAt)||0;
+        showCurrencyRateStatus('Última taxa guardada: '+(currencyRatesUpdated||'data não indicada')+' · cache local. '+(isCurrencyCacheFresh()?'Atualização diária ainda válida.':'Cache desatualizado; tenta atualizar.'),!isCurrencyCacheFresh());
         renderCurrencyConversion();return true;
       }
     }catch(error){}
     return false;
   }
-  async function refreshCurrencyRates(){
+  function isCurrencyCacheFresh(){
+    return currencyRatesSavedAt>0&&(Date.now()-currencyRatesSavedAt)<currencyCacheMaxAge;
+  }
+  async function refreshCurrencyRates(force=false){
+    if(currencyRefreshPromise)return currencyRefreshPromise;
+    if(!force&&isCurrencyCacheFresh()){
+      showCurrencyRateStatus('Taxas guardadas: '+(currencyRatesUpdated||'data não indicada')+' · cache válido por 24 horas.',false);
+      renderCurrencyConversion();return;
+    }
     const btn=$('currencyRefreshBtn');if(btn)btn.disabled=true;
     showCurrencyRateStatus('A atualizar taxas de câmbio…');
-    try{
-      const response=await fetch('https://open.er-api.com/v6/latest/USD',{cache:'no-store'});
-      if(!response.ok)throw new Error('O serviço de câmbio respondeu com erro HTTP '+response.status+'.');
-      const data=await response.json();
-      if(data.result!=='success'||!data.rates||!Number.isFinite(data.rates.AOA)||!Number.isFinite(data.rates.USD))throw new Error('O serviço não devolveu taxas válidas.');
-      currencyRates=data.rates;
-      currencyRatesUpdated=data.time_last_update_utc||new Date().toLocaleString('pt-PT');
-      localStorage.setItem(currencyCacheKey,JSON.stringify({base:'USD',rates:currencyRates,updated:currencyRatesUpdated}));
-      showCurrencyRateStatus('Taxas atualizadas: '+currencyRatesUpdated+'. Fonte: serviço público de câmbio. Atualiza antes de decisões financeiras.',false);
-      renderCurrencyConversion();
-    }catch(error){
-      const hadCache=currencyRates&&Number.isFinite(currencyRates.AOA);
-      if(!hadCache)applyCurrencyCache();
-      showCurrencyRateStatus(hadCache?'Não foi possível atualizar. A mostrar a última taxa guardada ('+(currencyRatesUpdated||'data desconhecida')+').':'Sem ligação ao serviço de câmbio. Liga-te à Internet e tenta novamente.',true);
-      renderCurrencyConversion();
-    }finally{if(btn)btn.disabled=false;}
+    currencyRefreshPromise=(async()=>{
+      try{
+        const response=await fetch('https://open.er-api.com/v6/latest/USD',{cache:'no-store'});
+        if(!response.ok)throw new Error('O serviço de câmbio respondeu com erro HTTP '+response.status+'.');
+        const data=await response.json();
+        if(data.result!=='success'||!data.rates||!Number.isFinite(data.rates.AOA)||!Number.isFinite(data.rates.USD))throw new Error('O serviço não devolveu taxas válidas.');
+        currencyRates=data.rates;
+        currencyRatesUpdated=data.time_last_update_utc||new Date().toLocaleString('pt-PT');
+        currencyRatesSavedAt=Date.now();
+        localStorage.setItem(currencyCacheKey,JSON.stringify({base:'USD',rates:currencyRates,updated:currencyRatesUpdated,savedAt:currencyRatesSavedAt}));
+        showCurrencyRateStatus('Taxas atualizadas: '+currencyRatesUpdated+'. Fonte: ExchangeRate-API. Próxima consulta automática após 24 horas.',false);
+        renderCurrencyConversion();
+      }catch(error){
+        const hadCache=currencyRates&&Number.isFinite(currencyRates.AOA);
+        if(!hadCache)applyCurrencyCache();
+        showCurrencyRateStatus(hadCache?'Não foi possível atualizar. A mostrar a última taxa guardada ('+(currencyRatesUpdated||'data desconhecida')+').':'Sem ligação ao serviço de câmbio. Liga-te à Internet e tenta novamente.',true);
+        renderCurrencyConversion();
+      }finally{
+        currencyRefreshPromise=null;if(btn)btn.disabled=false;
+      }
+    })();
+    return currencyRefreshPromise;
   }
   $('currencyAmount')?.addEventListener('input',renderCurrencyConversion);
   $('currencyFrom')?.addEventListener('change',renderCurrencyConversion);
@@ -797,17 +816,16 @@
   $('currencySwapBtn')?.addEventListener('click',()=>{
     const from=$('currencyFrom'),to=$('currencyTo');const old=from.value;from.value=to.value;to.value=old;renderCurrencyConversion();
   });
-  $('currencyRefreshBtn')?.addEventListener('click',refreshCurrencyRates);
+  $('currencyRefreshBtn')?.addEventListener('click',()=>refreshCurrencyRates(true));
   applyCurrencyCache();
-  refreshCurrencyRates();
-
+  if(!isCurrencyCacheFresh())refreshCurrencyRates();
   document.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
     document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b===btn));
     document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id===btn.dataset.page));
     openMenu(false);
     if(btn.dataset.page==='history') loadHistory();
     if(btn.dataset.page==='owner') loadOwnerDashboard();
-    if(btn.dataset.page==='converter') { renderCurrencyConversion(); if(!currencyRates) refreshCurrencyRates(); }
+    if(btn.dataset.page==='converter') { renderCurrencyConversion(); if(!isCurrencyCacheFresh()) refreshCurrencyRates(); }
   }));
 
   async function loadBotSettings(){

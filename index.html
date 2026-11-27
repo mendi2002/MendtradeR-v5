@@ -1872,6 +1872,94 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     if(!win){message('botMsg','O navegador bloqueou a janela. Permite pop-ups para este ficheiro e tenta novamente.','error');return;}
     const safe=escapeHtml(asset);
     win.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MendtradeR · ${safe}</title><style>body{margin:0;background:#050806;color:#effff5;font:16px system-ui;padding:22px}header,.panel{background:#0d1711;border:1px solid #245438;border-radius:14px;padding:16px;margin-bottom:14px}.green{color:#00df75}svg{width:100%;height:420px;background:#070c09;border-radius:10px}.muted{color:#9eb0a4}
+  
+    
+    /* DARK PRO — identidade preta, dourada e azul; apenas apresentação visual */
+    :root{
+      --bg:#07090e;--panel:#0d111a;--panel2:#121a27;--line:#263449;
+      --text:#eef3fb;--muted:#98a7ba;--green:#35c99a;--red:#ff5c70;
+      --gold:#e7bd69;--blue:#6daeff;
+    }
+    body{
+      background:
+        radial-gradient(ellipse at 12% -10%,rgba(65,112,177,.18),transparent 35%),
+        radial-gradient(ellipse at 92% 5%,rgba(231,189,105,.09),transparent 28%),
+        linear-gradient(180deg,#090d15 0%,#06080d 58%,#04060a 100%)!important;
+      color:var(--text);
+    }
+    .top{
+      background:rgba(10,15,24,.9);
+      border-color:rgba(109,174,255,.2);
+      box-shadow:0 14px 42px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.035);
+    }
+    .brand span,.brand .brand-name{color:#f2e6cc}
+    .brand .brand-version{color:var(--gold);border-color:#665333;background:rgba(231,189,105,.08)}
+    .badge{color:var(--gold);border-color:rgba(231,189,105,.35);background:rgba(231,189,105,.08)}
+    .card,.operation-panel,.v5-stat,.ops-mini,.market-screen{
+      background:linear-gradient(145deg,rgba(18,26,39,.98),rgba(9,13,21,.99))!important;
+      border-color:rgba(109,174,255,.17)!important;
+      box-shadow:0 12px 34px rgba(0,0,0,.34),inset 0 1px rgba(255,255,255,.025);
+    }
+    .grid>.card:after{background:rgba(109,174,255,.08)}
+    .nav{background:rgba(8,12,20,.98)!important;border:1px solid #263449!important}
+    .nav-heading{color:#e7bd69}
+    .nav button{color:#b5c2d3}
+    .nav button:hover,.nav button.active{
+      background:linear-gradient(100deg,rgba(57,111,180,.23),rgba(231,189,105,.07));
+      border-color:rgba(109,174,255,.25);color:#eaf3ff;
+    }
+    .menu-toggle,.nav-close{
+      background:#142238;color:var(--gold);border-color:#344967;
+    }
+    button:not(.secondary):not(.danger){
+      background:linear-gradient(135deg,#f0d18f,#c99b4e);
+      color:#17130b;box-shadow:0 5px 18px rgba(231,189,105,.16);
+    }
+    button.secondary{background:#17243a;color:#dceaff;border:1px solid #344c70}
+    button.danger{background:#421e2a;color:#ffd5dc;border:1px solid #783b4a}
+    .ops-hero{
+      background:radial-gradient(circle at 86% 12%,rgba(109,174,255,.16),transparent 30%),
+        linear-gradient(120deg,#111d30,#0a101b 68%,#17151a)!important;
+      border-color:rgba(231,189,105,.3);
+    }
+    .ops-hero:after{border-color:rgba(109,174,255,.16);box-shadow:0 0 0 22px rgba(109,174,255,.045),0 0 0 48px rgba(231,189,105,.035)}
+    .ops-title{color:#f4ead8}
+    .ops-sub{color:#aebed2}
+    .v5-stat{border-color:rgba(109,174,255,.2)!important}
+    .v5-kicker,.label,.field label{color:#aabbd1}
+    .market-screen{background:linear-gradient(145deg,#080e18,#0c1523)!important}
+    .market-gridline{stroke:#26364d}
+    .market-line{stroke:#72b4ff}
+    .signal-card{background:linear-gradient(135deg,rgba(24,47,76,.5),rgba(12,20,32,.95));border-color:rgba(109,174,255,.3)}
+    .signal-direction{color:var(--gold)}
+    .signal-tag.neutral,.ops-status{background:rgba(231,189,105,.1);border-color:rgba(231,189,105,.35);color:#f2d69c}
+    .window-dock{background:#0a111c;border-color:#2b3d56}
+    .window-chip,.strategy-chip{background:#14243a;border-color:#385477;color:#dceaff}
+    input,select,textarea,.field input,.field select{
+      background:#080e18!important;color:var(--text)!important;border-color:#2b3c54!important;
+    }
+    input:focus,select:focus,textarea:focus,.field input:focus,.field select:focus{
+      border-color:var(--blue)!important;box-shadow:0 0 0 3px rgba(109,174,255,.12)!important;
+    }
+    .notice{background:rgba(49,91,143,.13);border-color:rgba(109,174,255,.23);color:#c8d9ef}
+    .notice.warning{background:#302719;border-color:#70582e;color:#f6dfad}
+    .notice.success{background:#102d27;border-color:#276b56;color:#c8f7e6}
+    .notice.error{background:#351b25;border-color:#713747;color:#ffd9e1}
+    .tablewrap{border-color:rgba(109,174,255,.17)}
+    th{color:#a8bad1}
+    td,th{border-bottom-color:rgba(109,174,255,.12)}
+    #currencyResult{color:var(--gold)}
+    .commission-box{background:linear-gradient(120deg,#302719,#111c2c);border-color:rgba(231,189,105,.38)}
+    .commission-value{color:#f1d18d}
+    .owner-lock{background:#292315;border-color:#806638;color:#f4dda8}
+    .footer{border-top-color:rgba(109,174,255,.15);color:#8193aa}
+    .manual-pnl-positive{color:var(--green)!important}
+    .manual-pnl-negative{color:var(--red)!important}
+    @media(max-width:760px){
+      .top{background:rgba(10,15,24,.96)}
+      .card,.operation-panel{border-radius:16px!important}
+    }
+
   </style></head><body><header><h2 class="green">MendtradeR · Janela de gráfico</h2><b>${safe}</b> <span class="muted">· MODO DEMO</span></header><div class="panel"><b>Gráfico independente</b><p class="muted">Área preparada para gráfico e dados de mercado. O desenho abaixo é ilustrativo e não representa cotações ao vivo.</p><svg viewBox="0 0 900 400" preserveAspectRatio="none"><path d="M0 80H900M0 160H900M0 240H900M0 320H900" stroke="#23382c"/><path d="M10 300 L70 250 L130 270 L190 190 L250 220 L310 145 L370 175 L430 110 L490 155 L550 90 L610 125 L670 70 L730 120 L790 60 L890 85" fill="none" stroke="#00d978" stroke-width="4"/></svg><p class="muted">Quando a integração de cotações for concluída, esta janela poderá apresentar candles, indicadores e períodos selecionáveis.</p></div></body></html>`);
     win.document.close();
   }

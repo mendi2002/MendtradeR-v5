@@ -244,15 +244,17 @@
               <h3>🧠 Aprendizagem inteligente · análise de resultados</h3>
               <p class="small muted">O sistema compara o contexto técnico das operações DEMO fechadas. Nesta fase apenas observa e apresenta estatísticas; não altera entradas, estratégia ou valor de operação.</p>
               <div class="formgrid">
-                <div class="field"><label>Operações analisadas</label><strong id="learningTotal">0</strong></div>
-                <div class="field"><label>Positivas / negativas</label><strong id="learningWinsLosses">0 / 0</strong></div>
+                <div class="field"><label>Operações registadas</label><strong id="learningRegistered">0</strong></div>
+                <div class="field"><label>Capturas técnicas válidas</label><strong id="learningTotal">0</strong></div>
+                <div class="field"><label>Sem contexto técnico válido</label><strong id="learningInvalid">0</strong></div>
+                <div class="field"><label>Positivas / negativas válidas</label><strong id="learningWinsLosses">0 / 0</strong></div>
                 <div class="field"><label>Taxa positiva observada</label><strong id="learningWinRate">—</strong></div>
                 <div class="field"><label>Estado da aprendizagem</label><strong id="learningState">A aguardar dados</strong></div>
               </div>
               <p id="learningLastUpdate" class="small muted">Ainda não foram analisadas operações com contexto de mercado.</p>
               <div class="tablewrap"><table><thead><tr><th>Contexto</th><th>Amostras</th><th>Positivas</th><th>Negativas</th><th>Taxa positiva</th></tr></thead><tbody id="learningPatternRows"><tr><td colspan="5" class="muted">Os padrões aparecerão após recolha suficiente.</td></tr></tbody></table></div>
               <div class="row" style="margin-top:12px"><button id="learningRefreshBtn" class="secondary">Atualizar análise</button></div>
-              <p id="learningNotice" class="small muted">São necessárias pelo menos 20 operações registadas para uma leitura inicial. Nenhum padrão será considerado validado apenas por esta estatística.</p>
+              <p id="learningNotice" class="small muted">São necessárias pelo menos 20 capturas técnicas válidas para uma leitura inicial. Nenhum padrão será considerado validado apenas por esta estatística.</p>
             </div>
             <p class="small muted">As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.</p>
           </div>
@@ -1143,24 +1145,36 @@
       $('learningNotice').textContent='Não foi possível ler os registos: '+error.message+'. Confirma a ligação e as permissões da tabela.';
       if(btn)btn.disabled=false;return;
     }
-    const rows=data||[],wins=rows.filter(x=>x.outcome==='win').length,losses=rows.filter(x=>x.outcome==='loss').length,done=wins+losses;
-    $('learningTotal').textContent=String(rows.length);
+    const rows=data||[];
+    const validRows=rows.filter(x=>{
+      const snap=x.market_snapshot||{};
+      return snap.status==='captured' && Number(snap.candle_count)>=21 &&
+        Number.isFinite(Number(snap.ema9)) && Number.isFinite(Number(snap.ema21)) &&
+        Number.isFinite(Number(snap.rsi14));
+    });
+    const invalidCount=rows.length-validRows.length;
+    const wins=validRows.filter(x=>x.outcome==='win').length;
+    const losses=validRows.filter(x=>x.outcome==='loss').length;
+    const done=wins+losses;
+    $('learningRegistered').textContent=String(rows.length);
+    $('learningTotal').textContent=String(validRows.length);
+    $('learningInvalid').textContent=String(invalidCount);
     $('learningWinsLosses').textContent=wins+' / '+losses;
     $('learningWinRate').textContent=done?(wins/done*100).toFixed(1)+'%':'—';
-    $('learningLastUpdate').textContent=rows.length?'Último registo: '+new Date(rows[0].created_at).toLocaleString('pt-PT')+' · máximo de 500 operações recentes.':'Ainda não existem operações com contexto de mercado.';
-    if(rows.length<20){
-      $('learningState').textContent='Dados insuficientes';
-      $('learningPatternRows').innerHTML='<tr><td colspan="5" class="muted">Precisamos de pelo menos 20 operações fechadas com contexto para iniciar a análise.</td></tr>';
-      $('learningNotice').textContent='Recolhidas '+rows.length+' de 20 operações necessárias. O sistema não vai alterar a estratégia nem o risco.';
+    $('learningLastUpdate').textContent=rows.length?'Último registo: '+new Date(rows[0].created_at).toLocaleString('pt-PT')+' · máximo de 500 operações recentes.':'Ainda não existem operações registadas.';
+    if(validRows.length<20){
+      $('learningState').textContent='Dados técnicos insuficientes';
+      $('learningPatternRows').innerHTML='<tr><td colspan="5" class="muted">Precisamos de 20 capturas técnicas válidas para iniciar a análise.</td></tr>';
+      $('learningNotice').textContent=rows.length+' operações registadas · '+validRows.length+' com dados técnicos válidos · '+invalidCount+' sem contexto técnico válido. Progresso: '+validRows.length+' de 20 capturas válidas. Não precisas de repetir operações antigas; apenas novas capturas válidas contam para a análise.';
       if(btn)btn.disabled=false;return;
     }
     const groups=new Map();
-    for(const row of rows){
+    for(const row of validRows){
       if(row.outcome==='breakeven')continue;
       const snap=row.market_snapshot||{};
       const trend=snap.trend||'sem tendência identificada';
       const r=Number(snap.rsi14);
-      const rsiBand=Number.isFinite(r)?(r<40?'RSI abaixo de 40':r<50?'RSI 40–49':r<60?'RSI 50–59':r<70?'RSI 60–69':'RSI 70 ou mais'):'RSI indisponível';
+      const rsiBand=r<40?'RSI abaixo de 40':r<50?'RSI 40–49':r<60?'RSI 50–59':r<70?'RSI 60–69':'RSI 70 ou mais';
       const key=[row.asset,row.direction,trend,rsiBand].join('|');
       if(!groups.has(key))groups.set(key,{asset:row.asset,direction:row.direction,trend,rsiBand,total:0,wins:0,losses:0});
       const g=groups.get(key);g.total++;if(row.outcome==='win')g.wins++;if(row.outcome==='loss')g.losses++;
@@ -1168,7 +1182,7 @@
     const patterns=[...groups.values()].filter(g=>g.total>=5).sort((a,b)=>(b.wins/b.total)-(a.wins/a.total)||b.total-a.total).slice(0,8);
     $('learningState').textContent='Análise observacional';
     $('learningPatternRows').innerHTML=patterns.length?patterns.map(g=>'<tr><td>'+escapeHtml(g.asset)+' · '+escapeHtml(g.direction)+'<br><span class="small muted">'+escapeHtml(g.trend)+' · '+escapeHtml(g.rsiBand)+'</span></td><td>'+g.total+'</td><td>'+g.wins+'</td><td>'+g.losses+'</td><td>'+((g.wins/g.total)*100).toFixed(1)+'%</td></tr>').join(''):'<tr><td colspan="5" class="muted">Ainda não há grupos com pelo menos 5 operações comparáveis.</td></tr>';
-    $('learningNotice').textContent='Leitura exploratória: apenas grupos com 5 ou mais operações são mostrados. Ainda não é aprendizagem validada, não prevê resultados e não modifica o bot. É necessário testar os padrões em dados novos (fora da amostra).';
+    $('learningNotice').textContent='Análise baseada apenas em '+validRows.length+' capturas técnicas válidas (de '+rows.length+' operações registadas). Leitura exploratória: grupos com 5 ou mais operações. Não prevê resultados, não é aprendizagem validada e não modifica o bot.';
     if(btn)btn.disabled=false;
   }
   $('learningRefreshBtn')?.addEventListener('click',loadLearningInsights);

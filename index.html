@@ -1604,7 +1604,8 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   function message(id, text, kind='') { const el=$(id); el.textContent=text; el.className='small '+(kind || 'muted'); }
   function money(n) { return '$'+(Number(n)||0).toFixed(2); }
   const DERIV_CLIENT_ID = '34TEm2Gavyti0dcVDw73V';
-  const DERIV_REDIRECT_URI = window.location.origin + '/callback';
+  const DERIV_BACKEND_ORIGIN = 'https://mendtrader-v6-oauth-test.onrender.com';
+  const DERIV_REDIRECT_URI = DERIV_BACKEND_ORIGIN + '/callback';
   function base64Url(bytes) {
     return btoa(Array.from(bytes, b => String.fromCharCode(b)).join('')).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
   }
@@ -2100,7 +2101,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if (!data.session?.access_token) return message('derivAccountMsg', 'A tua sessão MendtradeR não está ativa. Entra novamente e inicia a ligação Deriv.', 'error');
     message('derivAccountMsg', 'A validar a autorização com segurança…');
     try {
-      const response = await fetch(window.location.origin + '/oauth/deriv/token', {
+      const response = await fetch(DERIV_BACKEND_ORIGIN + '/oauth/deriv/token', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + data.session.access_token },
         body: JSON.stringify({ code, code_verifier: verifier, redirect_uri: DERIV_REDIRECT_URI })
@@ -3242,7 +3243,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
     $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
     setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
-    const ws=new WebSocket(window.location.origin.replace(/^https:/, 'wss:') + '/stream?symbol='+encodeURIComponent(symbol));
+    const ws=new WebSocket(DERIV_BACKEND_ORIGIN.replace(/^https:/, 'wss:') + '/stream?symbol='+encodeURIComponent(symbol));
     derivFeedSocket=ws;derivFeedTicks=[];renderDerivCandles();$('derivCandleState').textContent='A iniciar/reiniciar recolha';
     ws.onopen=()=>{
       if(derivFeedSocket!==ws)return;

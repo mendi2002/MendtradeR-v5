@@ -583,7 +583,7 @@
         if(data.msg_type==='proposal_open_contract'&&c&&derivOpenContractId&&String(c.contract_id)===String(derivOpenContractId)&&(c.is_sold||c.status==='sold'||c.is_expired)){
           const profit=Number(c.profit)||0,meta=derivOpenTradeMeta||{},rec={time:new Date().toLocaleTimeString('pt-PT'),side:meta.side,asset:meta.asset,stake:meta.stake,result:profit};
           derivTradeHistory.unshift(rec);renderManualTradeHistory();$('manualTradeMessage').textContent='Operação encerrada. Resultado: '+(profit>=0?'+':'')+money(profit)+'.';
-          if(currentUser)client.from('trade_history').insert({user_id:currentUser.id,asset:rec.asset,direction:rec.side,entry_amount:rec.stake,stake:rec.stake,result:profit,profit,commission:0,status:'closed',trade_type:'manual'}).then(({error})=>{if(error)console.warn('Histórico não gravado:',error.message);});
+          if(currentUser)client.from('trade_history').insert({user_id:currentUser.id,asset:rec.asset,direction:rec.side,entry_amount:rec.stake,stake:rec.stake,result:profit,profit,commission:0,status:'closed',trade_type:'manual'}).select('id').single().then(async({data,error})=>{if(error){console.warn('Histórico não gravado:',error.message);return;}const snapshot=meta.marketSnapshot||{version:1,status:'unavailable',captured_at:new Date().toISOString()};const {error:contextError}=await client.from('trade_market_context').insert({user_id:currentUser.id,trade_history_id:data.id,asset:rec.asset,direction:rec.side,outcome:profit>0?'win':profit<0?'loss':'breakeven',profit,market_snapshot:snapshot});if(contextError)console.warn('Contexto de aprendizagem não gravado:',contextError.message);});
           derivOpenContractId=null;derivOpenTradeMeta=null;
         }
       };
@@ -598,11 +598,11 @@
     if(!Number.isFinite(stake)||stake<0.35||stake>100)return message('manualTradeMessage','Entrada permitida: 0,35 a 100 USD.','error');
     $('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;message('manualTradeMessage','A pedir cotação à Deriv…');
     try{
-      const quote=await derivTradeSend({proposal:1,amount:stake,basis:'stake',contract_type:side==='COMPRA'?'CALL':'PUT',currency:'USD',duration,duration_unit,underlying_symbol:symbol});
+      const marketSnapshot=buildTradeMarketSnapshot();\n      const quote=await derivTradeSend({proposal:1,amount:stake,basis:'stake',contract_type:side==='COMPRA'?'CALL':'PUT',currency:'USD',duration,duration_unit,underlying_symbol:symbol});
       const p=quote.proposal;if(!p?.id||!Number.isFinite(Number(p.ask_price)))throw Error('Proposta indisponível para este ativo.');
       message('manualTradeMessage','Cotação recebida. A confirmar entrada DEMO…');
       const result=await derivTradeSend({buy:p.id,price:Number(p.ask_price)}),b=result.buy;if(!b?.contract_id)throw Error('A Deriv não confirmou a entrada.');
-      derivOpenContractId=b.contract_id;derivOpenTradeMeta={side,asset:$('manualAsset').selectedOptions[0].textContent,stake};
+      derivOpenContractId=b.contract_id;derivOpenTradeMeta={side,asset:$('manualAsset').selectedOptions[0].textContent,stake,marketSnapshot};
       derivTradeHistory.unshift({time:new Date().toLocaleTimeString('pt-PT'),side,asset:$('manualAsset').selectedOptions[0].textContent,stake,result:null});renderManualTradeHistory();
       message('manualTradeMessage','Entrada '+side+' confirmada na DEMO. Fecho automático no vencimento. ID: '+b.contract_id,'success');
       derivTradeSocket.send(JSON.stringify({proposal_open_contract:1,contract_id:b.contract_id,subscribe:1,req_id:++derivTradeReqId}));
@@ -1049,6 +1049,16 @@
 
   // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
   let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;
+  // Snapshot técnico no instante da entrada; só usa candles já fechados.
+  function buildTradeMarketSnapshot(){
+    const candles=derivLiveCandles.slice(-300), closes=candles.map(x=>Number(x.close)).filter(Number.isFinite);
+    if(closes.length<21)return {version:1,status:'insufficient_data',timeframe:'1m',candle_count:closes.length,captured_at:new Date().toISOString()};
+    const fast=ema(closes,9),slow=ema(closes,21),r=rsi(closes,14),i=closes.length-1;
+    const last=candles[candles.length-1], trend=fast[i]>slow[i]?'bullish':fast[i]<slow[i]?'bearish':'neutral';
+    const signal=trend==='bullish'&&r[i]>=52&&r[i]<=68&&closes[i]>closes[i-1]?'COMPRA':trend==='bearish'&&r[i]>=32&&r[i]<=48&&closes[i]<closes[i-1]?'VENDA':'NONE';
+    return {version:1,status:'captured',timeframe:'1m',candle_count:closes.length,captured_at:new Date().toISOString(),trend,ema9:Number(fast[i].toFixed(8)),ema21:Number(slow[i].toFixed(8)),rsi14:Number(r[i].toFixed(2)),signal,last_candle:{epoch:last.epoch,open:last.open,high:last.high,low:last.low,close:last.close},previous_close:closes[i-1]};
+  }
+
   const DERIV_CANDLES_KEY='mendtrader_deriv_candles_v1';
   try{derivLiveCandles=JSON.parse(localStorage.getItem(DERIV_CANDLES_KEY)||'[]').slice(-300);}catch(e){derivLiveCandles=[];}
   function setDerivFeedStatus(label,kind='neutral'){

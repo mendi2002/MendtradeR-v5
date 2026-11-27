@@ -1456,7 +1456,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         </section>
 
         <section id="account" class="section">
-          <h1>Conta e aparência</h1><div class="card"><p class="label">E-mail autenticado</p><p id="userEmail" class="amount">—</p><p class="label">País e moeda</p><p id="userCountry" class="amount">Angola · AOA</p><p class="label">ID do utilizador</p><p id="userId" class="small muted" style="overflow-wrap:anywhere">—</p><div class="notice"><b>Comissão da plataforma: 10%</b> sobre o lucro líquido positivo de cada operação concluída de cada utilizador. Exemplo: se uma operação fechar com 10 USD de lucro elegível, a comissão prevista é 1 USD. Em operações sem lucro positivo, a comissão é 0 USD. A cobrança só poderá ocorrer após implementação e validação no backend.</div>
+          <h1>Conta e definições</h1><div class="card"><p class="label">E-mail autenticado</p><p id="userEmail" class="amount">—</p><p class="label">País e moeda</p><p id="userCountry" class="amount">Angola · AOA</p><p class="label">ID do utilizador</p><p id="userId" class="small muted" style="overflow-wrap:anywhere">—</p><div class="notice"><b>Comissão da plataforma: 10%</b> sobre o lucro líquido positivo de cada operação concluída de cada utilizador. Exemplo: se uma operação fechar com 10 USD de lucro elegível, a comissão prevista é 1 USD. Em operações sem lucro positivo, a comissão é 0 USD. A cobrança só poderá ocorrer após implementação e validação no backend.</div>
             <div class="commission-box">
               <div class="v5-kicker">Painel do proprietário · receitas de comissão</div>
               <div class="commission-value">10% por lucro positivo</div>
@@ -1475,11 +1475,6 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
             <div class="row"><button id="toggleKeepScreen" class="secondary" type="button">📱 Manter ecrã ligado: desligado</button><span id="keepScreenStatus" class="small muted">O ecrã pode bloquear normalmente.</span></div>
             <div class="row" style="margin-top:12px"><button id="toggleWinSound" class="secondary" type="button">🔔 Som de lucro: desligado</button><span id="winSoundStatus" class="small muted">Sem alerta sonoro para lucros.</span></div>
             <p class="small muted">O ecrã ligado depende do suporte do navegador. O som de lucro só toca depois de ativares esta opção.</p>
-          </div>
-        </section>
-
-        <section id="invites" class="section">
-          <div class="ops-hero"><span class="ops-status"><i class="ops-dot"></i> CONVITES MENDTRADER</span><div class="ops-title">Convida outras pessoas</div><p class="ops-sub">Partilha o teu link pessoal. Quando alguém criar uma conta através dele, a indicação ficará associada ao teu perfil.</p></div>
           <div class="card" id="derivAccountCard" style="margin-top:14px;border-color:#087b42">
             <div class="row" style="justify-content:space-between;align-items:center">
               <div><span class="badge">DERIV · CONTA</span><h2 style="margin:9px 0 4px">🔐 Ligar conta Deriv</h2></div>
@@ -1492,7 +1487,11 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
             <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>
             <div id="derivBalanceMode" class="small muted" style="margin-top:10px">Saldo Deriv: ainda não consultado.</div>
           </div>
+          </div>
+        </section>
 
+        <section id="invites" class="section">
+          <div class="ops-hero"><span class="ops-status"><i class="ops-dot"></i> CONVITES MENDTRADER</span><div class="ops-title">Convida outras pessoas</div><p class="ops-sub">Partilha o teu link pessoal. Quando alguém criar uma conta através dele, a indicação ficará associada ao teu perfil.</p></div>
           <div class="card">
             <h2>🔗 O teu link de convite</h2>
             <p class="small muted">Este link é exclusivo da tua conta. Copia ou partilha para convidar novos utilizadores.</p>

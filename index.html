@@ -1317,11 +1317,6 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         
           <div id="darkProBottom" class="darkpro-bottom">
             <div class="darkpro-shortcut card">
-              <div class="darkpro-widget-title">💱 Conversor de Moedas</div>
-              <p class="small muted">Conversão rápida entre moedas disponíveis.</p>
-              <button type="button" class="secondary" data-page="converter">Abrir conversor</button>
-            </div>
-            <div class="darkpro-shortcut card">
               <div class="darkpro-widget-title">▤ Últimas Operações</div>
               <p class="small muted">Consulta o histórico completo das operações registadas.</p>
               <button type="button" class="secondary" data-page="history">Ver histórico</button>
@@ -3406,8 +3401,6 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
    const liveDetails=document.createElement('details');liveDetails.className='ref-details';const liveSummary=document.createElement('summary');liveSummary.textContent='Mercado em tempo real · análise técnica · candles · ligação Deriv';liveDetails.append(liveSummary,live);ops.after(liveDetails);
    const botPanel=ops.querySelector('.bot-panel');
    if(botPanel&&!botPanel.querySelector(':scope > .ref-details')){const heading=botPanel.querySelector('.panel-heading'),market=botPanel.querySelector('.market-screen'),nodes=[...botPanel.children],settings=document.createElement('details'),summary=document.createElement('summary');settings.className='ref-details';summary.textContent='Configurações e controlo do bot';settings.append(summary);nodes.forEach(node=>{if(node!==heading&&node!==market)settings.append(node);});botPanel.append(settings);const h=heading?.querySelector('h2');if(h)h.textContent='Gráfico do Mercado';}
-   const manual=ops.querySelector('.manual-panel'),account=manual?.querySelector('#derivAccountCard');
-   if(account&&!manual.querySelector('.ref-details')){const details=document.createElement('details'),summary=document.createElement('summary');details.className='ref-details';summary.textContent='Conta Deriv · ligação e saldo';details.append(summary,account);manual.insertBefore(details,manual.children[1]||null);}
    const learning=document.getElementById('learningPanel'),slot=document.getElementById('darkProLearningSlot');if(learning&&slot&&learning.parentElement!==slot)slot.append(learning);
    bot.dataset.refLayout='mounted';
   }catch(error){console.error('MendtradeR: falha ao montar o painel visual; será tentado novamente.',error);}

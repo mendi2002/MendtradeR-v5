@@ -3336,12 +3336,13 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       const remaining=active.expiresAt-Date.now();
       if(remaining<=0){derivActiveSignal=null;return false;}
       const side=active.side,symbol=active.symbol;
-      tag.textContent='● Sinal '+side+' · '+Math.ceil(remaining/1000)+'s';
+      const age=Math.max(0,Math.floor((Date.now()-(active.createdAt||Date.now()))/1000));
+      tag.textContent='● Sinal '+side+' · ativo há '+age+'s · reavaliação contínua';
       tag.className='signal-tag '+(side==='COMPRA'?'positive':'negative');
       dir.textContent=side;dir.style.color=side==='COMPRA'?'var(--green)':'var(--red)';
       strength.textContent=active.score+'/4 critérios';
       reason.textContent=active.reason+' Sinal mantido durante até 45 segundos para evitar oscilações. '+extra;
-      if(manualTag)manualTag.textContent='SINAL ATIVO · '+symbol+' · '+Math.ceil(remaining/1000)+'s';
+      if(manualTag)manualTag.textContent='SINAL ATIVO · '+symbol+' · há '+age+'s';
       if(manualDir){manualDir.textContent=side;manualDir.style.color=side==='COMPRA'?'var(--green)':'var(--red)';}
       if(manualReason)manualReason.textContent=reason.textContent+' A entrada continua manual.';
       return true;
@@ -3382,22 +3383,44 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const activeMarket=meanMove>Math.max(Math.abs(last)*1e-10,Number.EPSILON);
     const bullChecks=[fast>slow,last>slow,oscillator>=52&&oscillator<=68,momentum>0&&Math.abs(momentum)>=meanMove*2];
     const bearChecks=[fast<slow,last<slow,oscillator>=32&&oscillator<=48,momentum<0&&Math.abs(momentum)>=meanMove*2];
+    const bullScore=bullChecks.filter(Boolean).length;
+    const bearScore=bearChecks.filter(Boolean).length;
+    const activeSide=derivActiveSignal?.side;
+    const oppositeScore=activeSide==='COMPRA'?bearScore:activeSide==='VENDA'?bullScore:0;
+    // Dois ou mais critérios contra o sinal atual retiram imediatamente a indicação antiga.
+    if(derivActiveSignal&&oppositeScore>=2){
+      const opposite=activeSide==='COMPRA'?'VENDA':'COMPRA';
+      derivActiveSignal=null;
+      derivSignalCandidate=opposite;
+      derivSignalConfirmations=1;
+      tag.textContent='● POSSÍVEL '+opposite+' · 1/3';
+      tag.className='signal-tag neutral';
+      dir.textContent='A PERDER FORÇA';
+      dir.style.color='var(--gold)';
+      strength.textContent=oppositeScore+'/4 critérios contra o sinal anterior';
+      reason.textContent='O sinal anterior de '+activeSide+' foi retirado. Há sinais iniciais de reversão para '+opposite+'. Aguardar confirmação; ainda não é uma ordem.';
+      if(manualTag)manualTag.textContent='POSSÍVEL '+opposite+' · 1/3 confirmações';
+      if(manualDir){manualDir.textContent='A PERDER FORÇA';manualDir.style.color='var(--gold)';}
+      if(manualReason)manualReason.textContent=reason.textContent;
+      return;
+    }
     let side='neutral',score=0;
-    if(activeMarket&&bullChecks.every(Boolean)){side='COMPRA';score=bullChecks.filter(Boolean).length;}
-    else if(activeMarket&&bearChecks.every(Boolean)){side='VENDA';score=bearChecks.filter(Boolean).length;}
+    if(activeMarket&&bullScore===4){side='COMPRA';score=bullScore;}
+    else if(activeMarket&&bearScore===4){side='VENDA';score=bearScore;}
     if(side==='neutral'){
-      wait(activeMarket?'Sem alinhamento completo: EMA 9/21, posição do preço, RSI e impulso precisam confirmar juntos. RSI: '+oscillator.toFixed(1)+'.':'Mercado sem variação suficiente nos últimos ticks. Aguardar movimento.');
+      wait(activeMarket?'Sem alinhamento completo: EMA 9/21, posição do preço, RSI e impulso precisam confirmar juntos. RSI: '+oscillator.toFixed(1)+'.':'Mercado sem variação suficiente nos últimos ticks.');
       return;
     }
     if(derivSignalCandidate===side)derivSignalConfirmations++;
     else{derivSignalCandidate=side;derivSignalConfirmations=1;}
     if(derivSignalConfirmations<3){
-      if(showActive('Nova direção em validação ('+derivSignalConfirmations+'/3).'))return;
-      tag.textContent='● A confirmar '+derivSignalConfirmations+'/3';tag.className='signal-tag neutral';
-      dir.textContent='A CONFIRMAR';strength.textContent=score+'/4 critérios';
-      reason.textContent='Possível '+side+' detetada. A aguardar 3 confirmações consecutivas. Nenhuma ordem é enviada.';
-      if(manualTag)manualTag.textContent='A confirmar '+derivSignalConfirmations+'/3';
-      if(manualDir)manualDir.textContent='A CONFIRMAR';
+      // Nunca manter COMPRA/VENDA antigo visível enquanto a direção contrária está a ser confirmada.
+      if(derivActiveSignal&&derivActiveSignal.side!==side)derivActiveSignal=null;
+      tag.textContent='● Possível '+side+' · '+derivSignalConfirmations+'/3';tag.className='signal-tag neutral';
+      dir.textContent='A CONFIRMAR '+side;dir.style.color='var(--gold)';strength.textContent=score+'/4 critérios';
+      reason.textContent='Possível '+side+' detetada. Aguardar '+(3-derivSignalConfirmations)+' confirmação(ões) consecutiva(s). A direção anterior foi retirada; nenhuma ordem é enviada.';
+      if(manualTag)manualTag.textContent='POSSÍVEL '+side+' · '+derivSignalConfirmations+'/3';
+      if(manualDir){manualDir.textContent='A CONFIRMAR '+side;manualDir.style.color='var(--gold)';}
       if(manualReason)manualReason.textContent=reason.textContent;
       return;
     }
@@ -3412,7 +3435,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       ? ' Ativo da entrada manual alinhado com o sinal.'
       : ' Atenção: confirma se o ativo escolhido na entrada manual corresponde a este sinal.';
     const signalReason=symbol+' · RSI '+oscillator.toFixed(1)+' · EMA 9/21 alinhadas · impulso confirmado em 3 atualizações.'+signalAssetNote;
-    derivActiveSignal={side,symbol,symbolCode,score,reason:signalReason,expiresAt:Date.now()+DERIV_SIGNAL_HOLD_MS};
+    derivActiveSignal={side,symbol,symbolCode,score,reason:signalReason,createdAt:Date.now(),expiresAt:Date.now()+DERIV_SIGNAL_HOLD_MS};
     showActive();
     if(isNewSignal&&derivSignalLastSide!==side){playSignalAlert();lastSoundSignal=side;derivSignalLastSide=side;}
   }

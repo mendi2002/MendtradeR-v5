@@ -2170,49 +2170,7 @@ th,td{border-bottom-color:#27313b!important}
 
 
 
-<script>
-/* Montagem visual do painel de referência. Os elementos originais são movidos,
-   não clonados: IDs, campos, eventos e integrações existentes permanecem. */
-(function(){
- function buildReferenceDashboard(){
-  const bot=document.getElementById('bot');
-  if(!bot||bot.dataset.referenceDashboard==='ready')return;
-  const stats=bot.querySelector('.v5-grid');
-  const operations=bot.querySelector('.ops-layout.dual-ops');
-  const feedSelect=document.getElementById('derivFeedSymbol');
-  if(!stats||!operations||!feedSelect)return;
-  bot.dataset.referenceDashboard='ready';
-  const top=document.createElement('div');top.className='ref-topline';
-  const demo=document.createElement('div');demo.className='ref-topbox';
-  demo.innerHTML='<span class="ref-demo-dot"></span><div><strong class="ref-accent">DEMO</strong><small>Ambiente de demonstração</small></div>';
-  const makeBox=(label,source,accent)=>{
-    const box=document.createElement('div');box.className='ref-topbox';
-    const content=document.createElement('div'),small=document.createElement('small'),strong=document.createElement('strong');
-    small.textContent=label;strong.textContent=source?.textContent?.trim()||'—';
-    if(accent)strong.className='ref-accent';
-    content.append(small,strong);box.append(content);
-    if(source){const observer=new MutationObserver(()=>{strong.textContent=source.textContent.trim()||'—'});observer.observe(source,{childList:true,subtree:true,characterData:true});}
-    return box;
-  };
-  const statCards=[...stats.querySelectorAll('.v5-stat')];
-  top.append(demo,makeBox('Saldo de demonstração',statCards[0]?.querySelector('strong'),true),makeBox('Resultado do bot',statCards[1]?.querySelector('strong'),false),makeBox('Resultado manual',statCards[2]?.querySelector('strong'),false));
-  stats.before(top);
-  const marketbar=document.createElement('div');marketbar.className='ref-marketbar';
-  const label=document.createElement('label');label.textContent='MERCADOS';marketbar.append(label);
-  [...feedSelect.options].forEach((option,index)=>{
-    const b=document.createElement('button');b.type='button';b.textContent=option.textContent;
-    b.classList.toggle('active',option.value===feedSelect.value);
-    b.addEventListener('click',()=>{feedSelect.value=option.value;feedSelect.dispatchEvent(new Event('change',{bubbles:true}));marketbar.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');});
-    marketbar.append(b);
-  });
-  stats.after(marketbar);
-  const learning=document.getElementById('learningPanel'),slot=document.getElementById('darkProLearningSlot');
-  if(learning&&slot)slot.appendChild(learning);
- }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',buildReferenceDashboard,{once:true});
- else buildReferenceDashboard();
-})();
-</script>
+
 
 </body></html>`);
     win.document.close();
@@ -2997,6 +2955,49 @@ th,td{border-bottom-color:#27313b!important}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',placeLearning,{once:true});
   else placeLearning();
   document.addEventListener('click',event=>{const button=event.target.closest('#darkProBottom [data-page]');if(!button)return;const target=document.querySelector('#mainNav [data-page="'+button.dataset.page+'"]');if(target)target.click();});
+})();
+</script>
+<script>
+/* Montagem visual do painel de referência. Os elementos originais são movidos,
+   não clonados: IDs, campos, eventos e integrações existentes permanecem. */
+(function(){
+ function buildReferenceDashboard(){
+  const bot=document.getElementById('bot');
+  if(!bot||bot.dataset.referenceDashboard==='ready')return;
+  const stats=bot.querySelector('.v5-grid');
+  const operations=bot.querySelector('.ops-layout.dual-ops');
+  const feedSelect=document.getElementById('derivFeedSymbol');
+  if(!stats||!operations||!feedSelect)return;
+  bot.dataset.referenceDashboard='ready';
+  const top=document.createElement('div');top.className='ref-topline';
+  const demo=document.createElement('div');demo.className='ref-topbox';
+  demo.innerHTML='<span class="ref-demo-dot"></span><div><strong class="ref-accent">DEMO</strong><small>Ambiente de demonstração</small></div>';
+  const makeBox=(label,source,accent)=>{
+    const box=document.createElement('div');box.className='ref-topbox';
+    const content=document.createElement('div'),small=document.createElement('small'),strong=document.createElement('strong');
+    small.textContent=label;strong.textContent=source?.textContent?.trim()||'—';
+    if(accent)strong.className='ref-accent';
+    content.append(small,strong);box.append(content);
+    if(source){const observer=new MutationObserver(()=>{strong.textContent=source.textContent.trim()||'—'});observer.observe(source,{childList:true,subtree:true,characterData:true});}
+    return box;
+  };
+  const statCards=[...stats.querySelectorAll('.v5-stat')];
+  top.append(demo,makeBox('Saldo de demonstração',statCards[0]?.querySelector('strong'),true),makeBox('Resultado do bot',statCards[1]?.querySelector('strong'),false),makeBox('Resultado manual',statCards[2]?.querySelector('strong'),false));
+  stats.before(top);
+  const marketbar=document.createElement('div');marketbar.className='ref-marketbar';
+  const label=document.createElement('label');label.textContent='MERCADOS';marketbar.append(label);
+  [...feedSelect.options].forEach((option,index)=>{
+    const b=document.createElement('button');b.type='button';b.textContent=option.textContent;
+    b.classList.toggle('active',option.value===feedSelect.value);
+    b.addEventListener('click',()=>{feedSelect.value=option.value;feedSelect.dispatchEvent(new Event('change',{bubbles:true}));marketbar.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');});
+    marketbar.append(b);
+  });
+  stats.after(marketbar);
+  const learning=document.getElementById('learningPanel'),slot=document.getElementById('darkProLearningSlot');
+  if(learning&&slot)slot.appendChild(learning);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',buildReferenceDashboard,{once:true});
+ else buildReferenceDashboard();
 })();
 </script>
 </body>

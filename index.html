@@ -300,7 +300,7 @@
                 <div class="row" style="justify-content:space-between"><b>🔐 Ligação segura à Deriv · DEMO</b><span id="derivTradeStatus" class="signal-tag neutral">● Não ligada</span></div>
                 <p class="small muted">Token pessoal Deriv com permissão trade. É usado apenas para gerar uma sessão temporária e não fica guardado. Esta primeira versão aceita somente conta DEMO.</p>
                 <div class="field"><label for="derivTradeToken">Token pessoal Deriv (PAT)</label><input id="derivTradeToken" type="password" autocomplete="off" placeholder="Token com permissão trade"></div>
-                <div class="formgrid"><div class="field"><label for="derivTradeAccount">ID da conta DEMO (VRTC...)</label><input id="derivTradeAccount" type="text" autocomplete="off" placeholder="VRTC1234567"></div><div class="field"><label for="derivTradeAppId">App ID Deriv</label><input id="derivTradeAppId" type="text" value="34TEm2Gavyti0dcVDw73V" autocomplete="off"></div></div>
+                <div class="formgrid"><div class="field"><label for="derivTradeAccount">ID da conta DEMO (opcional)</label><input id="derivTradeAccount" type="text" autocomplete="off" placeholder="Deixa vazio para detetar automaticamente"></div><div class="field"><label for="derivTradeAppId">App ID Deriv</label><input id="derivTradeAppId" type="text" value="34TEm2Gavyti0dcVDw73V" autocomplete="off"></div></div>
                 <div class="row"><button id="derivTradeConnect">Ligar conta DEMO</button><button id="derivTradeDisconnect" class="secondary" disabled>Desligar</button></div>
                 <p id="derivTradeMessage" class="small muted" aria-live="polite">Conta ainda não autenticada.</p>
                 <div class="row"><span class="small muted">Saldo Deriv DEMO:</span><b id="derivTradeBalance">—</b><span class="small muted right" id="derivTradeCurrency">—</span></div>
@@ -580,12 +580,13 @@
   async function connectDerivTrade(){
     if(!currentUser)return message('derivTradeMessage','Entra primeiro no MendtradeR.','error');
     const token=$('derivTradeToken').value.trim(),accountId=$('derivTradeAccount').value.trim(),appId=$('derivTradeAppId').value.trim();
-    if(!token||!accountId||!appId)return message('derivTradeMessage','Preenche token, ID da conta DEMO e App ID.','error');
+    if(!token||!accountId||!appId)return message('derivTradeMessage','Preenche o token Deriv e o App ID. O ID da conta é opcional.','error');
     $('derivTradeConnect').disabled=true;$('derivTradeMessage').textContent='A validar conta DEMO…';
     try{
       const {data,error}=await client.functions.invoke('deriv-demo-otp',{body:{token,account_id:accountId,app_id:appId}});
       $('derivTradeToken').value='';
       if(error||!data?.url)throw Error(data?.error||error?.message||'Não foi possível obter a sessão DEMO.');
+      if(data.account_id)$('derivTradeAccount').value=data.account_id;
       closeDerivTradeSocket();$('derivTradeConnect').disabled=true;setDerivTradeStatus('● A ligar');
       const ws=new WebSocket(data.url);derivTradeSocket=ws;
       ws.onopen=()=>{if(derivTradeSocket!==ws)return;derivTradeConnected=true;setDerivTradeStatus('● DEMO ligada','positive');$('derivTradeMessage').textContent='Conta DEMO autenticada. Apenas saldo virtual.';$('derivTradeDisconnect').disabled=false;$('manualBuyBtn').disabled=false;$('manualSellBtn').disabled=false;ws.send(JSON.stringify({balance:1,subscribe:1,req_id:++derivTradeReqId}));};

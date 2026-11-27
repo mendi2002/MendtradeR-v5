@@ -2985,30 +2985,36 @@ th,td{border-bottom-color:#27313b!important}
 })();
 </script>
 <script>
-/* Estrutura visual baseada na referência enviada; reutiliza os elementos funcionais existentes. */
+/* Montagem resiliente do painel visual: tenta após login e só marca sucesso no fim. */
 (function(){
+ let running=false;
  function mountReference(){
   const bot=document.getElementById('bot'),stats=bot?.querySelector('.v5-grid'),ops=bot?.querySelector('.ops-layout.dual-ops'),live=document.getElementById('derivLivePanel'),select=document.getElementById('derivFeedSymbol');
-  if(!bot||bot.dataset.refLayout==='mounted'||!stats||!ops||!live||!select)return;
-  bot.dataset.refLayout='mounted';
-  const top=document.createElement('div');top.className='ref-topline';
-  const brand=document.createElement('div');brand.className='ref-topbox';brand.innerHTML='<span class="ref-brandmark">♛</span><div><strong>MendtradeR</strong><small>Trade · Aprende · Evolui</small></div>';
-  const demo=document.createElement('div');demo.className='ref-topbox';demo.innerHTML='<span class="ref-demo-dot"></span><div><strong class="ref-accent">DEMO</strong><small>Ambiente de demonstração</small></div>';
-  const cards=[...stats.querySelectorAll('.v5-stat')];
-  const statBox=(title,source,accent)=>{const el=document.createElement('div'),inner=document.createElement('div'),small=document.createElement('small'),strong=document.createElement('strong');el.className='ref-topbox';small.textContent=title;strong.textContent=source?.textContent?.trim()||'—';if(accent)strong.className='ref-accent';inner.append(small,strong);el.append(inner);if(source)new MutationObserver(()=>strong.textContent=source.textContent.trim()||'—').observe(source,{subtree:true,childList:true,characterData:true});return el;};
-  top.append(brand,demo,statBox('Saldo de demonstração',cards[0]?.querySelector('strong'),true),statBox('Resultado da sessão',cards[2]?.querySelector('strong'),false));
-  bot.insertBefore(top,bot.firstChild);
-  const bar=document.createElement('div');bar.className='ref-marketbar';const label=document.createElement('label');label.textContent='MERCADOS';bar.append(label);
-  [...select.options].forEach(option=>{const b=document.createElement('button');b.type='button';b.textContent=option.textContent;b.classList.toggle('active',option.value===select.value);b.addEventListener('click',()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));bar.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');});bar.append(b);});
-  const plus=document.createElement('button');plus.type='button';plus.className='market-plus';plus.textContent='+';plus.addEventListener('click',()=>{const d=document.querySelector('#bot .ref-details');if(d){d.open=true;d.scrollIntoView({behavior:'smooth',block:'start'});}});bar.append(plus);top.after(bar);
-  const liveDetails=document.createElement('details');liveDetails.className='ref-details';const liveSummary=document.createElement('summary');liveSummary.textContent='Mercado em tempo real · análise técnica · candles · ligação Deriv';liveDetails.append(liveSummary,live);ops.after(liveDetails);
-  const botPanel=ops.querySelector('.bot-panel');
-  if(botPanel){const heading=botPanel.querySelector('.panel-heading'),market=botPanel.querySelector('.market-screen'),nodes=[...botPanel.children],settings=document.createElement('details'),summary=document.createElement('summary');settings.className='ref-details';summary.textContent='Configurações e controlo do bot';settings.append(summary);nodes.forEach(node=>{if(node!==heading&&node!==market)settings.append(node);});botPanel.append(settings);const h=heading?.querySelector('h2');if(h)h.textContent='Gráfico do Mercado';}
-  const manual=ops.querySelector('.manual-panel'),account=manual?.querySelector('#derivAccountCard');
-  if(account){const details=document.createElement('details'),summary=document.createElement('summary');details.className='ref-details';summary.textContent='Conta Deriv · ligação e saldo';details.append(summary,account);manual.insertBefore(details,manual.children[1]||null);}
-  const learning=document.getElementById('learningPanel'),slot=document.getElementById('darkProLearningSlot');if(learning&&slot&&learning.parentElement!==slot)slot.append(learning);
+  if(running||!bot||bot.dataset.refLayout==='mounted'||!stats||!ops||!live||!select)return;
+  running=true;
+  try{
+   const top=document.createElement('div');top.className='ref-topline';
+   const brand=document.createElement('div');brand.className='ref-topbox';brand.innerHTML='<span class="ref-brandmark">♛</span><div><strong>MendtradeR</strong><small>Trade · Aprende · Evolui</small></div>';
+   const demo=document.createElement('div');demo.className='ref-topbox';demo.innerHTML='<span class="ref-demo-dot"></span><div><strong class="ref-accent">DEMO</strong><small>Ambiente de demonstração</small></div>';
+   const cards=[...stats.querySelectorAll('.v5-stat')];
+   const statBox=(title,source,accent)=>{const el=document.createElement('div'),inner=document.createElement('div'),small=document.createElement('small'),strong=document.createElement('strong');el.className='ref-topbox';small.textContent=title;strong.textContent=source?.textContent?.trim()||'—';if(accent)strong.className='ref-accent';inner.append(small,strong);el.append(inner);if(source)new MutationObserver(()=>strong.textContent=source.textContent.trim()||'—').observe(source,{subtree:true,childList:true,characterData:true});return el;};
+   top.append(brand,demo,statBox('Saldo de demonstração',cards[0]?.querySelector('strong'),true),statBox('Resultado da sessão',cards[2]?.querySelector('strong'),false));
+   bot.insertBefore(top,bot.firstChild);
+   const bar=document.createElement('div');bar.className='ref-marketbar';const label=document.createElement('label');label.textContent='MERCADOS';bar.append(label);
+   [...select.options].forEach(option=>{const b=document.createElement('button');b.type='button';b.textContent=option.textContent;b.classList.toggle('active',option.value===select.value);b.addEventListener('click',()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));bar.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');});bar.append(b);});
+   const plus=document.createElement('button');plus.type='button';plus.className='market-plus';plus.textContent='+';plus.addEventListener('click',()=>{const d=document.querySelector('#bot .ref-details');if(d){d.open=true;d.scrollIntoView({behavior:'smooth',block:'start'});}});bar.append(plus);top.after(bar);
+   const liveDetails=document.createElement('details');liveDetails.className='ref-details';const liveSummary=document.createElement('summary');liveSummary.textContent='Mercado em tempo real · análise técnica · candles · ligação Deriv';liveDetails.append(liveSummary,live);ops.after(liveDetails);
+   const botPanel=ops.querySelector('.bot-panel');
+   if(botPanel&&!botPanel.querySelector(':scope > .ref-details')){const heading=botPanel.querySelector('.panel-heading'),market=botPanel.querySelector('.market-screen'),nodes=[...botPanel.children],settings=document.createElement('details'),summary=document.createElement('summary');settings.className='ref-details';summary.textContent='Configurações e controlo do bot';settings.append(summary);nodes.forEach(node=>{if(node!==heading&&node!==market)settings.append(node);});botPanel.append(settings);const h=heading?.querySelector('h2');if(h)h.textContent='Gráfico do Mercado';}
+   const manual=ops.querySelector('.manual-panel'),account=manual?.querySelector('#derivAccountCard');
+   if(account&&!manual.querySelector('.ref-details')){const details=document.createElement('details'),summary=document.createElement('summary');details.className='ref-details';summary.textContent='Conta Deriv · ligação e saldo';details.append(summary,account);manual.insertBefore(details,manual.children[1]||null);}
+   const learning=document.getElementById('learningPanel'),slot=document.getElementById('darkProLearningSlot');if(learning&&slot&&learning.parentElement!==slot)slot.append(learning);
+   bot.dataset.refLayout='mounted';
+  }catch(error){console.error('MendtradeR: falha ao montar o painel visual; será tentado novamente.',error);}
+  finally{running=false;}
  }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountReference,{once:true});else mountReference();
+ const start=()=>{mountReference();const app=document.getElementById('appView');if(app)new MutationObserver(()=>{if(!app.classList.contains('hidden'))mountReference();}).observe(app,{attributes:true,attributeFilter:['class']});};
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 </script>
 </body>

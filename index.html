@@ -613,7 +613,8 @@
     if(!Number.isFinite(stake)||stake<0.35||stake>100)return message('manualTradeMessage','Entrada permitida: 0,35 a 100 USD.','error');
     $('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;message('manualTradeMessage','A pedir cotação à Deriv…');
     try{
-      const marketSnapshot=buildTradeMarketSnapshot();
+      message('manualTradeMessage','A consultar candles históricos do ativo…');
+      const marketSnapshot=await captureTradeMarketSnapshot(symbol);
       const quote=await derivTradeSend({proposal:1,amount:stake,basis:'stake',contract_type:side==='COMPRA'?'CALL':'PUT',currency:'USD',duration,duration_unit,underlying_symbol:symbol});
       const p=quote.proposal;if(!p?.id||!Number.isFinite(Number(p.ask_price)))throw Error('Proposta indisponível para este ativo.');
       message('manualTradeMessage','Cotação recebida. A confirmar entrada DEMO…');
@@ -1065,14 +1066,35 @@
 
   // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
   let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;
-  // Snapshot técnico no instante da entrada; só usa candles já fechados.
-  function buildTradeMarketSnapshot(){
-    const candles=derivLiveCandles.slice(-300), closes=candles.map(x=>Number(x.close)).filter(Number.isFinite);
-    if(closes.length<21)return {version:1,status:'insufficient_data',timeframe:'1m',candle_count:closes.length,captured_at:new Date().toISOString()};
+  // Snapshot técnico: usa histórico oficial de candles da Deriv para o ativo exato da operação.
+  function buildTradeMarketSnapshot(sourceCandles,symbol){
+    const candles=(Array.isArray(sourceCandles)?sourceCandles:[]).filter(x=>Number.isFinite(Number(x.close))).slice(-300);
+    const closes=candles.map(x=>Number(x.close));
+    if(closes.length<21)return {version:2,status:'insufficient_data',reason:'A Deriv devolveu menos de 21 candles fechados.',timeframe:'1m',symbol,candle_count:closes.length,captured_at:new Date().toISOString()};
     const fast=ema(closes,9),slow=ema(closes,21),r=rsi(closes,14),i=closes.length-1;
-    const last=candles[candles.length-1], trend=fast[i]>slow[i]?'bullish':fast[i]<slow[i]?'bearish':'neutral';
+    const last=candles[candles.length-1],trend=fast[i]>slow[i]?'bullish':fast[i]<slow[i]?'bearish':'neutral';
     const signal=trend==='bullish'&&r[i]>=52&&r[i]<=68&&closes[i]>closes[i-1]?'COMPRA':trend==='bearish'&&r[i]>=32&&r[i]<=48&&closes[i]<closes[i-1]?'VENDA':'NONE';
-    return {version:1,status:'captured',timeframe:'1m',candle_count:closes.length,captured_at:new Date().toISOString(),trend,ema9:Number(fast[i].toFixed(8)),ema21:Number(slow[i].toFixed(8)),rsi14:Number(r[i].toFixed(2)),signal,last_candle:{epoch:last.epoch,open:last.open,high:last.high,low:last.low,close:last.close},previous_close:closes[i-1]};
+    return {version:2,status:'captured',source:'deriv_ticks_history',timeframe:'1m',symbol,candle_count:closes.length,captured_at:new Date().toISOString(),trend,ema9:Number(fast[i].toFixed(8)),ema21:Number(slow[i].toFixed(8)),rsi14:Number(r[i].toFixed(2)),signal,last_candle:{epoch:last.epoch,open:last.open,high:last.high,low:last.low,close:last.close},previous_close:closes[i-1]};
+  }
+  async function captureTradeMarketSnapshot(symbol){
+    if(!('WebSocket' in window))return {version:2,status:'unavailable',reason:'WebSocket não suportado.',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()};
+    return new Promise(resolve=>{
+      let done=false,ws=null;
+      const finish=value=>{if(done)return;done=true;clearTimeout(timer);try{if(ws)ws.close();}catch(e){}resolve(value);};
+      const timer=setTimeout(()=>finish({version:2,status:'unavailable',reason:'Tempo esgotado ao pedir candles à Deriv.',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()}),12000);
+      try{
+        ws=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+        ws.onopen=()=>ws.send(JSON.stringify({ticks_history:symbol,count:300,end:'latest',style:'candles',granularity:60,adjust_start_time:1,req_id:7319}));
+        ws.onmessage=event=>{
+          let data;try{data=JSON.parse(event.data);}catch(e){return;}
+          if(data.error){finish({version:2,status:'unavailable',reason:data.error.message||'Erro ao consultar histórico Deriv.',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});return;}
+          if(data.msg_type==='candles'||Array.isArray(data.candles)){
+            finish(buildTradeMarketSnapshot(data.candles||[],symbol));
+          }
+        };
+        ws.onerror=()=>finish({version:2,status:'unavailable',reason:'Falha na ligação ao histórico público da Deriv.',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});
+      }catch(e){finish({version:2,status:'unavailable',reason:e.message||'Não foi possível consultar o histórico.',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});}
+    });
   }
 
   const DERIV_CANDLES_KEY='mendtrader_deriv_candles_v1';

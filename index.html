@@ -2000,7 +2000,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
           const a=ema(cl,9),b=ema(cl,21),r=rsi(cl,14),i=cl.length-1,last=cs[i];
           const trueRanges=cs.slice(1).map((c,j)=>Math.max(Number(c.high)-Number(c.low),Math.abs(Number(c.high)-Number(cs[j].close)),Math.abs(Number(c.low)-Number(cs[j].close)))).filter(v=>Number.isFinite(v)&&v>0);
           const atrValues=trueRanges.slice(-14),atr14=atrValues.length===14?atrValues.reduce((sum,v)=>sum+v,0)/atrValues.length:null;
-          finish({version:1,status:'captured',source:'deriv_ticks_history',timeframe:'1m',symbol,candle_count:cl.length,captured_at:new Date().toISOString(),trend:a[i]>b[i]?'bullish':a[i]<b[i]?'bearish':'neutral',ema9:Number(a[i].toFixed(8)),ema21:Number(b[i].toFixed(8)),rsi14:Number(r[i].toFixed(2)),atr14:atr14&&Number.isFinite(atr14)?Number(atr14.toFixed(10)):null,last_candle:{epoch:last.epoch,open:last.open,high:last.high,low:last.low,close:last.close},previous_close:cl[i-1]});};
+          finish({version:1,status:'captured',source:'deriv_ticks_history',timeframe:'1m',symbol,candle_count:cl.length,captured_at:new Date().toISOString(),trend:a[i]>b[i]?'bullish':a[i]<b[i]?'bearish':'neutral',ema9:Number(a[i].toFixed(8)),ema21:Number(b[i].toFixed(8)),rsi14:Number(r[i].toFixed(2)),atr14:atr14&&Number.isFinite(atr14)?Number(atr14.toFixed(10)):null,last_candle:{epoch:last.epoch,open:last.open,high:last.high,low:last.low,close:last.close},recentResistance:Math.max(...cs.slice(-31,-1).map(c=>Number(c.high)).filter(Number.isFinite)),recentSupport:Math.min(...cs.slice(-31,-1).map(c=>Number(c.low)).filter(Number.isFinite)),previous_close:cl[i-1]});};
         ws.onerror=()=>finish({version:1,status:'unavailable',reason:'Falha na ligação Deriv',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});
       }catch(e){finish({version:1,status:'unavailable',reason:e.message,symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});}
     });
@@ -2050,6 +2050,33 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if (closedEl) { closedEl.textContent = format(realized); closedEl.className = realized > 0 ? 'manual-pnl-positive' : realized < 0 ? 'manual-pnl-negative' : ''; }
     if (wlEl) wlEl.textContent = wins + ' / ' + losses;
   }
+  function evaluateManualEntryWindow(snapshot, direction) {
+    if (!snapshot || snapshot.status !== 'captured' || !snapshot.last_candle) {
+      return { ready: false, reason: 'Dados de candles insuficientes ou indisponíveis.' };
+    }
+    const isCall = direction === 'CALL';
+    const trendMatches = isCall ? snapshot.trend === 'bullish' : snapshot.trend === 'bearish';
+    const rsiValue = Number(snapshot.rsi14);
+    const rsiMatches = Number.isFinite(rsiValue) && (isCall ? rsiValue >= 48 && rsiValue <= 68 : rsiValue >= 32 && rsiValue <= 52);
+    const candle = snapshot.last_candle;
+    const open = Number(candle.open), close = Number(candle.close), high = Number(candle.high), low = Number(candle.low);
+    const range = high - low;
+    const bodyRatio = range > 0 ? Math.abs(close - open) / range : 0;
+    const candleMatches = Number.isFinite(open) && Number.isFinite(close) && bodyRatio >= 0.25 && (isCall ? close > open : close < open);
+    const atr = Number(snapshot.atr14);
+    const resistanceClear = !isCall || !Number.isFinite(Number(snapshot.recentResistance)) || !Number.isFinite(atr) || Number(snapshot.recentResistance) - close > atr * 0.2;
+    const supportClear = isCall || !Number.isFinite(Number(snapshot.recentSupport)) || !Number.isFinite(atr) || close - Number(snapshot.recentSupport) > atr * 0.2;
+    const checks = [
+      [trendMatches, 'A tendência EMA 9/21 ainda não confirma a direção escolhida.'],
+      [rsiMatches, 'O RSI indica entrada esticada ou sem força suficiente.'],
+      [candleMatches, 'A última vela ainda não confirmou a direção com corpo suficiente.'],
+      [resistanceClear && supportClear, 'O preço está demasiado perto de uma zona de suporte/resistência.']
+    ];
+    const failed = checks.find(item => !item[0]);
+    return { ready: !failed, reason: failed ? failed[1] : 'Tendência, RSI, vela e distância às zonas técnicas estão alinhados.' };
+  }
+  const MANUAL_ENTRY_WAIT_MS = 10000;
+  const MANUAL_ENTRY_MAX_CHECKS = 9;
   async function executeManualTrade(direction) {
     if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo') {
       message('manualTradeStatus', 'Por segurança, as ordens manuais só estão disponíveis numa conta DEMO ligada.', 'error');
@@ -2073,13 +2100,28 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if (manualTradeBusy) return;
     manualTradeBusy = true;
     updateManualTradeControls();
-    message('manualTradeStatus', 'A enviar entrada ' + (direction === 'CALL' ? 'COMPRA' : 'VENDA') + ' para a conta DEMO…');
     try {
-      message('manualTradeStatus', 'A verificar as condições deste ativo na Deriv…');
+      message('manualTradeStatus', 'Pedido ' + (direction === 'CALL' ? 'COMPRA' : 'VENDA') + ' recebido. A analisar o mercado antes de entrar…');
       await validateManualTradeAvailability(symbol, direction, duration);
-      message('manualTradeStatus', 'A recolher contexto técnico dos candles…');
-      const marketSnapshot = await captureTradeMarketSnapshot(symbol);
-      message('manualTradeStatus', 'Ativo e duração confirmados. A pedir cotação à Deriv…');
+      let marketSnapshot = null;
+      let entryDecision = { ready: false, reason: 'A recolher dados recentes.' };
+      for (let attempt = 1; attempt <= MANUAL_ENTRY_MAX_CHECKS; attempt++) {
+        if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
+          throw new Error('A ligação DEMO caiu durante a espera. Nenhuma entrada foi enviada.');
+        }
+        message('manualTradeStatus', 'A aguardar melhor momento · análise ' + attempt + '/' + MANUAL_ENTRY_MAX_CHECKS + ' · ' + entryDecision.reason);
+        marketSnapshot = await captureTradeMarketSnapshot(symbol);
+        entryDecision = evaluateManualEntryWindow(marketSnapshot, direction);
+        if (entryDecision.ready) break;
+        if (attempt < MANUAL_ENTRY_MAX_CHECKS) await new Promise(resolve => setTimeout(resolve, MANUAL_ENTRY_WAIT_MS));
+      }
+      if (!entryDecision.ready) {
+        throw new Error('Entrada cancelada: não surgiu confirmação técnica em 90 segundos. ' + entryDecision.reason);
+      }
+      if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
+        throw new Error('A ligação DEMO caiu antes da entrada. Nenhuma ordem foi enviada.');
+      }
+      message('manualTradeStatus', 'Oportunidade confirmada: ' + entryDecision.reason + ' A pedir cotação à Deriv…');
       const apiDuration = derivDurationForApi(duration);
       const quoteResponse = await sendDerivTradeRequest({
         proposal: 1, amount, basis: 'stake', contract_type: direction,
@@ -2090,12 +2132,20 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       if (!quote?.id || !Number.isFinite(Number(quote.ask_price))) {
         throw new Error(quoteResponse.error?.message || 'A Deriv não devolveu uma cotação válida para este ativo e valor.');
       }
-      message('manualTradeStatus', 'Cotação recebida. A confirmar a compra na conta DEMO…');
+      const latestSnapshot = await captureTradeMarketSnapshot(symbol);
+      const finalDecision = evaluateManualEntryWindow(latestSnapshot, direction);
+      if (!finalDecision.ready) {
+        throw new Error('Entrada cancelada: a oportunidade desapareceu enquanto a cotação era preparada. ' + finalDecision.reason);
+      }
+      if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
+        throw new Error('A ligação DEMO caiu antes da confirmação. Nenhuma ordem foi enviada.');
+      }
+      message('manualTradeStatus', 'Confirmação técnica mantida. A enviar ordem para a conta DEMO…');
       const buyResponse = await sendDerivTradeRequest({ buy: quote.id, price: Number(quote.ask_price) });
       const bought = buyResponse.buy || buyResponse.data?.buy;
       if (!bought?.contract_id) throw new Error(buyResponse.error?.message || 'A Deriv não confirmou a abertura do contrato.');
-      const row = addManualHistoryRow(bought.contract_id, direction, assetLabel, amount, currency, duration, marketSnapshot);
-      message('manualTradeStatus', 'Contrato DEMO aberto com sucesso. ID: ' + bought.contract_id + '. A acompanhar o resultado.', 'success');
+      const row = addManualHistoryRow(bought.contract_id, direction, assetLabel, amount, currency, duration, latestSnapshot);
+      message('manualTradeStatus', 'Contrato DEMO aberto após espera e confirmação técnica. ID: ' + bought.contract_id + '. A acompanhar a estrutura e a proteção.', 'success');
       if (derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN) {
         derivTradingSocket.send(JSON.stringify({
           proposal_open_contract: 1, contract_id: bought.contract_id,

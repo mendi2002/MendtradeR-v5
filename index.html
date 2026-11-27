@@ -1678,6 +1678,21 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     renderDerivAccounts(accounts);
     message('derivAccountMsg', 'Autorização Deriv confirmada. Foram consultadas as contas; ainda não é enviada nenhuma ordem.', 'success');
   }
+  async function autoConnectRememberedDerivDemo() {
+    const rememberedId = localStorage.getItem(DERIV_SELECTED_ACCOUNT_KEY) || '';
+    if (!rememberedId || !derivAccountAccessToken || Date.now() >= derivAccountExpiresAt) return false;
+    const account = derivAccounts.find(item => String(item.account_id || item.id || '') === rememberedId);
+    if (!account) return false;
+    if (derivAccountType(account) !== 'demo') {
+      message('derivAccountMsg', 'A conta guardada não é DEMO. Por segurança, a ligação automática só seleciona contas DEMO.', 'error');
+      return false;
+    }
+    const select = $('derivTradingAccount');
+    if (select) select.value = rememberedId;
+    message('derivAccountMsg', 'A ligar automaticamente à conta DEMO guardada…');
+    await connectDerivTradingAccount();
+    return true;
+  }
   function updateManualTradeControls() {
     const isDemo = !!derivConnectedAccount && derivAccountType(derivConnectedAccount) === 'demo';
     const socketReady = !!derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN;
@@ -2210,6 +2225,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       history.replaceState({}, document.title, '/');
       setDerivAccountStatus(true, 'Autorização concluída. A consultar as contas disponíveis…');
       await loadDerivAccounts();
+      await autoConnectRememberedDerivDemo();
     } catch (error) {
       message('derivAccountMsg', error.message || 'Erro ao concluir a ligação Deriv.', 'error');
     }
@@ -2254,6 +2270,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     // Ao entrar na plataforma, ligar automaticamente ao fluxo de cotações público.
     // O servidor mantém a subscrição Deriv independentemente desta ligação do navegador.
     setTimeout(()=>{ if(!derivFeedWanted) connectDerivFeed(); }, 250);
+    if (derivAccountAccessToken && Date.now() < derivAccountExpiresAt) {
+      loadDerivAccounts().then(() => autoConnectRememberedDerivDemo()).catch(error => message('derivAccountMsg', error.message || 'Não foi possível reconectar automaticamente à Deriv.', 'error'));
+    }
   }
   async function checkOwnerAccess(){
     const nav=$('ownerNavBtn');

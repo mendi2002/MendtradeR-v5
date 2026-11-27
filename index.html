@@ -734,7 +734,34 @@ th,td{border-bottom-color:#27313b!important}
  #bot .darkpro-learning{grid-column:auto}
 }
 
-  </style>
+  
+/* V6 REFERENCE DASHBOARD — estrutura real */
+#appView{margin-left:236px!important}#appView .layout{display:block!important}#appView .content{width:100%!important;min-width:0}
+#bot .ops-hero,#bot>.window-dock{display:none!important}
+#bot .ref-topline{display:grid!important;grid-template-columns:1.2fr repeat(3,minmax(120px,.8fr));gap:9px;margin:0 0 10px}
+#bot .ref-topbox{display:flex;align-items:center;gap:12px;min-width:0;padding:12px;background:linear-gradient(145deg,#0c121b,#05080d)!important;border:1px solid #263d55!important;border-radius:13px;box-shadow:0 8px 22px #0008}
+#bot .ref-topbox strong{display:block;font-size:clamp(16px,1.5vw,23px);color:#f5f7fa}#bot .ref-topbox small{display:block;color:#aab7c6;font-size:11px}#bot .ref-topbox .ref-accent{color:#f5d34e}
+#bot .ref-brandmark{font-size:27px;color:#f5d34e}#bot .ref-demo-dot{width:10px;height:10px;border-radius:50%;background:#00df85;box-shadow:0 0 12px #00df85;display:inline-block}
+#bot .v5-grid{display:none!important}
+#bot .ref-marketbar{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:8px;margin:8px 0;background:#070c13;border:1px solid #26384d;border-radius:13px}
+#bot .ref-marketbar button{flex:0 0 auto;background:#101c2a!important;color:#e9f2fc!important;border:1px solid #284765!important;padding:10px 14px}
+#bot .ref-marketbar button.active{background:#07385a!important;border-color:#159cff!important;box-shadow:0 0 14px #159cff55!important}
+#bot .ops-layout.dual-ops{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(280px,310px)!important;gap:10px!important;align-items:start!important;margin:8px 0!important}
+#bot .bot-panel,#bot .manual-panel{background:linear-gradient(145deg,#0b111a,#05080d)!important;border:1px solid #26384d!important;border-radius:15px!important;padding:12px!important;min-width:0}
+#bot .bot-panel .market-screen{min-height:320px!important;background:#050a11!important;border:1px solid #1766a0!important}#bot .bot-panel #botCandlestickChart{height:260px!important}
+#bot .manual-panel{position:sticky!important;top:10px!important}#bot .manual-panel .manual-actions{display:grid;grid-template-columns:1fr 1fr}
+#bot .manual-panel .manual-actions button{min-height:58px!important;font-size:17px!important}
+#bot .manual-panel .buy-btn{background:linear-gradient(180deg,#10e58a,#009b59)!important;color:#00190d!important}#bot .manual-panel .sell-btn{background:linear-gradient(180deg,#ff5264,#c91e39)!important;color:white!important}
+#bot .ref-details{margin:10px 0;background:#080d14;border:1px solid #27394d;border-radius:13px;padding:10px}#bot .ref-details>summary{cursor:pointer;color:#e9f2fc;font-weight:750;padding:5px}#bot .ref-details[open]>summary{margin-bottom:10px;color:#f5d34e}
+#bot #derivLivePanel{display:block!important;margin:10px 0!important;background:#070c12!important;border:1px solid #26384d!important}#bot #derivLivePanel .card{background:#0a1018!important;border-color:#26384d!important}
+#bot .darkpro-bottom{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(280px,1.25fr)!important;gap:10px!important}
+#bot .darkpro-shortcut,#bot .darkpro-learning #learningPanel{background:linear-gradient(145deg,#0b111a,#05080d)!important;border:1px solid #26384d!important;border-radius:15px!important}
+#bot .darkpro-widget-title,#bot .darkpro-learning #learningPanel h3{color:#f5d34e!important}
+@media(max-width:1100px){#appView{margin-left:204px!important}#bot .ref-topline{grid-template-columns:repeat(2,minmax(0,1fr))}#bot .ops-layout.dual-ops{grid-template-columns:minmax(0,1fr) 290px!important}#bot .darkpro-bottom{grid-template-columns:1fr 1fr!important}#bot .darkpro-learning{grid-column:1/-1}}
+@media(max-width:760px){#appView{margin-left:0!important}#bot .ref-topline{grid-template-columns:1fr 1fr}#bot .ops-layout.dual-ops{grid-template-columns:1fr!important}#bot .manual-panel{position:static!important}#bot .bot-panel #botCandlestickChart{height:190px!important}#bot .bot-panel .market-screen{min-height:245px!important}#bot .darkpro-bottom{grid-template-columns:1fr 1fr!important}#bot .darkpro-learning{grid-column:1/-1}}
+@media(max-width:420px){#bot .ref-topline{grid-template-columns:1fr 1fr}#bot .darkpro-bottom{grid-template-columns:1fr!important}#bot .darkpro-learning{grid-column:auto}}
+
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -2958,46 +2985,30 @@ th,td{border-bottom-color:#27313b!important}
 })();
 </script>
 <script>
-/* Montagem visual do painel de referência. Os elementos originais são movidos,
-   não clonados: IDs, campos, eventos e integrações existentes permanecem. */
+/* Estrutura visual baseada na referência enviada; reutiliza os elementos funcionais existentes. */
 (function(){
- function buildReferenceDashboard(){
-  const bot=document.getElementById('bot');
-  if(!bot||bot.dataset.referenceDashboard==='ready')return;
-  const stats=bot.querySelector('.v5-grid');
-  const operations=bot.querySelector('.ops-layout.dual-ops');
-  const feedSelect=document.getElementById('derivFeedSymbol');
-  if(!stats||!operations||!feedSelect)return;
-  bot.dataset.referenceDashboard='ready';
+ function mountReference(){
+  const bot=document.getElementById('bot'),stats=bot?.querySelector('.v5-grid'),ops=bot?.querySelector('.ops-layout.dual-ops'),live=document.getElementById('derivLivePanel'),select=document.getElementById('derivFeedSymbol');
+  if(!bot||bot.dataset.refLayout==='mounted'||!stats||!ops||!live||!select)return;
+  bot.dataset.refLayout='mounted';
   const top=document.createElement('div');top.className='ref-topline';
-  const demo=document.createElement('div');demo.className='ref-topbox';
-  demo.innerHTML='<span class="ref-demo-dot"></span><div><strong class="ref-accent">DEMO</strong><small>Ambiente de demonstração</small></div>';
-  const makeBox=(label,source,accent)=>{
-    const box=document.createElement('div');box.className='ref-topbox';
-    const content=document.createElement('div'),small=document.createElement('small'),strong=document.createElement('strong');
-    small.textContent=label;strong.textContent=source?.textContent?.trim()||'—';
-    if(accent)strong.className='ref-accent';
-    content.append(small,strong);box.append(content);
-    if(source){const observer=new MutationObserver(()=>{strong.textContent=source.textContent.trim()||'—'});observer.observe(source,{childList:true,subtree:true,characterData:true});}
-    return box;
-  };
-  const statCards=[...stats.querySelectorAll('.v5-stat')];
-  top.append(demo,makeBox('Saldo de demonstração',statCards[0]?.querySelector('strong'),true),makeBox('Resultado do bot',statCards[1]?.querySelector('strong'),false),makeBox('Resultado manual',statCards[2]?.querySelector('strong'),false));
-  stats.before(top);
-  const marketbar=document.createElement('div');marketbar.className='ref-marketbar';
-  const label=document.createElement('label');label.textContent='MERCADOS';marketbar.append(label);
-  [...feedSelect.options].forEach((option,index)=>{
-    const b=document.createElement('button');b.type='button';b.textContent=option.textContent;
-    b.classList.toggle('active',option.value===feedSelect.value);
-    b.addEventListener('click',()=>{feedSelect.value=option.value;feedSelect.dispatchEvent(new Event('change',{bubbles:true}));marketbar.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');});
-    marketbar.append(b);
-  });
-  stats.after(marketbar);
-  const learning=document.getElementById('learningPanel'),slot=document.getElementById('darkProLearningSlot');
-  if(learning&&slot)slot.appendChild(learning);
+  const brand=document.createElement('div');brand.className='ref-topbox';brand.innerHTML='<span class="ref-brandmark">♛</span><div><strong>MendtradeR</strong><small>Trade · Aprende · Evolui</small></div>';
+  const demo=document.createElement('div');demo.className='ref-topbox';demo.innerHTML='<span class="ref-demo-dot"></span><div><strong class="ref-accent">DEMO</strong><small>Ambiente de demonstração</small></div>';
+  const cards=[...stats.querySelectorAll('.v5-stat')];
+  const statBox=(title,source,accent)=>{const el=document.createElement('div'),inner=document.createElement('div'),small=document.createElement('small'),strong=document.createElement('strong');el.className='ref-topbox';small.textContent=title;strong.textContent=source?.textContent?.trim()||'—';if(accent)strong.className='ref-accent';inner.append(small,strong);el.append(inner);if(source)new MutationObserver(()=>strong.textContent=source.textContent.trim()||'—').observe(source,{subtree:true,childList:true,characterData:true});return el;};
+  top.append(brand,demo,statBox('Saldo de demonstração',cards[0]?.querySelector('strong'),true),statBox('Resultado da sessão',cards[2]?.querySelector('strong'),false));
+  bot.insertBefore(top,bot.firstChild);
+  const bar=document.createElement('div');bar.className='ref-marketbar';const label=document.createElement('label');label.textContent='MERCADOS';bar.append(label);
+  [...select.options].forEach(option=>{const b=document.createElement('button');b.type='button';b.textContent=option.textContent;b.classList.toggle('active',option.value===select.value);b.addEventListener('click',()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));bar.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');});bar.append(b);});
+  const plus=document.createElement('button');plus.type='button';plus.className='market-plus';plus.textContent='+';plus.addEventListener('click',()=>{const d=document.querySelector('#bot .ref-details');if(d){d.open=true;d.scrollIntoView({behavior:'smooth',block:'start'});}});bar.append(plus);top.after(bar);
+  const liveDetails=document.createElement('details');liveDetails.className='ref-details';const liveSummary=document.createElement('summary');liveSummary.textContent='Mercado em tempo real · análise técnica · candles · ligação Deriv';liveDetails.append(liveSummary,live);ops.after(liveDetails);
+  const botPanel=ops.querySelector('.bot-panel');
+  if(botPanel){const heading=botPanel.querySelector('.panel-heading'),market=botPanel.querySelector('.market-screen'),nodes=[...botPanel.children],settings=document.createElement('details'),summary=document.createElement('summary');settings.className='ref-details';summary.textContent='Configurações e controlo do bot';settings.append(summary);nodes.forEach(node=>{if(node!==heading&&node!==market)settings.append(node);});botPanel.append(settings);const h=heading?.querySelector('h2');if(h)h.textContent='Gráfico do Mercado';}
+  const manual=ops.querySelector('.manual-panel'),account=manual?.querySelector('#derivAccountCard');
+  if(account){const details=document.createElement('details'),summary=document.createElement('summary');details.className='ref-details';summary.textContent='Conta Deriv · ligação e saldo';details.append(summary,account);manual.insertBefore(details,manual.children[1]||null);}
+  const learning=document.getElementById('learningPanel'),slot=document.getElementById('darkProLearningSlot');if(learning&&slot&&learning.parentElement!==slot)slot.append(learning);
  }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',buildReferenceDashboard,{once:true});
- else buildReferenceDashboard();
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountReference,{once:true});else mountReference();
 })();
 </script>
 </body>

@@ -655,6 +655,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
               <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option><option value="1800">30 minutos</option><option value="3600">1 hora</option><option value="14400">4 horas</option><option value="86400">1 dia</option><option value="604800">1 semana</option><option value="2592000">1 mês (30 dias)</option></select><p class="small muted">A duração escolhida é guardada automaticamente neste navegador.</p><p id="manualDurationStatus" class="small muted" aria-live="polite">Os limites de duração serão consultados na Deriv.</p><p class="small muted">A duração é validada automaticamente conforme os limites do ativo na Deriv.</p></div>
               <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" type="button" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" type="button" disabled>↓ VENDA</button></div>
               <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
+              <div class="row" style="margin:8px 0;padding:10px;border:1px solid #315c45;border-radius:10px;background:#07110b"><span class="small muted">⏱ Tempo restante da operação</span><b id="manualTradeCountdown" style="font-variant-numeric:tabular-nums">Sem operação ativa</b></div>
               <div class="manual-result-grid">
                 <div class="ops-mini"><span class="label">P/L em aberto</span><strong id="manualOpenPnl">0.00</strong></div>
                 <div class="ops-mini"><span class="label">Resultado fechado</span><strong id="manualClosedPnl">0.00</strong></div>
@@ -1193,10 +1194,30 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     pnl.textContent = 'P/L: a aguardar';
     row.append(label, status, pnl);
     list.prepend(row);
-    derivOpenContracts.set(String(contractId), { row, status, label, pnl, profit: 0, closed: false, currency });
+    derivOpenContracts.set(String(contractId), { row, status, label, pnl, profit: 0, closed: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null });
     renderManualTradeStats();
     return row;
   }
+  function renderManualTradeCountdown() {
+    const el = $('manualTradeCountdown');
+    if (!el) return;
+    const active = [...derivOpenContracts.values()].filter(item => !item.closed);
+    const tracked = active.length ? active[active.length - 1] : null;
+    if (!tracked) {
+      el.textContent = derivOpenContracts.size ? 'Operação encerrada' : 'Sem operação ativa';
+      return;
+    }
+    if (!Number.isFinite(Number(tracked.expiryEpoch))) {
+      el.textContent = 'A aguardar vencimento confirmado pela Deriv';
+      return;
+    }
+    const seconds = Math.max(0, Math.ceil(Number(tracked.expiryEpoch) - Date.now() / 1000));
+    const hh = String(Math.floor(seconds / 3600)).padStart(2, '0');
+    const mm = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+    const ss = String(seconds % 60).padStart(2, '0');
+    el.textContent = seconds > 0 ? hh + ':' + mm + ':' + ss : 'A confirmar fecho na Deriv…';
+  }
+  setInterval(renderManualTradeCountdown, 1000);
   function renderManualTradeStats() {
     let floating = 0, realized = 0, wins = 0, losses = 0;
     for (const trade of derivOpenContracts.values()) {
@@ -1330,7 +1351,11 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             const profit = Number(contract.profit);
             const state = contract.status || (contract.is_sold ? 'fechado' : 'em aberto');
             if (Number.isFinite(profit)) tracked.profit = profit;
+            const expiry = Number(contract.date_expiry);
+            if (Number.isFinite(expiry) && expiry > 0) tracked.expiryEpoch = expiry;
+            else if (!Number.isFinite(Number(tracked.expiryEpoch)) && Number(contract.date_start) > 0 && tracked.durationSeconds > 0) tracked.expiryEpoch = Number(contract.date_start) + tracked.durationSeconds;
             tracked.closed = !!contract.is_sold;
+            renderManualTradeCountdown();
             tracked.status.textContent = contract.is_sold
               ? state.toUpperCase() + ' · ' + (Number.isFinite(profit) ? profit.toFixed(2) + ' ' + (contract.currency || tracked.currency || '') : '')
               : 'Contrato #' + contract.contract_id + ' · em aberto';

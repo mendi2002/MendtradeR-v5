@@ -1864,10 +1864,23 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   function manualTrailingThresholds(tracked) {
     const atr = Number(tracked.marketAtr);
     if (!Number.isFinite(atr) || atr <= 0) return null;
-    // Só ativa depois de uma deslocação favorável de 1,5 ATR.
-    // A margem de 0,75 ATR deixa respirar pequenas correções e coloca o stop
-    // pelo menos 0,75 ATR além da entrada quando a proteção é ativada.
-    return { activation: atr * 1.5, gap: atr * 0.75 };
+    // Proteção mais próxima: ativa após 0,5 ATR favorável e acompanha com margem de 0,35 ATR.
+    return { activation: atr * 0.5, gap: atr * 0.35, reversal: atr * 0.4 };
+  }
+  function manualExitForecast(tracked, spot, isCall, atr) {
+    const samples = tracked.spotSamples || [];
+    if (samples.length < 3) return null;
+    const first = samples[0], last = samples[samples.length - 1];
+    const elapsed = Math.max(0.25, (last.time - first.time) / 1000);
+    const movement = isCall ? first.price - last.price : last.price - first.price;
+    const adverseSpeed = movement / elapsed;
+    if (!(adverseSpeed > 0)) return { seconds: null, label: 'sem pressão de reversão confirmada' };
+    const distance = tracked.protectionActive && Number.isFinite(Number(tracked.trailingStopSpot))
+      ? Math.abs(spot - Number(tracked.trailingStopSpot))
+      : Math.max(0, atr * 0.4 - (isCall ? tracked.entrySpot - spot : spot - tracked.entrySpot));
+    if (!(distance > 0)) return { seconds: 0, label: 'nível de saída muito próximo' };
+    const seconds = Math.max(1, Math.min(300, Math.round(distance / adverseSpeed)));
+    return { seconds, label: 'se o ritmo adverso atual continuar' };
   }
   async function evaluateManualTrailingProtection(tracked, contract) {
     if (!tracked || tracked.closed || tracked.protectionClosing || tracked.protectionAttempted || contract.is_sold) return;
@@ -1883,47 +1896,58 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     tracked.entrySpot = Number.isFinite(Number(tracked.entrySpot)) ? Number(tracked.entrySpot) : entry;
     const isCall = String(contract.contract_type || '').toUpperCase() === 'CALL' || tracked.direction === 'COMPRA';
     tracked.currentSpot = spot;
+    tracked.spotSamples = tracked.spotSamples || [];
+    const now = Date.now();
+    if (!tracked.spotSamples.length || tracked.spotSamples[tracked.spotSamples.length - 1].price !== spot) {
+      tracked.spotSamples.push({ price: spot, time: now });
+      tracked.spotSamples = tracked.spotSamples.slice(-6);
+    }
     if (isCall) tracked.bestSpot = Math.max(Number(tracked.bestSpot ?? tracked.entrySpot), spot);
     else tracked.bestSpot = Math.min(Number(tracked.bestSpot ?? tracked.entrySpot), spot);
     const favorableMove = isCall ? tracked.bestSpot - tracked.entrySpot : tracked.entrySpot - tracked.bestSpot;
+    const adverseFromEntry = isCall ? tracked.entrySpot - spot : spot - tracked.entrySpot;
     if (!tracked.protectionActive && favorableMove >= thresholds.activation) {
       tracked.protectionActive = true;
-      // Primeiro stop já fica no lado lucrativo da cotação de entrada.
       tracked.trailingStopSpot = isCall
         ? Math.max(tracked.entrySpot + thresholds.gap, tracked.bestSpot - thresholds.gap)
         : Math.min(tracked.entrySpot - thresholds.gap, tracked.bestSpot + thresholds.gap);
     }
-    if (!tracked.protectionActive) {
-      setManualProtectionStatus(tracked,
-        'A acompanhar cotação · entrada ' + tracked.entrySpot + ' · atual ' + spot +
-        ' · precisa avançar ' + thresholds.activation.toFixed(6) + ' pontos a favor para ativar a proteção de lucro.',
-        'muted');
-      return;
-    }
     const candidateStop = isCall
       ? Math.max(tracked.entrySpot + thresholds.gap, tracked.bestSpot - thresholds.gap)
       : Math.min(tracked.entrySpot - thresholds.gap, tracked.bestSpot + thresholds.gap);
-    tracked.trailingStopSpot = Number.isFinite(Number(tracked.trailingStopSpot))
-      ? (isCall ? Math.max(Number(tracked.trailingStopSpot), candidateStop) : Math.min(Number(tracked.trailingStopSpot), candidateStop))
-      : candidateStop;
-    const stopHit = isCall ? spot <= tracked.trailingStopSpot : spot >= tracked.trailingStopSpot;
-    if (!stopHit) {
-      setManualProtectionStatus(tracked,
-        'LUCRO PROTEGIDO · melhor cotação ' + tracked.bestSpot +
-        ' · cotação atual ' + spot + ' · stop de proteção ' + tracked.trailingStopSpot.toFixed(6) +
-        '. O stop só avança a favor e permite correções de até 0,75 ATR.',
-        'success');
+    if (tracked.protectionActive) {
+      tracked.trailingStopSpot = Number.isFinite(Number(tracked.trailingStopSpot))
+        ? (isCall ? Math.max(Number(tracked.trailingStopSpot), candidateStop) : Math.min(Number(tracked.trailingStopSpot), candidateStop))
+        : candidateStop;
+    }
+    const samples = tracked.spotSamples;
+    const lastFour = samples.slice(-4);
+    const adverseTicks = lastFour.length >= 4 && lastFour.slice(1).every((p, i) =>
+      isCall ? p.price < lastFour[i].price : p.price > lastFour[i].price);
+    const pullback = isCall ? tracked.bestSpot - spot : spot - tracked.bestSpot;
+    const stopHit = tracked.protectionActive && (isCall ? spot <= tracked.trailingStopSpot : spot >= tracked.trailingStopSpot);
+    // Reversão confirmada: quatro cotações adversas seguidas e recuo mínimo de 0,4 ATR.
+    // Antes de existir lucro protegido, corta também uma inversão forte contra a entrada.
+    const reversalExit = (adverseTicks && (tracked.protectionActive ? pullback >= thresholds.reversal : adverseFromEntry >= thresholds.reversal));
+    const forecast = manualExitForecast(tracked, spot, isCall, Number(tracked.marketAtr));
+    const forecastText = forecast?.seconds ? ' · saída estimada ~' + forecast.seconds + ' s (' + forecast.label + ')' : '';
+    if (!stopHit && !reversalExit) {
+      const state = tracked.protectionActive
+        ? 'LUCRO PROTEGIDO · melhor ' + tracked.bestSpot + ' · atual ' + spot + ' · stop ' + Number(tracked.trailingStopSpot).toFixed(6)
+        : 'A MONITORIZAR REVERSÃO · entrada ' + tracked.entrySpot + ' · atual ' + spot + ' · proteção ativa após +0,5 ATR';
+      setManualProtectionStatus(tracked, state + forecastText + ' · análise atualizada com cotações reais da Deriv.', tracked.protectionActive ? 'success' : 'muted');
       return;
     }
+    const reason = stopHit ? 'STOP DE LUCRO ATINGIDO' : 'REVERSÃO CONFIRMADA';
     if (contract.is_valid_to_sell !== true && Number(contract.is_valid_to_sell) !== 1) {
       setManualProtectionStatus(tracked,
-        'NÍVEL DE PROTEÇÃO ATINGIDO · a Deriv ainda não autoriza a venda antecipada. A tentar novamente nas próximas atualizações.',
+        reason + ' · a Deriv ainda não autoriza a venda antecipada. O sistema continuará a tentar nas próximas cotações.',
         'warning');
       return;
     }
     tracked.protectionClosing = true;
     tracked.protectionAttempted = true;
-    setManualProtectionStatus(tracked, 'REVERSÃO ATINGIU O STOP · a enviar fecho imediato à Deriv…', 'warning');
+    setManualProtectionStatus(tracked, reason + ' · a enviar fecho imediato à Deriv, sem esperar pelo cronómetro…', 'warning');
     try {
       const response = await sendDerivTradeRequest({ sell: Number(contract.contract_id), price: 0 });
       const sold = response.sell || response.data?.sell;
@@ -1934,7 +1958,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       tracked.protectionClosing = false;
       setManualProtectionStatus(tracked,
         'A Deriv não confirmou o fecho: ' + (error.message || 'erro desconhecido') +
-        '. O contrato continua a ser acompanhado; não há garantia de execução.',
+        '. A operação continua em acompanhamento; execução antecipada não é garantida.',
         'error');
     }
   }
@@ -1958,7 +1982,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     pnl.textContent = 'P/L: a aguardar';
     row.append(label, status, pnl, protection);
     list.prepend(row);
-    const tracked = { row, status, label, pnl, protectionEl: protection, profit: 0, closed: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null, marketSnapshot: marketSnapshot || {status:'unavailable'}, marketAtr: Number(marketSnapshot?.atr14), direction: direction === 'CALL' ? 'COMPRA' : 'VENDA', asset, amount: Number(amount)||0, persisted:false, protectionActive: false, protectionClosing: false, protectionAttempted: false, entrySpot: null, currentSpot: null, bestSpot: null, trailingStopSpot: null };
+    const tracked = { row, status, label, pnl, protectionEl: protection, profit: 0, closed: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null, marketSnapshot: marketSnapshot || {status:'unavailable'}, marketAtr: Number(marketSnapshot?.atr14), direction: direction === 'CALL' ? 'COMPRA' : 'VENDA', asset, amount: Number(amount)||0, persisted:false, protectionActive: false, protectionClosing: false, protectionAttempted: false, entrySpot: null, currentSpot: null, bestSpot: null, trailingStopSpot: null, spotSamples: [] };
     derivOpenContracts.set(String(contractId), tracked);
     setManualProtectionStatus(tracked, 'A acompanhar contrato DEMO · a proteção será ativada quando houver lucro suficiente.', 'muted');
     renderManualTradeStats();

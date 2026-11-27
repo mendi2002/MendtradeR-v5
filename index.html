@@ -1862,64 +1862,69 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     }
   }
   function manualTrailingThresholds(tracked) {
-    const stake = Math.max(0, Number(tracked.amount) || 0);
-    const activation = Math.max(0.01, stake * 0.03);
-    const peak = Math.max(0, Number(tracked.peakProfit) || 0);
-    const gap = Math.max(0.01, stake * 0.02, peak * 0.25);
-    return { activation, gap, floor: Math.max(0, peak - gap) };
+    const atr = Number(tracked.marketAtr);
+    if (!Number.isFinite(atr) || atr <= 0) return null;
+    return { activation: atr * 0.75, gap: atr * 1.25 };
   }
   async function evaluateManualTrailingProtection(tracked, contract) {
-    if (!tracked || tracked.closed || tracked.protectionClosing || tracked.protectionAttempted) return;
-    if (contract.is_sold) return;
-    const profit = Number(contract.profit);
-    if (!Number.isFinite(profit)) return;
-    tracked.peakProfit = Math.max(Number(tracked.peakProfit) || 0, profit);
-    const limits = manualTrailingThresholds(tracked);
-    if (!tracked.protectionActive && tracked.peakProfit >= limits.activation) {
+    if (!tracked || tracked.closed || tracked.protectionClosing || tracked.protectionAttempted || contract.is_sold) return;
+    const spot = Number(contract.current_spot);
+    const entry = Number(contract.entry_spot);
+    const thresholds = manualTrailingThresholds(tracked);
+    if (!Number.isFinite(spot) || !Number.isFinite(entry) || !thresholds) {
+      setManualProtectionStatus(tracked, 'A aguardar cotação/entrada e volatilidade válidas da Deriv. A proteção por preço ainda não pode ser calculada.', 'warning');
+      return;
+    }
+    tracked.entrySpot = Number.isFinite(Number(tracked.entrySpot)) ? Number(tracked.entrySpot) : entry;
+    const isCall = String(contract.contract_type || '').toUpperCase() === 'CALL' || tracked.direction === 'COMPRA';
+    tracked.currentSpot = spot;
+    if (isCall) tracked.bestSpot = Math.max(Number(tracked.bestSpot ?? tracked.entrySpot), spot);
+    else tracked.bestSpot = Math.min(Number(tracked.bestSpot ?? tracked.entrySpot), spot);
+    const favorableMove = isCall ? tracked.bestSpot - tracked.entrySpot : tracked.entrySpot - tracked.bestSpot;
+    if (!tracked.protectionActive && favorableMove >= thresholds.activation) {
       tracked.protectionActive = true;
-      setManualProtectionStatus(tracked,
-        'Proteção ativa · pico ' + tracked.peakProfit.toFixed(2) + ' ' + tracked.currency +
-        ' · margem de correção ' + limits.gap.toFixed(2) + ' ' + tracked.currency + '.',
-        'success');
+      tracked.trailingStopSpot = isCall ? tracked.bestSpot - thresholds.gap : tracked.bestSpot + thresholds.gap;
     }
     if (!tracked.protectionActive) {
       setManualProtectionStatus(tracked,
-        'A acompanhar lucro · proteção ativa a partir de ' + limits.activation.toFixed(2) + ' ' + tracked.currency + '.',
+        'A acompanhar cotação · entrada ' + tracked.entrySpot + ' · atual ' + spot +
+        ' · ativação após movimento favorável de ' + thresholds.activation.toFixed(6) + ' pontos.',
         'muted');
       return;
     }
-    const updated = manualTrailingThresholds(tracked);
-    if (profit > updated.floor) {
+    const candidateStop = isCall ? tracked.bestSpot - thresholds.gap : tracked.bestSpot + thresholds.gap;
+    tracked.trailingStopSpot = Number.isFinite(Number(tracked.trailingStopSpot))
+      ? (isCall ? Math.max(Number(tracked.trailingStopSpot), candidateStop) : Math.min(Number(tracked.trailingStopSpot), candidateStop))
+      : candidateStop;
+    const stopHit = isCall ? spot <= tracked.trailingStopSpot : spot >= tracked.trailingStopSpot;
+    if (!stopHit) {
       setManualProtectionStatus(tracked,
-        'MANTER · lucro atual ' + profit.toFixed(2) + ' ' + tracked.currency +
-        ' · pico ' + tracked.peakProfit.toFixed(2) + ' · stop móvel ' + updated.floor.toFixed(2) + '. Correção ainda dentro da margem.',
+        'STOP MÓVEL ATIVO · melhor cotação ' + tracked.bestSpot +
+        ' · cotação atual ' + spot + ' · proteção em ' + tracked.trailingStopSpot.toFixed(6) +
+        '. Pequenas correções dentro da margem são permitidas.',
         'success');
       return;
     }
-    if (contract.is_valid_to_sell !== true) {
+    if (contract.is_valid_to_sell !== true && Number(contract.is_valid_to_sell) !== 1) {
       setManualProtectionStatus(tracked,
-        'PROTEGER LUCRO · o stop móvel foi atingido, mas a Deriv não autoriza venda antecipada neste instante. A acompanhar até voltar a permitir ou até ao vencimento.',
+        'NÍVEL DE PROTEÇÃO ATINGIDO · a Deriv ainda não autoriza a venda antecipada. A tentar novamente nas próximas atualizações.',
         'warning');
       return;
     }
     tracked.protectionClosing = true;
     tracked.protectionAttempted = true;
-    setManualProtectionStatus(tracked,
-      'FECHAR PARA PROTEGER LUCRO · correção atingiu o stop móvel. A enviar venda antecipada à Deriv…',
-      'warning');
+    setManualProtectionStatus(tracked, 'REVERSÃO ATINGIU O STOP · a enviar fecho imediato à Deriv…', 'warning');
     try {
       const response = await sendDerivTradeRequest({ sell: Number(contract.contract_id), price: 0 });
       const sold = response.sell || response.data?.sell;
       if (!sold) throw new Error(response.error?.message || 'A Deriv não confirmou a venda antecipada.');
-      setManualProtectionStatus(tracked,
-        'Venda de proteção aceite pela Deriv. A aguardar confirmação do resultado final.',
-        'success');
+      setManualProtectionStatus(tracked, 'Pedido de fecho aceite pela Deriv. A aguardar confirmação do resultado final.', 'success');
     } catch (error) {
       tracked.protectionAttempted = false;
       tracked.protectionClosing = false;
       setManualProtectionStatus(tracked,
-        'A Deriv não confirmou a venda de proteção: ' + (error.message || 'erro desconhecido') +
-        '. O contrato continua a ser acompanhado; a proteção automática pode não conseguir fechar.',
+        'A Deriv não confirmou o fecho: ' + (error.message || 'erro desconhecido') +
+        '. O contrato continua a ser acompanhado; não há garantia de execução.',
         'error');
     }
   }
@@ -1943,7 +1948,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     pnl.textContent = 'P/L: a aguardar';
     row.append(label, status, pnl, protection);
     list.prepend(row);
-    const tracked = { row, status, label, pnl, protectionEl: protection, profit: 0, closed: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null, marketSnapshot: marketSnapshot || {status:'unavailable'}, direction: direction === 'CALL' ? 'COMPRA' : 'VENDA', asset, amount: Number(amount)||0, persisted:false, peakProfit: 0, protectionActive: false, protectionClosing: false, protectionAttempted: false };
+    const tracked = { row, status, label, pnl, protectionEl: protection, profit: 0, closed: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null, marketSnapshot: marketSnapshot || {status:'unavailable'}, marketAtr: Number(marketSnapshot?.atr14), direction: direction === 'CALL' ? 'COMPRA' : 'VENDA', asset, amount: Number(amount)||0, persisted:false, protectionActive: false, protectionClosing: false, protectionAttempted: false, entrySpot: null, currentSpot: null, bestSpot: null, trailingStopSpot: null };
     derivOpenContracts.set(String(contractId), tracked);
     setManualProtectionStatus(tracked, 'A acompanhar contrato DEMO · a proteção será ativada quando houver lucro suficiente.', 'muted');
     renderManualTradeStats();
@@ -1959,7 +1964,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
           const cs=(d.candles||[]).filter(c=>Number.isFinite(Number(c.close))).slice(-300),cl=cs.map(c=>Number(c.close));
           if(cl.length<21){finish({version:1,status:'insufficient_data',symbol,timeframe:'1m',candle_count:cl.length,captured_at:new Date().toISOString()});return;}
           const a=ema(cl,9),b=ema(cl,21),r=rsi(cl,14),i=cl.length-1,last=cs[i];
-          finish({version:1,status:'captured',source:'deriv_ticks_history',timeframe:'1m',symbol,candle_count:cl.length,captured_at:new Date().toISOString(),trend:a[i]>b[i]?'bullish':a[i]<b[i]?'bearish':'neutral',ema9:Number(a[i].toFixed(8)),ema21:Number(b[i].toFixed(8)),rsi14:Number(r[i].toFixed(2)),last_candle:{epoch:last.epoch,open:last.open,high:last.high,low:last.low,close:last.close},previous_close:cl[i-1]});};
+          const trueRanges=cs.slice(1).map((c,j)=>Math.max(Number(c.high)-Number(c.low),Math.abs(Number(c.high)-Number(cs[j].close)),Math.abs(Number(c.low)-Number(cs[j].close)))).filter(v=>Number.isFinite(v)&&v>0);
+          const atrValues=trueRanges.slice(-14),atr14=atrValues.length===14?atrValues.reduce((sum,v)=>sum+v,0)/atrValues.length:null;
+          finish({version:1,status:'captured',source:'deriv_ticks_history',timeframe:'1m',symbol,candle_count:cl.length,captured_at:new Date().toISOString(),trend:a[i]>b[i]?'bullish':a[i]<b[i]?'bearish':'neutral',ema9:Number(a[i].toFixed(8)),ema21:Number(b[i].toFixed(8)),rsi14:Number(r[i].toFixed(2)),atr14:atr14&&Number.isFinite(atr14)?Number(atr14.toFixed(10)):null,last_candle:{epoch:last.epoch,open:last.open,high:last.high,low:last.low,close:last.close},previous_close:cl[i-1]});};
         ws.onerror=()=>finish({version:1,status:'unavailable',reason:'Falha na ligação Deriv',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});
       }catch(e){finish({version:1,status:'unavailable',reason:e.message,symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});}
     });

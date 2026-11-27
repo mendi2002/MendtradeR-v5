@@ -591,6 +591,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
               <div class="row" style="margin-top:12px"><button id="derivCandleBacktest" class="secondary">Testar estratégia em demo</button></div>
               <p id="derivCandleTestResult" class="small muted">O teste ficará disponível após recolher pelo menos 60 candles fechados (aproximadamente 1 hora).</p>
             </div>
+            <div id="learningPanel" class="card" style="margin-top:14px"><h3>🧠 Aprendizagem inteligente · análise de resultados</h3><p class="small muted">Análise observacional das operações DEMO. Não altera entradas, estratégia ou valor de operação.</p><div class="formgrid"><div class="field"><label>Operações registadas</label><strong id="learningRegistered">0</strong></div><div class="field"><label>Capturas técnicas válidas</label><strong id="learningTotal">0</strong></div><div class="field"><label>Sem contexto válido</label><strong id="learningInvalid">0</strong></div><div class="field"><label>Positivas / negativas válidas</label><strong id="learningWinsLosses">0 / 0</strong></div><div class="field"><label>Taxa positiva observada</label><strong id="learningWinRate">—</strong></div><div class="field"><label>Estado</label><strong id="learningState">A aguardar dados</strong></div></div><p id="learningLastUpdate" class="small muted">Ainda sem análise.</p><div class="tablewrap"><table><thead><tr><th>Contexto</th><th>Amostras</th><th>Positivas</th><th>Negativas</th><th>Taxa</th></tr></thead><tbody id="learningPatternRows"><tr><td colspan="5" class="muted">A aguardar dados suficientes.</td></tr></tbody></table></div><div class="row" style="margin-top:10px"><button id="learningRefreshBtn" class="secondary">Atualizar análise</button></div><p id="learningNotice" class="small muted">São necessárias 20 capturas técnicas válidas. Não prevê resultados nem modifica o bot.</p></div>
             <p class="small muted">As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.</p>
           </div>
           <div class="v5-grid">
@@ -1177,7 +1178,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     }
     return raw || 'Não foi possível executar a operação DEMO. Verifica a ligação e tenta novamente.';
   }
-  function addManualHistoryRow(contractId, direction, asset, amount, currency, duration) {
+  function addManualHistoryRow(contractId, direction, asset, amount, currency, duration, marketSnapshot) {
     const list = $('manualHistory');
     if (!list) return null;
     if (list.querySelector('.muted')?.textContent.includes('Ainda sem operações')) list.innerHTML = '';
@@ -1194,9 +1195,33 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     pnl.textContent = 'P/L: a aguardar';
     row.append(label, status, pnl);
     list.prepend(row);
-    derivOpenContracts.set(String(contractId), { row, status, label, pnl, profit: 0, closed: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null });
+    derivOpenContracts.set(String(contractId), { row, status, label, pnl, profit: 0, closed: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null, marketSnapshot: marketSnapshot || {status:'unavailable'}, direction: direction === 'CALL' ? 'COMPRA' : 'VENDA', asset, amount: Number(amount)||0, persisted:false });
     renderManualTradeStats();
     return row;
+  }
+  function captureTradeMarketSnapshot(symbol) {
+    return new Promise(resolve=>{
+      let done=false,ws=null;const finish=x=>{if(done)return;done=true;clearTimeout(timer);try{ws?.close();}catch(e){}resolve(x);};
+      const timer=setTimeout(()=>finish({version:1,status:'unavailable',reason:'Tempo esgotado',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()}),12000);
+      try{ws=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+        ws.onopen=()=>ws.send(JSON.stringify({ticks_history:symbol,count:300,end:'latest',style:'candles',granularity:60,adjust_start_time:1}));
+        ws.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(x){return}if(d.error){finish({version:1,status:'unavailable',reason:d.error.message,symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});return;}if(d.msg_type!=='candles'&&!Array.isArray(d.candles))return;
+          const cs=(d.candles||[]).filter(c=>Number.isFinite(Number(c.close))).slice(-300),cl=cs.map(c=>Number(c.close));
+          if(cl.length<21){finish({version:1,status:'insufficient_data',symbol,timeframe:'1m',candle_count:cl.length,captured_at:new Date().toISOString()});return;}
+          const a=ema(cl,9),b=ema(cl,21),r=rsi(cl,14),i=cl.length-1,last=cs[i];
+          finish({version:1,status:'captured',source:'deriv_ticks_history',timeframe:'1m',symbol,candle_count:cl.length,captured_at:new Date().toISOString(),trend:a[i]>b[i]?'bullish':a[i]<b[i]?'bearish':'neutral',ema9:Number(a[i].toFixed(8)),ema21:Number(b[i].toFixed(8)),rsi14:Number(r[i].toFixed(2)),last_candle:{epoch:last.epoch,open:last.open,high:last.high,low:last.low,close:last.close},previous_close:cl[i-1]});};
+        ws.onerror=()=>finish({version:1,status:'unavailable',reason:'Falha na ligação Deriv',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});
+      }catch(e){finish({version:1,status:'unavailable',reason:e.message,symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});}
+    });
+  }
+  async function persistClosedManualTrade(t,contract){
+    if(!currentUser||!t||t.persisted||!Number.isFinite(Number(contract.profit)))return;t.persisted=true;
+    const profit=Number(contract.profit);
+    const {data:row,error}=await client.from('trade_history').insert({user_id:currentUser.id,asset:t.asset,direction:t.direction,entry_amount:t.amount,result:profit,commission:0,status:'closed',trade_type:'manual',stake:t.amount,profit}).select('id').single();
+    if(error||!row?.id){t.persisted=false;console.warn('Falha ao guardar operação manual:',error?.message);return;}
+    const {error:ctxError}=await client.from('trade_market_context').insert({user_id:currentUser.id,trade_history_id:row.id,asset:t.asset,direction:t.direction,outcome:profit>0?'win':profit<0?'loss':'breakeven',profit,market_snapshot:t.marketSnapshot||{status:'unavailable'}});
+    if(ctxError)console.warn('Falha ao guardar contexto técnico:',ctxError.message);
+    loadLearningInsights();
   }
   function renderManualTradeCountdown() {
     const el = $('manualTradeCountdown');
@@ -1260,6 +1285,8 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     try {
       message('manualTradeStatus', 'A verificar as condições deste ativo na Deriv…');
       await validateManualTradeAvailability(symbol, direction, duration);
+      message('manualTradeStatus', 'A recolher contexto técnico dos candles…');
+      const marketSnapshot = await captureTradeMarketSnapshot(symbol);
       message('manualTradeStatus', 'Ativo e duração confirmados. A pedir cotação à Deriv…');
       const apiDuration = derivDurationForApi(duration);
       const quoteResponse = await sendDerivTradeRequest({
@@ -1275,7 +1302,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
       const buyResponse = await sendDerivTradeRequest({ buy: quote.id, price: Number(quote.ask_price) });
       const bought = buyResponse.buy || buyResponse.data?.buy;
       if (!bought?.contract_id) throw new Error(buyResponse.error?.message || 'A Deriv não confirmou a abertura do contrato.');
-      const row = addManualHistoryRow(bought.contract_id, direction, assetLabel, amount, currency, duration);
+      const row = addManualHistoryRow(bought.contract_id, direction, assetLabel, amount, currency, duration, marketSnapshot);
       message('manualTradeStatus', 'Contrato DEMO aberto com sucesso. ID: ' + bought.contract_id + '. A acompanhar o resultado.', 'success');
       if (derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN) {
         derivTradingSocket.send(JSON.stringify({
@@ -1356,6 +1383,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             else if (!Number.isFinite(Number(tracked.expiryEpoch)) && Number(contract.date_start) > 0 && tracked.durationSeconds > 0) tracked.expiryEpoch = Number(contract.date_start) + tracked.durationSeconds;
             tracked.closed = !!contract.is_sold;
             renderManualTradeCountdown();
+            if(contract.is_sold) persistClosedManualTrade(tracked,contract).catch(e=>console.warn('Falha no registo da operação:',e));
             tracked.status.textContent = contract.is_sold
               ? state.toUpperCase() + ' · ' + (Number.isFinite(profit) ? profit.toFixed(2) + ' ' + (contract.currency || tracked.currency || '') : '')
               : 'Contrato #' + contract.contract_id + ' · em aberto';
@@ -1476,7 +1504,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     const savedManualDuration = Number(localStorage.getItem(manualDurationKey));
     if ([60,300,900,1800,3600,14400,86400,604800,2592000].includes(savedManualDuration)) $('manualExpiry').value = String(savedManualDuration);
     if (typeof ensureReferralAttribution === 'function') ensureReferralAttribution(user); $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
-    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); checkOwnerAccess(); checkManualDurationAvailability();
+    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); loadLearningInsights(); checkOwnerAccess(); checkManualDurationAvailability();
     // Ao entrar na plataforma, ligar automaticamente ao fluxo de cotações público.
     // O servidor mantém a subscrição Deriv independentemente desta ligação do navegador.
     setTimeout(()=>{ if(!derivFeedWanted) connectDerivFeed(); }, 250);
@@ -2346,6 +2374,21 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     $('derivCandleState').textContent='A recolher candle atual';
     renderBotCandlestickChart();
   }
+  async function loadLearningInsights(){
+    if(!currentUser)return;const btn=$('learningRefreshBtn');if(btn)btn.disabled=true;$('learningState').textContent='A analisar…';
+    const {data,error}=await client.from('trade_market_context').select('asset,direction,outcome,profit,market_snapshot,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(500);
+    if(error){$('learningState').textContent='Indisponível';$('learningNotice').textContent='Erro ao consultar dados: '+error.message;if(btn)btn.disabled=false;return;}
+    const rows=data||[],valid=rows.filter(x=>{const p=x.market_snapshot||{};return p.status==='captured'&&Number(p.candle_count)>=21&&Number.isFinite(Number(p.ema9))&&Number.isFinite(Number(p.ema21))&&Number.isFinite(Number(p.rsi14));});
+    const wins=valid.filter(x=>x.outcome==='win').length,losses=valid.filter(x=>x.outcome==='loss').length,done=wins+losses;
+    $('learningRegistered').textContent=String(rows.length);$('learningTotal').textContent=String(valid.length);$('learningInvalid').textContent=String(rows.length-valid.length);$('learningWinsLosses').textContent=wins+' / '+losses;$('learningWinRate').textContent=done?(wins/done*100).toFixed(1)+'%':'—';
+    $('learningLastUpdate').textContent=rows.length?'Último registo: '+new Date(rows[0].created_at).toLocaleString('pt-PT'):'Ainda sem operações registadas.';
+    if(valid.length<20){$('learningState').textContent='Dados técnicos insuficientes';$('learningPatternRows').innerHTML='<tr><td colspan="5" class="muted">São necessárias 20 capturas válidas.</td></tr>';$('learningNotice').textContent=valid.length+' de 20 capturas técnicas válidas. Registos sem contexto não contam.';if(btn)btn.disabled=false;return;}
+    const groups=new Map();for(const x of valid){if(x.outcome==='breakeven')continue;const p=x.market_snapshot||{},r=Number(p.rsi14),band=r<40?'RSI <40':r<50?'RSI 40–49':r<60?'RSI 50–59':r<70?'RSI 60–69':'RSI ≥70',trend=p.trend||'neutra',key=[x.asset,x.direction,trend,band].join('|');if(!groups.has(key))groups.set(key,{asset:x.asset,direction:x.direction,trend,band,total:0,wins:0,losses:0});const g=groups.get(key);g.total++;if(x.outcome==='win')g.wins++;if(x.outcome==='loss')g.losses++;}
+    const patterns=[...groups.values()].filter(g=>g.total>=5).sort((a,b)=>b.wins/b.total-a.wins/a.total||b.total-a.total).slice(0,8);
+    $('learningState').textContent='Análise observacional';$('learningPatternRows').innerHTML=patterns.length?patterns.map(g=>'<tr><td>'+escapeHtml(g.asset)+' · '+escapeHtml(g.direction)+'<br><span class="small muted">'+escapeHtml(g.trend)+' · '+escapeHtml(g.band)+'</span></td><td>'+g.total+'</td><td>'+g.wins+'</td><td>'+g.losses+'</td><td>'+((g.wins/g.total)*100).toFixed(1)+'%</td></tr>').join(''):'<tr><td colspan="5" class="muted">Sem grupos com pelo menos 5 operações.</td></tr>';
+    $('learningNotice').textContent='Análise exploratória de '+valid.length+' capturas válidas. Não prevê resultados nem modifica o bot.';if(btn)btn.disabled=false;
+  }
+  $('learningRefreshBtn')?.addEventListener('click',loadLearningInsights);
   function renderDerivCandles(){
     renderBotCandlestickChart();
     $('derivCandleCount').textContent=String(derivLiveCandles.length);

@@ -1036,6 +1036,60 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   #bot .ops-slide #botCandlestickChart,#bot .ops-slide .market-screen svg{height:165px!important;max-height:165px!important}
 }
 
+
+/* MENDTRADER — BLOCO A: acabamento preto, sem amarelo nos botões */
+#mainNav button,
+#mainNav button.active,
+#mainNav button:hover{
+ background:#080b10!important;
+ color:#edf3fa!important;
+ border:1px solid #263747!important;
+ box-shadow:none!important;
+}
+#mainNav button.active{
+ border-color:#1689c9!important;
+ box-shadow:inset 3px 0 #1689c9!important;
+}
+#bot .ops-carousel-tabs button,
+#bot .ops-carousel-tabs button.active,
+#bot .ref-marketbar button,
+#bot .ref-marketbar button.active,
+#bot button:not(.buy-btn):not(.sell-btn):not(.secondary){
+ background:#080b10!important;
+ color:#edf3fa!important;
+ border:1px solid #293b4d!important;
+ box-shadow:none!important;
+}
+#bot .ops-carousel-tabs button.active,
+#bot .ref-marketbar button.active{
+ background:#101a25!important;
+ border-color:#1689c9!important;
+ color:#fff!important;
+ box-shadow:inset 0 -2px #1689c9!important;
+}
+#bot button.secondary,
+#appView .top-tools button,
+#appView .top-tools select{
+ background:#080b10!important;
+ color:#edf3fa!important;
+ border:1px solid #293b4d!important;
+ box-shadow:none!important;
+}
+#bot .manual-panel .buy-btn{background:linear-gradient(180deg,#16e59a,#009c68)!important;color:#00170e!important;border-color:#16c88c!important}
+#bot .manual-panel .sell-btn{background:linear-gradient(180deg,#ff6274,#c51f3c)!important;color:#fff!important;border-color:#e64b60!important}
+#bot .ref-topbox:first-child,#bot .manual-panel{border-color:#30465e!important}
+#bot .ref-brandmark,#bot .ref-topbox .ref-accent,
+#bot .darkpro-widget-title,#bot .darkpro-learning #learningPanel h3,
+#bot .ref-details[open]>summary,#bot th{color:#d7e4f1!important;text-shadow:none!important}
+@media(max-width:760px){
+ #appView .top{padding:8px 10px!important;gap:8px!important}
+ #appView .top .brand{font-size:20px!important}
+ #bot .ops-carousel-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+ #bot .ops-carousel-tabs button{min-height:42px!important;padding:8px 6px!important}
+ #bot .ops-slide #botCandlestickChart,
+ #bot .ops-slide .market-screen svg{height:170px!important;max-height:170px!important}
+}
+
 </style>
 </head>
 <body>

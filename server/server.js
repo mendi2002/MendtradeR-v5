@@ -23,14 +23,15 @@ const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://mendtrader-v6-ma
 const server = http.createServer((req, res) => {
   const requestUrl = new URL(req.url, 'http://localhost');
   const origin = req.headers.origin || '';
-  if (origin === FRONTEND_ORIGIN) {
-    res.setHeader('access-control-allow-origin', FRONTEND_ORIGIN);
+  const corsOrigins = new Set([FRONTEND_ORIGIN, ...ALLOWED_ORIGINS]);
+  if (corsOrigins.has(origin)) {
+    res.setHeader('access-control-allow-origin', origin);
     res.setHeader('vary', 'Origin');
     res.setHeader('access-control-allow-methods', 'POST, OPTIONS');
     res.setHeader('access-control-allow-headers', 'authorization, content-type');
   }
   if (requestUrl.pathname === '/oauth/deriv/token' && req.method === 'OPTIONS') {
-    if (origin !== FRONTEND_ORIGIN) { res.writeHead(403); return res.end(); }
+    if (!corsOrigins.has(origin)) { res.writeHead(403); return res.end(); }
     res.writeHead(204); return res.end();
   }
   if (requestUrl.pathname === '/callback' && req.method === 'GET') {

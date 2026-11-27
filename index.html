@@ -881,6 +881,18 @@ body{
  border-radius:10px!important;font-weight:800;
 }
 #bot button.secondary{background:linear-gradient(180deg,#1b3550,#102238)!important;color:#e8f3ff!important;border:1px solid #365b7e!important}
+/* FIX VISUAL: os separadores do mercado não podem herdar o dourado dos botões de ação */
+#bot .ref-marketbar button,
+#bot .ref-marketbar button:not(.secondary):not(.buy-btn):not(.sell-btn){
+ background:linear-gradient(180deg,#10243a,#091522)!important;
+ color:#dcecff!important;border:1px solid #31516f!important;
+ box-shadow:none!important;
+}
+#bot .ref-marketbar button.active{
+ background:linear-gradient(120deg,#164b73,#102b45)!important;
+ color:#fff!important;border:1px solid #25a9ff!important;
+ box-shadow:0 0 0 1px #25a9ff33,0 0 18px #25a9ff25!important;
+}
 #bot .notice,#bot .window-dock{background:#101e2d!important;border-color:#2c4a66!important;color:#dcecff!important}
 #bot th{color:#f4d77c!important}
 #bot td,#bot th{border-bottom-color:#26394e!important}

@@ -683,6 +683,57 @@ th,td{border-bottom-color:#27313b!important}
  body{background-attachment:scroll}
 }
 
+  
+/* DASHBOARD REF — composição baseada na imagem fornecida, sem alterar IDs ou handlers */
+#bot .ref-topline{display:grid;grid-template-columns:minmax(220px,1.3fr) repeat(3,minmax(130px,.8fr));gap:9px;margin:10px 0}
+#bot .ref-topbox{display:flex;align-items:center;gap:12px;min-width:0;padding:12px 15px;background:linear-gradient(145deg,#0b111a,#05080d);border:1px solid #26384d;border-radius:13px;box-shadow:0 8px 22px #0008}
+#bot .ref-topbox strong{display:block;font-size:clamp(16px,1.5vw,23px);color:#f5f7fa}
+#bot .ref-topbox small{display:block;color:#aab7c6;font-size:11px}
+#bot .ref-topbox .ref-accent{color:#f5cf45}
+#bot .ref-marketbar{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:8px;margin:8px 0;background:#070c13;border:1px solid #26384d;border-radius:13px}
+#bot .ref-marketbar button{flex:0 0 auto;background:#101c2a!important;color:#e9f2fc!important;border:1px solid #284765!important;padding:10px 14px}
+#bot .ref-marketbar button.active{background:#07385a!important;border-color:#159cff!important;box-shadow:0 0 14px #159cff55!important}
+#bot .ops-hero{display:none!important}
+#bot>.window-dock{display:none!important}
+#bot>.v5-grid{margin:8px 0!important}
+#bot .ops-layout.dual-ops{grid-template-columns:minmax(0,1fr) minmax(285px,310px)!important;gap:10px!important;margin:8px 0!important}
+#bot .bot-panel,#bot .manual-panel{background:linear-gradient(145deg,#0b111a,#05080d)!important;border:1px solid #26384d!important;border-radius:15px!important;padding:12px!important}
+#bot .bot-panel .market-screen{min-height:310px!important;background:#050a11!important;border:1px solid #1766a0!important}
+#bot .bot-panel #botCandlestickChart{height:250px!important}
+#bot .bot-panel .panel-heading h2{font-size:16px}
+#bot .manual-panel{position:sticky!important;top:10px!important}
+#bot .manual-panel .panel-heading{border-color:#34445a}
+#bot .manual-panel .manual-actions button{min-height:54px!important;font-size:16px!important}
+#bot .manual-panel .buy-btn{background:linear-gradient(180deg,#10e58a,#009b59)!important;color:#00190d!important}
+#bot .manual-panel .sell-btn{background:linear-gradient(180deg,#ff5264,#c91e39)!important;color:white!important}
+#bot .darkpro-bottom{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(280px,1.25fr)!important;align-items:stretch}
+#bot .darkpro-shortcut,#bot .darkpro-learning #learningPanel{background:linear-gradient(145deg,#0b111a,#05080d)!important;border:1px solid #26384d!important;border-radius:15px!important}
+#bot .darkpro-widget-title{color:#f5cf45}
+#bot .darkpro-learning #learningPanel{height:100%;padding:13px!important}
+#bot .darkpro-learning #learningPanel h3{color:#f5cf45}
+#bot .ref-topline .ref-demo-dot{width:10px;height:10px;border-radius:50%;background:#00df85;box-shadow:0 0 12px #00df85;display:inline-block}
+#bot .ref-marketbar label{color:#aab7c6;font-size:12px;white-space:nowrap}
+@media(max-width:1050px){
+ #bot .ref-topline{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #bot .ops-layout.dual-ops{grid-template-columns:minmax(0,1fr) 290px!important}
+ #bot .darkpro-bottom{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ #bot .darkpro-learning{grid-column:1/-1}
+}
+@media(max-width:760px){
+ #bot .ref-topline{grid-template-columns:1fr 1fr}
+ #bot .ops-layout.dual-ops{grid-template-columns:minmax(0,1fr)!important}
+ #bot .manual-panel{position:static!important}
+ #bot .bot-panel #botCandlestickChart{height:190px!important}
+ #bot .bot-panel .market-screen{min-height:245px!important}
+ #bot .darkpro-bottom{grid-template-columns:1fr 1fr!important}
+ #bot .darkpro-learning{grid-column:1/-1}
+}
+@media(max-width:420px){
+ #bot .ref-topline{grid-template-columns:1fr 1fr}
+ #bot .darkpro-bottom{grid-template-columns:1fr!important}
+ #bot .darkpro-learning{grid-column:auto}
+}
+
   </style>
 </head>
 <body>
@@ -2117,6 +2168,51 @@ th,td{border-bottom-color:#27313b!important}
     win.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MendtradeR · ${safe}</title><style>body{margin:0;background:#050806;color:#effff5;font:16px system-ui;padding:22px}header,.panel{background:#0d1711;border:1px solid #245438;border-radius:14px;padding:16px;margin-bottom:14px}.green{color:#00df75}svg{width:100%;height:420px;background:#070c09;border-radius:10px}.muted{color:#9eb0a4}
   </style></head><body><header><h2 class="green">MendtradeR · Janela de gráfico</h2><b>${safe}</b> <span class="muted">· MODO DEMO</span></header><div class="panel"><b>Gráfico independente</b><p class="muted">Área preparada para gráfico e dados de mercado. O desenho abaixo é ilustrativo e não representa cotações ao vivo.</p><svg viewBox="0 0 900 400" preserveAspectRatio="none"><path d="M0 80H900M0 160H900M0 240H900M0 320H900" stroke="#23382c"/><path d="M10 300 L70 250 L130 270 L190 190 L250 220 L310 145 L370 175 L430 110 L490 155 L550 90 L610 125 L670 70 L730 120 L790 60 L890 85" fill="none" stroke="#00d978" stroke-width="4"/></svg><p class="muted">Quando a integração de cotações for concluída, esta janela poderá apresentar candles, indicadores e períodos selecionáveis.</p></div>
 
+
+
+<script>
+/* Montagem visual do painel de referência. Os elementos originais são movidos,
+   não clonados: IDs, campos, eventos e integrações existentes permanecem. */
+(function(){
+ function buildReferenceDashboard(){
+  const bot=document.getElementById('bot');
+  if(!bot||bot.dataset.referenceDashboard==='ready')return;
+  const stats=bot.querySelector('.v5-grid');
+  const operations=bot.querySelector('.ops-layout.dual-ops');
+  const feedSelect=document.getElementById('derivFeedSymbol');
+  if(!stats||!operations||!feedSelect)return;
+  bot.dataset.referenceDashboard='ready';
+  const top=document.createElement('div');top.className='ref-topline';
+  const demo=document.createElement('div');demo.className='ref-topbox';
+  demo.innerHTML='<span class="ref-demo-dot"></span><div><strong class="ref-accent">DEMO</strong><small>Ambiente de demonstração</small></div>';
+  const makeBox=(label,source,accent)=>{
+    const box=document.createElement('div');box.className='ref-topbox';
+    const content=document.createElement('div'),small=document.createElement('small'),strong=document.createElement('strong');
+    small.textContent=label;strong.textContent=source?.textContent?.trim()||'—';
+    if(accent)strong.className='ref-accent';
+    content.append(small,strong);box.append(content);
+    if(source){const observer=new MutationObserver(()=>{strong.textContent=source.textContent.trim()||'—'});observer.observe(source,{childList:true,subtree:true,characterData:true});}
+    return box;
+  };
+  const statCards=[...stats.querySelectorAll('.v5-stat')];
+  top.append(demo,makeBox('Saldo de demonstração',statCards[0]?.querySelector('strong'),true),makeBox('Resultado do bot',statCards[1]?.querySelector('strong'),false),makeBox('Resultado manual',statCards[2]?.querySelector('strong'),false));
+  stats.before(top);
+  const marketbar=document.createElement('div');marketbar.className='ref-marketbar';
+  const label=document.createElement('label');label.textContent='MERCADOS';marketbar.append(label);
+  [...feedSelect.options].forEach((option,index)=>{
+    const b=document.createElement('button');b.type='button';b.textContent=option.textContent;
+    b.classList.toggle('active',option.value===feedSelect.value);
+    b.addEventListener('click',()=>{feedSelect.value=option.value;feedSelect.dispatchEvent(new Event('change',{bubbles:true}));marketbar.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');});
+    marketbar.append(b);
+  });
+  stats.after(marketbar);
+  const learning=document.getElementById('learningPanel'),slot=document.getElementById('darkProLearningSlot');
+  if(learning&&slot)slot.appendChild(learning);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',buildReferenceDashboard,{once:true});
+ else buildReferenceDashboard();
+})();
+</script>
 
 </body></html>`);
     win.document.close();

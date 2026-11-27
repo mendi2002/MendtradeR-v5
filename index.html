@@ -454,7 +454,55 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
 
     #currencyResult{font-size:clamp(24px,5vw,34px);overflow-wrap:anywhere;color:var(--green)}
     #currencyRateStatus{line-height:1.5}
-</style>
+
+    /* DARK PRO — atualização exclusivamente visual; não altera IDs, eventos ou lógica */
+    :root{--bg:#03060b;--panel:#080e18;--panel2:#0d1725;--line:#24364c;--text:#f4f7fc;--muted:#9eacc0;--green:#00d878;--red:#ff4055;--gold:#f6c744;--blue:#159cff}
+    body{background:radial-gradient(ellipse at 50% -20%,#15345a 0,transparent 48%),#03060b!important;color:#f4f7fc}
+    .wrap{max-width:1440px}
+    .brand{letter-spacing:.02em;color:#f7f9ff;text-shadow:0 0 22px #168dff30}
+    .brand span{color:#f6c744!important}
+    .badge{background:#2a2108;border-color:#927323;color:#ffdf75}
+    .card,.v5-stat,.ops-mini,.market-screen,.operation-panel{background:linear-gradient(145deg,#0d1725,#070c14)!important;border:1px solid #263b55!important;box-shadow:0 12px 32px #0009, inset 0 1px #ffffff08!important}
+    .card{border-radius:17px}
+    .v5-stat{border-radius:14px}
+    .nav{background:linear-gradient(180deg,#0b1523,#050a12)!important;border-right:1px solid #263b55}
+    .nav button{color:#b7c5d8}
+    .nav button.active,.nav button:hover{background:linear-gradient(100deg,#49390d,#18283c)!important;color:#ffdc68!important;border:1px solid #b58b22}
+    button{background:linear-gradient(180deg,#ffdf70,#dca91d)!important;color:#171100!important;box-shadow:0 5px 16px #e5b52b22}
+    button.secondary,.nav-close{background:linear-gradient(180deg,#1b3450,#102238)!important;color:#e8f3ff!important;border:1px solid #315779}
+    button.danger,.sell-btn{background:linear-gradient(180deg,#ff5264,#c91e39)!important;color:#fff!important}
+    .buy-btn{background:linear-gradient(180deg,#10e58a,#009b59)!important;color:#00190d!important}
+    .field input,.field select,.lang-select{background:#050b13!important;color:#f4f7fc!important;border:1px solid #2a405b!important}
+    .field input:focus,.field select:focus{border-color:#159cff!important;box-shadow:0 0 0 3px #159cff22}
+    .ops-hero{background:radial-gradient(circle at 85% 15%,#174d7b66,transparent 32%),linear-gradient(125deg,#101d30,#080d17 68%,#171407)!important;border:1px solid #9a7929!important}
+    .ops-title{color:#ffdc68}
+    .ops-sub{color:#b7c8dc}
+    .market-screen{background:linear-gradient(180deg,#050b14,#071321)!important;border-color:#1766a0!important}
+    .market-gridline{stroke:#1c3550}
+    .market-line{stroke:#00d8ff}
+    .signal-card{background:linear-gradient(140deg,#0b1b2b,#101b25)!important;border-color:#159cff!important}
+    .signal-direction{color:#ffda60!important}
+    .ops-status{background:#302609;border-color:#947323;color:#ffe28a}
+    .strategy-chip{background:#0d2035;border-color:#1b5d91;color:#cce9ff}
+    .window-dock{background:#07111d;border-color:#294765}
+    .window-chip{background:#10243a;border-color:#27618e;color:#d9efff}
+    .window-chip.active{background:#f1c43e;color:#171100;border-color:#f1c43e}
+    .notice{background:#10243a;color:#dceeff;border-color:#28557c}
+    .notice.warning{background:#302609;color:#ffe6a0;border-color:#87691e}
+    .notice.success{background:#082b20;color:#b9ffdf;border-color:#147b52}
+    .notice.error{background:#35131d;color:#ffdbe2;border-color:#8d3045}
+    .pill{background:#142c45;color:#cce8ff}
+    .tablewrap th{color:#f3cf62}
+    th,td{border-bottom-color:#20334a}
+    .ops-carousel-tabs button{background:#10243a!important;color:#d9efff!important;border-color:#28577f}
+    .ops-carousel-tabs button.active{background:#f1c43e!important;color:#171100!important;border-color:#f1c43e}
+    .radar-main{background:radial-gradient(circle at 50% 45%,#123b58 0,#0b1d30 52%,#080e18 100%);border-color:#1c6598}
+    .radar-orb{border-color:#159cff;color:#a9e3ff;box-shadow:0 0 0 10px #159cff18,0 0 0 22px #159cff0b}
+    .meter span{background:linear-gradient(90deg,#f6c744,#159cff)}
+    a{color:#65bdff}
+    @media(max-width:760px){.nav{background:linear-gradient(180deg,#0b1523,#050a12)!important}}
+
+  </style>
 </head>
 <body>
 <div class="wrap">

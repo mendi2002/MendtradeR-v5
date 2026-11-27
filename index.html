@@ -514,7 +514,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     .top-tools .lang-select{background:#091525!important;border-color:#29435f!important}
     #appView .layout{display:block}
     #appView .content{width:100%;min-width:0}
-    #mainNav{position:fixed;z-index:30;top:104px;left:18px;bottom:16px;width:218px;height:auto;transform:none;border-radius:16px;background:linear-gradient(180deg,#0b1726,#050a12)!important;border:1px solid #253b55!important;box-shadow:0 12px 32px #0009;padding:14px;overflow-y:auto}
+    #mainNav{position:fixed;z-index:30;top:104px;left:18px;bottom:16px;width:218px;height:auto;transform:none!important;border-radius:16px;background:linear-gradient(180deg,#0b1726,#050a12)!important;border:1px solid #253b55!important;box-shadow:0 12px 32px #0009;padding:14px;overflow-y:auto}
     #mainNav .nav-heading{border-bottom:1px solid #263b55;margin-bottom:10px}
     #mainNav .nav-heading .nav-close{display:none}
     #mainNav button[data-page]{padding:13px 12px;border-radius:11px;font-size:14px}
@@ -575,8 +575,8 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     @media(max-width:760px){
       .wrap{padding:8px}
       .top{min-height:58px;padding:6px 9px}
-      #mainNav{top:0;left:0;bottom:0;width:min(310px,86vw);height:100dvh;transform:translateX(-105%);border-radius:0 18px 18px 0}
-      #mainNav.open{transform:translateX(0)}
+      #mainNav{top:0;left:0;bottom:0;width:min(310px,86vw);height:100dvh;transform:translateX(-105%)!important;border-radius:0 18px 18px 0}
+      #mainNav.open{transform:translateX(0)!important}
       #mainNav .nav-heading .nav-close{display:block}
       #appView{margin-left:0}
       #bot>#derivLivePanel{display:block}
@@ -2039,6 +2039,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',placeLearning,{once:true});
   else placeLearning();
+  document.addEventListener('click',event=>{const button=event.target.closest('#darkProBottom [data-page]');if(!button)return;const target=document.querySelector('#mainNav [data-page="'+button.dataset.page+'"]');if(target)target.click();});
 })();
 </script>
 

@@ -2096,6 +2096,12 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         $('derivBalanceMode').textContent = 'Ligação estabelecida · ' + type + ' · ' + (account.loginid || accountId) + ' · a aguardar saldo…';
         message('derivAccountMsg', 'Conta ' + type + ' ligada. Ordens manuais desbloqueadas apenas em DEMO.', 'success');
         updateManualTradeControls();
+        for (const [contractId, tracked] of derivOpenContracts.entries()) {
+          if (!tracked.closed) {
+            try { socket.send(JSON.stringify({ proposal_open_contract: 1, contract_id: Number(contractId), subscribe: 1, req_id: ++derivRequestId })); }
+            catch (error) { setManualProtectionStatus(tracked, 'Reconexão feita, mas não foi possível retomar a monitorização: ' + (error.message || 'erro'), 'error'); }
+          }
+        }
       };
       socket.onmessage = event => {
         let data;

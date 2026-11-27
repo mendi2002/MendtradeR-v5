@@ -2534,7 +2534,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       const pnl=document.createElement('strong');pnl.className='small';
       const result=Number(item.profit??item.result??0);
       pnl.textContent='Resultado: '+result.toFixed(2);
-      pnl.classList.add(result>0?'manual-pnl-positive':result<0?'manual-pnl-negative':'');
+      pnl.className='small '+(result>0?'manual-pnl-positive':result<0?'manual-pnl-negative':'');
       row.append(label,status,pnl);list.append(row);
     });
   }

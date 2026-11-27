@@ -112,6 +112,8 @@
     .ops-carousel-hint{font-size:12px;color:var(--muted);padding:0 2px 8px}
     @media(max-width:760px){.ops-slide{flex-basis:92%}.ops-slide .formgrid{grid-template-columns:1fr}}
 
+    #currencyResult{font-size:clamp(24px,5vw,34px);overflow-wrap:anywhere;color:var(--green)}
+    #currencyRateStatus{line-height:1.5}
   </style>
 </head>
 <body>
@@ -146,6 +148,7 @@
     <button data-page="withdraw">↗ Levantamentos</button>
     <button data-page="support">✦ Suporte IA / Proprietário</button>
     <button data-page="account">⚙ Conta e definições</button>
+    <button data-page="converter">💱 Conversor de Moedas</button>
     <button data-page="owner" id="ownerNavBtn" class="hidden">👑 Área do Proprietário</button>
   </nav>
 
@@ -237,6 +240,22 @@
               <div class="row" style="margin-top:12px"><button id="derivCandleBacktest" class="secondary">Testar estratégia em demo</button></div>
               <p id="derivCandleTestResult" class="small muted">O teste ficará disponível após recolher pelo menos 60 candles fechados (aproximadamente 1 hora).</p>
             </div>
+            <div id="learningPanel" class="card" style="margin-top:14px">
+              <h3>🧠 Aprendizagem inteligente · análise de resultados</h3>
+              <p class="small muted">O sistema compara o contexto técnico das operações DEMO fechadas. Nesta fase apenas observa e apresenta estatísticas; não altera entradas, estratégia ou valor de operação.</p>
+              <div class="formgrid">
+                <div class="field"><label>Operações registadas</label><strong id="learningRegistered">0</strong></div>
+                <div class="field"><label>Capturas técnicas válidas</label><strong id="learningTotal">0</strong></div>
+                <div class="field"><label>Sem contexto técnico válido</label><strong id="learningInvalid">0</strong></div>
+                <div class="field"><label>Positivas / negativas válidas</label><strong id="learningWinsLosses">0 / 0</strong></div>
+                <div class="field"><label>Taxa positiva observada</label><strong id="learningWinRate">—</strong></div>
+                <div class="field"><label>Estado da aprendizagem</label><strong id="learningState">A aguardar dados</strong></div>
+              </div>
+              <p id="learningLastUpdate" class="small muted">Ainda não foram analisadas operações com contexto de mercado.</p>
+              <div class="tablewrap"><table><thead><tr><th>Contexto</th><th>Amostras</th><th>Positivas</th><th>Negativas</th><th>Taxa positiva</th></tr></thead><tbody id="learningPatternRows"><tr><td colspan="5" class="muted">Os padrões aparecerão após recolha suficiente.</td></tr></tbody></table></div>
+              <div class="row" style="margin-top:12px"><button id="learningRefreshBtn" class="secondary">Atualizar análise</button></div>
+              <p id="learningNotice" class="small muted">São necessárias pelo menos 20 capturas técnicas válidas para uma leitura inicial. Nenhum padrão será considerado validado apenas por esta estatística.</p>
+            </div>
             <p class="small muted">As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.</p>
           </div>
           <div class="v5-grid">
@@ -281,9 +300,9 @@
               </div>
               <div class="card" style="margin:12px 0;border:1px solid #315c45;background:#07110b">
                 <div class="row" style="justify-content:space-between"><b>🔐 Ligação segura à Deriv · DEMO</b><span id="derivTradeStatus" class="signal-tag neutral">● Não ligada</span></div>
-                <p class="small muted">Token pessoal Deriv com permissão trade. É usado apenas para gerar uma sessão temporária e não fica guardado. Esta primeira versão aceita somente conta DEMO.</p>
-                <div class="field"><label for="derivTradeToken">Token pessoal Deriv (PAT)</label><input id="derivTradeToken" type="password" autocomplete="off" placeholder="Token com permissão trade"></div>
-                <div class="formgrid"><div class="field"><label for="derivTradeAccount">ID da conta DEMO (VRTC...)</label><input id="derivTradeAccount" type="text" autocomplete="off" placeholder="VRTC1234567"></div><div class="field"><label for="derivTradeAppId">App ID Deriv</label><input id="derivTradeAppId" type="text" value="34TEm2Gavyti0dcVDw73V" autocomplete="off"></div></div>
+                <p class="small muted">Token pessoal Deriv com permissão trade. É usado para gerar uma sessão temporária. Por segurança, só fica guardado neste navegador se ativares a opção abaixo. Esta primeira versão aceita somente conta DEMO.</p>
+                <div class="field"><label for="derivTradeToken">Token pessoal Deriv (PAT)</label><input id="derivTradeToken" type="password" autocomplete="off" placeholder="Token com permissão trade"><label class="small"><input id="rememberDerivToken" type="checkbox" style="width:auto;vertical-align:middle;margin-right:6px">Lembrar token neste dispositivo</label><span class="small muted">Guarda apenas neste navegador. Não atives em dispositivos partilhados.</span></div>
+                <div class="formgrid"><div class="field"><label for="derivTradeAccount">ID da conta DEMO (opcional)</label><input id="derivTradeAccount" type="text" autocomplete="off" placeholder="Deixa vazio para detetar automaticamente"></div><div class="field"><label for="derivTradeAppId">App ID Deriv</label><input id="derivTradeAppId" type="text" value="34TEm2Gavyti0dcVDw73V" autocomplete="off"></div></div>
                 <div class="row"><button id="derivTradeConnect">Ligar conta DEMO</button><button id="derivTradeDisconnect" class="secondary" disabled>Desligar</button></div>
                 <p id="derivTradeMessage" class="small muted" aria-live="polite">Conta ainda não autenticada.</p>
                 <div class="row"><span class="small muted">Saldo Deriv DEMO:</span><b id="derivTradeBalance">—</b><span class="small muted right" id="derivTradeCurrency">—</span></div>
@@ -294,6 +313,7 @@
               <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" disabled>↓ VENDA</button></div>
               <div class="notice warning small">Entrada manual; a posição fecha automaticamente no vencimento escolhido. Confirma que estás na conta DEMO.</div>
               <p id="manualTradeMessage" class="small muted" aria-live="polite">Liga primeiro a conta DEMO.</p>
+              <div class="row" style="margin:10px 0;padding:12px;border:1px solid #315c45;border-radius:10px;background:#07110b"><span class="small muted">⏱ Tempo restante da operação</span><b id="manualTradeCountdown" style="font-variant-numeric:tabular-nums">Sem operação ativa</b></div>
               <h3>Histórico manual</h3><div id="manualTradeHistory" class="mini-list"><div class="mini-row"><span class="muted">Ainda sem operações nesta sessão</span><span class="pill">DEMO</span></div></div>
             </div>
           </div>
@@ -420,6 +440,32 @@
           <div class="card" style="margin-top:14px"><h2>👑 Área do proprietário</h2><p>Gestão de utilizadores, controlo de cadastros, suspensões, métricas e acompanhamento dos pedidos de suporte.</p><div class="notice warning">A área administrativa deve ser liberada exclusivamente por uma função de proprietário validada no servidor. O painel visual pode ser preparado agora, mas não vamos fingir que a proteção está ativa sem configurar a autorização no backend.</div><div class="row"><span class="pill">Acesso administrativo: pendente de validação segura</span><span class="pill">Não visível como ferramenta de utilizador comum</span></div></div>
         </section>
 
+        <section id="converter" class="section">
+          <div class="ops-hero">
+            <div class="row"><span class="ops-status"><i class="ops-dot"></i> FERRAMENTA FINANCEIRA</span><span class="pill right">CÂMBIO</span></div>
+            <div class="ops-title">Conversor de Moedas</div>
+            <p class="ops-sub">Converte Kwanza e outras moedas com taxas de câmbio online. Os valores são indicativos e podem diferir das taxas aplicadas pelos bancos e casas de câmbio.</p>
+          </div>
+          <div class="card" style="max-width:720px;margin-top:14px">
+            <div class="field"><label for="currencyAmount">Valor a converter</label><input id="currencyAmount" type="number" min="0" step="any" value="2000" inputmode="decimal" placeholder="Introduz um valor"></div>
+            <div class="formgrid">
+              <div class="field"><label for="currencyFrom">De</label><select id="currencyFrom">
+                <option value="AOA" selected>AOA · Kwanza angolano (Kz)</option><option value="USD">USD · Dólar americano ($)</option><option value="EUR">EUR · Euro (€)</option><option value="GBP">GBP · Libra esterlina (£)</option><option value="BRL">BRL · Real brasileiro (R$)</option><option value="ZAR">ZAR · Rand sul-africano (R)</option><option value="MZN">MZN · Metical moçambicano</option><option value="NAD">NAD · Dólar namibiano</option><option value="XOF">XOF · Franco CFA (Oeste)</option><option value="XAF">XAF · Franco CFA (Centro)</option><option value="STN">STN · Dobra são-tomense</option><option value="NGN">NGN · Naira nigeriana</option><option value="CAD">CAD · Dólar canadiano</option><option value="AUD">AUD · Dólar australiano</option><option value="CHF">CHF · Franco suíço</option><option value="JPY">JPY · Iene japonês</option><option value="CNY">CNY · Yuan chinês</option><option value="INR">INR · Rupia indiana</option><option value="AED">AED · Dirham dos Emirados</option><option value="SAR">SAR · Rial saudita</option><option value="TRY">TRY · Lira turca</option><option value="KES">KES · Xelim queniano</option><option value="GHS">GHS · Cedi ganês</option><option value="EGP">EGP · Libra egípcia</option><option value="RUB">RUB · Rublo russo</option><option value="SGD">SGD · Dólar de Singapura</option><option value="NZD">NZD · Dólar neozelandês</option><option value="SEK">SEK · Coroa sueca</option><option value="NOK">NOK · Coroa norueguesa</option><option value="DKK">DKK · Coroa dinamarquesa</option><option value="PLN">PLN · Zlóti polaco</option><option value="MXN">MXN · Peso mexicano</option><option value="ARS">ARS · Peso argentino</option><option value="CLP">CLP · Peso chileno</option><option value="THB">THB · Baht tailandês</option><option value="HKD">HKD · Dólar de Hong Kong</option><option value="KRW">KRW · Won sul-coreano</option><option value="IDR">IDR · Rupia indonésia</option><option value="PHP">PHP · Peso filipino</option><option value="PKR">PKR · Rupia paquistanesa</option><option value="TZS">TZS · Xelim tanzaniano</option><option value="UGX">UGX · Xelim ugandês</option><option value="MAD">MAD · Dirham marroquino</option><option value="DZD">DZD · Dinar argelino</option><option value="TND">TND · Dinar tunisino</option>
+              </select></div>
+              <div class="field"><label for="currencyTo">Para</label><select id="currencyTo"><option value="AOA">AOA · Kwanza angolano (Kz)</option><option value="USD" selected>USD · Dólar americano ($)</option><option value="EUR">EUR · Euro (€)</option><option value="GBP">GBP · Libra esterlina (£)</option><option value="BRL">BRL · Real brasileiro (R$)</option><option value="ZAR">ZAR · Rand sul-africano (R)</option><option value="MZN">MZN · Metical moçambicano</option><option value="NAD">NAD · Dólar namibiano</option><option value="XOF">XOF · Franco CFA (Oeste)</option><option value="XAF">XAF · Franco CFA (Centro)</option><option value="STN">STN · Dobra são-tomense</option><option value="NGN">NGN · Naira nigeriana</option><option value="CAD">CAD · Dólar canadiano</option><option value="AUD">AUD · Dólar australiano</option><option value="CHF">CHF · Franco suíço</option><option value="JPY">JPY · Iene japonês</option><option value="CNY">CNY · Yuan chinês</option><option value="INR">INR · Rupia indiana</option><option value="AED">AED · Dirham dos Emirados</option><option value="SAR">SAR · Rial saudita</option><option value="TRY">TRY · Lira turca</option><option value="KES">KES · Xelim queniano</option><option value="GHS">GHS · Cedi ganês</option><option value="EGP">EGP · Libra egípcia</option><option value="RUB">RUB · Rublo russo</option><option value="SGD">SGD · Dólar de Singapura</option><option value="NZD">NZD · Dólar neozelandês</option><option value="SEK">SEK · Coroa sueca</option><option value="NOK">NOK · Coroa norueguesa</option><option value="DKK">DKK · Coroa dinamarquesa</option><option value="PLN">PLN · Zlóti polaco</option><option value="MXN">MXN · Peso mexicano</option><option value="ARS">ARS · Peso argentino</option><option value="CLP">CLP · Peso chileno</option><option value="THB">THB · Baht tailandês</option><option value="HKD">HKD · Dólar de Hong Kong</option><option value="KRW">KRW · Won sul-coreano</option><option value="IDR">IDR · Rupia indonésia</option><option value="PHP">PHP · Peso filipino</option><option value="PKR">PKR · Rupia paquistanesa</option><option value="TZS">TZS · Xelim tanzaniano</option><option value="UGX">UGX · Xelim ugandês</option><option value="MAD">MAD · Dirham marroquino</option><option value="DZD">DZD · Dinar argelino</option><option value="TND">TND · Dinar tunisino</option></select></div>
+            </div>
+            <div class="row" style="margin:4px 0 14px"><button type="button" class="secondary" id="currencySwapBtn">⇄ Inverter moedas</button><button type="button" id="currencyRefreshBtn">↻ Atualizar taxas</button></div>
+            <div class="v5-stat" style="margin-top:8px">
+              <div class="v5-kicker">Resultado estimado</div>
+              <strong id="currencyResult" aria-live="polite">A obter taxa de câmbio…</strong>
+              <div id="currencyEquation" class="small muted" style="margin-top:6px">—</div>
+            </div>
+            <p id="currencyRateStatus" class="small muted" role="status" style="margin-top:12px">A consultar taxas de câmbio online…</p>
+            <p class="small muted">As taxas são indicativas, não incluem comissões bancárias e não garantem o valor que receberás numa transferência ou levantamento.</p>
+            <p class="small muted">Fonte das taxas: <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer">Rates By Exchange Rate API</a>.</p>
+          </div>
+        </section>
+
         <section id="account" class="section">
           <h1>Conta</h1><div class="card"><p class="label">E-mail autenticado</p><p id="userEmail" class="amount">—</p><p class="label">País e moeda</p><p id="userCountry" class="amount">Angola · AOA</p><p class="label">ID do utilizador</p><p id="userId" class="small muted" style="overflow-wrap:anywhere">—</p><div class="notice"><b>Comissão da plataforma: 10%</b> sobre o lucro líquido positivo de cada operação concluída de cada utilizador. Exemplo: se uma operação fechar com 10 USD de lucro elegível, a comissão prevista é 1 USD. Em operações sem lucro positivo, a comissão é 0 USD. A cobrança só poderá ocorrer após implementação e validação no backend.</div>
             <div class="commission-box">
@@ -516,7 +562,7 @@
 
   let derivTradeSocket=null,derivTradeConnected=false,derivTradeReqId=7000;
   const derivTradePending=new Map(),derivTradeHistory=[];
-  let derivOpenContractId=null,derivOpenTradeMeta=null;
+  let derivOpenContractId=null,derivOpenTradeMeta=null,derivCountdownInterval=null,derivTradeExpiresAt=null;
   function setDerivTradeStatus(label,kind='neutral'){const el=$('derivTradeStatus');if(el){el.textContent=label;el.className='signal-tag '+kind;}}
   function derivTradeSend(payload){
     if(!derivTradeSocket||derivTradeSocket.readyState!==WebSocket.OPEN)throw Error('Ligação Deriv inativa.');
@@ -527,22 +573,65 @@
     const host=$('manualTradeHistory');if(!host)return;
     host.innerHTML=derivTradeHistory.length?derivTradeHistory.slice(0,12).map(t=>'<div class="mini-row"><span>'+escapeHtml(t.time)+' · '+escapeHtml(t.side)+' · '+escapeHtml(t.asset)+' · '+money(t.stake)+'</span><b>'+(t.result===null?'ABERTA':(t.result>0?'+':'')+money(t.result))+'</b></div>').join(''):'<div class="mini-row"><span class="muted">Ainda sem operações nesta sessão</span><span class="pill">DEMO</span></div>';
   }
+  function stopManualTradeCountdown(label='Sem operação ativa'){
+    if(derivCountdownInterval)clearInterval(derivCountdownInterval);derivCountdownInterval=null;derivTradeExpiresAt=null;
+    const el=$('manualTradeCountdown');if(el)el.textContent=label;
+  }
+  function renderManualTradeCountdown(){
+    const el=$('manualTradeCountdown');if(!el||!derivTradeExpiresAt)return;
+    const left=Math.max(0,Math.ceil((derivTradeExpiresAt-Date.now())/1000));
+    const days=Math.floor(left/86400),hours=Math.floor((left%86400)/3600),minutes=Math.floor((left%3600)/60),seconds=left%60;
+    const clock=[hours,minutes,seconds].map(v=>String(v).padStart(2,'0')).join(':');
+    el.textContent=(days?days+'d ':'')+clock;
+    if(left===0){if(derivCountdownInterval)clearInterval(derivCountdownInterval);derivCountdownInterval=null;el.textContent='00:00:00 · A aguardar fecho da Deriv';}
+  }
+  function startManualTradeCountdown(duration,unit){
+    const factor=unit==='m'?60:unit==='h'?3600:unit==='d'?86400:1;
+    if(derivCountdownInterval)clearInterval(derivCountdownInterval);
+    derivTradeExpiresAt=Date.now()+Math.max(1,Number(duration)*factor)*1000;
+    renderManualTradeCountdown();derivCountdownInterval=setInterval(renderManualTradeCountdown,1000);
+  }
   function closeDerivTradeSocket(){
-    derivTradeConnected=false;derivOpenContractId=null;derivOpenTradeMeta=null;
+    stopManualTradeCountdown();derivTradeConnected=false;derivOpenContractId=null;derivOpenTradeMeta=null;
     for(const p of derivTradePending.values()){clearTimeout(p.timer);p.reject(Error('Ligação encerrada.'));}derivTradePending.clear();
     try{derivTradeSocket?.close();}catch{}derivTradeSocket=null;
     $('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;$('derivTradeConnect').disabled=false;$('derivTradeDisconnect').disabled=true;
     $('derivTradeBalance').textContent='—';$('derivTradeCurrency').textContent='—';setDerivTradeStatus('● Não ligada');$('derivTradeMessage').textContent='Conta desligada.';
   }
+  const DERIV_TOKEN_STORAGE_KEY='mendtrader_deriv_token_local_v1';
+  const derivTokenInput=$('derivTradeToken');
+  const rememberDerivToken=$('rememberDerivToken');
+  try{
+    const savedDerivToken=localStorage.getItem(DERIV_TOKEN_STORAGE_KEY);
+    if(savedDerivToken){derivTokenInput.value=savedDerivToken;rememberDerivToken.checked=true;}
+  }catch(e){}
+  rememberDerivToken?.addEventListener('change',()=>{
+    try{
+      if(rememberDerivToken.checked){
+        if(derivTokenInput.value.trim())localStorage.setItem(DERIV_TOKEN_STORAGE_KEY,derivTokenInput.value.trim());
+      }else localStorage.removeItem(DERIV_TOKEN_STORAGE_KEY);
+    }catch(e){$('derivTradeMessage').textContent='Não foi possível guardar o token neste navegador.';}
+  });
+  function saveDerivTokenLocally(){
+    if(!rememberDerivToken?.checked)return;
+    try{
+      const value=derivTokenInput.value.trim();
+      if(value){localStorage.setItem(DERIV_TOKEN_STORAGE_KEY,value);$('derivTradeMessage').textContent='Token guardado neste dispositivo.';}
+      else localStorage.removeItem(DERIV_TOKEN_STORAGE_KEY);
+    }catch(e){$('derivTradeMessage').textContent='Não foi possível guardar o token neste navegador.';}
+  }
+  derivTokenInput?.addEventListener('input',saveDerivTokenLocally);
+  derivTokenInput?.addEventListener('change',saveDerivTokenLocally);
+  derivTokenInput?.addEventListener('blur',saveDerivTokenLocally);
   async function connectDerivTrade(){
     if(!currentUser)return message('derivTradeMessage','Entra primeiro no MendtradeR.','error');
     const token=$('derivTradeToken').value.trim(),accountId=$('derivTradeAccount').value.trim(),appId=$('derivTradeAppId').value.trim();
-    if(!token||!accountId||!appId)return message('derivTradeMessage','Preenche token, ID da conta DEMO e App ID.','error');
+    if(!token||!appId)return message('derivTradeMessage','Preenche o token Deriv e o App ID. O ID da conta é opcional.','error');
     $('derivTradeConnect').disabled=true;$('derivTradeMessage').textContent='A validar conta DEMO…';
     try{
       const {data,error}=await client.functions.invoke('deriv-demo-otp',{body:{token,account_id:accountId,app_id:appId}});
-      $('derivTradeToken').value='';
       if(error||!data?.url)throw Error(data?.error||error?.message||'Não foi possível obter a sessão DEMO.');
+      if(data.account_id)$('derivTradeAccount').value=data.account_id;
       closeDerivTradeSocket();$('derivTradeConnect').disabled=true;setDerivTradeStatus('● A ligar');
       const ws=new WebSocket(data.url);derivTradeSocket=ws;
       ws.onopen=()=>{if(derivTradeSocket!==ws)return;derivTradeConnected=true;setDerivTradeStatus('● DEMO ligada','positive');$('derivTradeMessage').textContent='Conta DEMO autenticada. Apenas saldo virtual.';$('derivTradeDisconnect').disabled=false;$('manualBuyBtn').disabled=false;$('manualSellBtn').disabled=false;ws.send(JSON.stringify({balance:1,subscribe:1,req_id:++derivTradeReqId}));};
@@ -551,15 +640,16 @@
         if(data.req_id&&derivTradePending.has(data.req_id)){const p=derivTradePending.get(data.req_id);derivTradePending.delete(data.req_id);clearTimeout(p.timer);data.error?p.reject(Error(data.error.message||'Erro Deriv.')):p.resolve(data);}
         if(data.msg_type==='balance'&&data.balance){$('derivTradeBalance').textContent=Number(data.balance.balance).toFixed(2)+' '+(data.balance.currency||'USD');$('derivTradeCurrency').textContent='DEMO · '+(data.balance.loginid||accountId);}
         const c=data.proposal_open_contract;
+        if(data.msg_type==='proposal_open_contract'&&c&&derivOpenContractId&&String(c.contract_id)===String(derivOpenContractId)&&Number(c.date_expiry)>0){derivTradeExpiresAt=Number(c.date_expiry)*1000;renderManualTradeCountdown();}
         if(data.msg_type==='proposal_open_contract'&&c&&derivOpenContractId&&String(c.contract_id)===String(derivOpenContractId)&&(c.is_sold||c.status==='sold'||c.is_expired)){
           const profit=Number(c.profit)||0,meta=derivOpenTradeMeta||{},rec={time:new Date().toLocaleTimeString('pt-PT'),side:meta.side,asset:meta.asset,stake:meta.stake,result:profit};
           derivTradeHistory.unshift(rec);renderManualTradeHistory();$('manualTradeMessage').textContent='Operação encerrada. Resultado: '+(profit>=0?'+':'')+money(profit)+'.';
-          if(currentUser)client.from('trade_history').insert({user_id:currentUser.id,asset:rec.asset,direction:rec.side,entry_amount:rec.stake,stake:rec.stake,result:profit,profit,commission:0,status:'closed',trade_type:'manual'}).then(({error})=>{if(error)console.warn('Histórico não gravado:',error.message);});
-          derivOpenContractId=null;derivOpenTradeMeta=null;
+          if(currentUser)client.from('trade_history').insert({user_id:currentUser.id,asset:rec.asset,direction:rec.side,entry_amount:rec.stake,stake:rec.stake,result:profit,profit,commission:0,status:'closed',trade_type:'manual'}).select('id').single().then(async({data,error})=>{if(error){console.warn('Histórico não gravado:',error.message);return;}const snapshot=meta.marketSnapshot||{version:1,status:'unavailable',captured_at:new Date().toISOString()};const {error:contextError}=await client.from('trade_market_context').insert({user_id:currentUser.id,trade_history_id:data.id,asset:rec.asset,direction:rec.side,outcome:profit>0?'win':profit<0?'loss':'breakeven',profit,market_snapshot:snapshot});if(contextError)console.warn('Contexto de aprendizagem não gravado:',contextError.message);});
+          stopManualTradeCountdown('Operação encerrada');derivOpenContractId=null;derivOpenTradeMeta=null;
         }
       };
       ws.onerror=()=>{if(derivTradeSocket===ws){setDerivTradeStatus('● Erro','negative');$('derivTradeMessage').textContent='Falha de ligação. Verifica os dados Deriv.';closeDerivTradeSocket();}};
-      ws.onclose=()=>{if(derivTradeSocket===ws){derivTradeSocket=null;derivTradeConnected=false;$('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;$('derivTradeConnect').disabled=false;$('derivTradeDisconnect').disabled=true;setDerivTradeStatus('● Desligada');$('derivTradeMessage').textContent='Sessão encerrada. Liga novamente.';}};
+      ws.onclose=()=>{if(derivTradeSocket===ws){stopManualTradeCountdown('Ligação encerrada');derivTradeSocket=null;derivTradeConnected=false;$('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;$('derivTradeConnect').disabled=false;$('derivTradeDisconnect').disabled=true;setDerivTradeStatus('● Desligada');$('derivTradeMessage').textContent='Sessão encerrada. Liga novamente.';}};
     }catch(err){$('derivTradeConnect').disabled=false;$('derivTradeMessage').textContent=err.message||'Erro de ligação.';setDerivTradeStatus('● Erro','negative');}
   }
   async function placeManualDerivTrade(side){
@@ -569,11 +659,13 @@
     if(!Number.isFinite(stake)||stake<0.35||stake>100)return message('manualTradeMessage','Entrada permitida: 0,35 a 100 USD.','error');
     $('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;message('manualTradeMessage','A pedir cotação à Deriv…');
     try{
+      message('manualTradeMessage','A consultar candles históricos do ativo…');
+      const marketSnapshot=await captureTradeMarketSnapshot(symbol);
       const quote=await derivTradeSend({proposal:1,amount:stake,basis:'stake',contract_type:side==='COMPRA'?'CALL':'PUT',currency:'USD',duration,duration_unit,underlying_symbol:symbol});
       const p=quote.proposal;if(!p?.id||!Number.isFinite(Number(p.ask_price)))throw Error('Proposta indisponível para este ativo.');
       message('manualTradeMessage','Cotação recebida. A confirmar entrada DEMO…');
       const result=await derivTradeSend({buy:p.id,price:Number(p.ask_price)}),b=result.buy;if(!b?.contract_id)throw Error('A Deriv não confirmou a entrada.');
-      derivOpenContractId=b.contract_id;derivOpenTradeMeta={side,asset:$('manualAsset').selectedOptions[0].textContent,stake};
+      derivOpenContractId=b.contract_id;derivOpenTradeMeta={side,asset:$('manualAsset').selectedOptions[0].textContent,stake,marketSnapshot};startManualTradeCountdown(duration,duration_unit);
       derivTradeHistory.unshift({time:new Date().toLocaleTimeString('pt-PT'),side,asset:$('manualAsset').selectedOptions[0].textContent,stake,result:null});renderManualTradeHistory();
       message('manualTradeMessage','Entrada '+side+' confirmada na DEMO. Fecho automático no vencimento. ID: '+b.contract_id,'success');
       derivTradeSocket.send(JSON.stringify({proposal_open_contract:1,contract_id:b.contract_id,subscribe:1,req_id:++derivTradeReqId}));
@@ -582,7 +674,7 @@
   }
   function showApp(user) {
     currentUser=user; $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
-    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); checkOwnerAccess();
+    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); loadLearningInsights(); checkOwnerAccess();
   }
   async function checkOwnerAccess(){
     const nav=$('ownerNavBtn');
@@ -708,12 +800,95 @@
   navBackdrop.addEventListener('click',()=>openMenu(false));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')openMenu(false);});
 
+  // Conversor de moedas: cache diário e atualização apenas quando necessário.
+  const currencyCacheKey='mendtrader_currency_rates_usd_v1';
+  const currencyCacheMaxAge=24*60*60*1000;
+  let currencyRates=null;
+  let currencyRatesUpdated=null;
+  let currencyRatesSavedAt=0;
+  let currencyRefreshPromise=null;
+  function renderCurrencyConversion(){
+    const amount=Number($('currencyAmount')?.value);
+    const from=$('currencyFrom')?.value;
+    const to=$('currencyTo')?.value;
+    const result=$('currencyResult');
+    const equation=$('currencyEquation');
+    if(!result||!equation)return;
+    if(!Number.isFinite(amount)||amount<0){result.textContent='Introduz um valor válido';equation.textContent='';return;}
+    if(!currencyRates||!Number.isFinite(currencyRates[from])||!Number.isFinite(currencyRates[to])){
+      result.textContent='Taxa indisponível';equation.textContent='Atualiza as taxas quando houver ligação à Internet.';return;
+    }
+    const converted=(amount/currencyRates[from])*currencyRates[to];
+    const formatted=new Intl.NumberFormat('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:4}).format(converted);
+    result.textContent=formatted+' '+to;
+    equation.textContent=new Intl.NumberFormat('pt-PT',{maximumFractionDigits:4}).format(amount)+' '+from+' = '+formatted+' '+to;
+  }
+  function showCurrencyRateStatus(messageText,isWarning=false){
+    const el=$('currencyRateStatus');if(!el)return;
+    el.textContent=messageText;el.className='small '+(isWarning?'warning':'muted');
+  }
+  function applyCurrencyCache(){
+    try{
+      const saved=JSON.parse(localStorage.getItem(currencyCacheKey)||'null');
+      if(saved&&saved.rates&&saved.base==='USD'&&Number.isFinite(saved.rates.AOA)&&Number.isFinite(saved.rates.USD)){
+        currencyRates=saved.rates;currencyRatesUpdated=saved.updated||null;
+        currencyRatesSavedAt=Number(saved.savedAt)||0;
+        showCurrencyRateStatus('Última taxa guardada: '+(currencyRatesUpdated||'data não indicada')+' · cache local. '+(isCurrencyCacheFresh()?'Atualização diária ainda válida.':'Cache desatualizado; tenta atualizar.'),!isCurrencyCacheFresh());
+        renderCurrencyConversion();return true;
+      }
+    }catch(error){}
+    return false;
+  }
+  function isCurrencyCacheFresh(){
+    return currencyRatesSavedAt>0&&(Date.now()-currencyRatesSavedAt)<currencyCacheMaxAge;
+  }
+  async function refreshCurrencyRates(force=false){
+    if(currencyRefreshPromise)return currencyRefreshPromise;
+    if(!force&&isCurrencyCacheFresh()){
+      showCurrencyRateStatus('Taxas guardadas: '+(currencyRatesUpdated||'data não indicada')+' · cache válido por 24 horas.',false);
+      renderCurrencyConversion();return;
+    }
+    const btn=$('currencyRefreshBtn');if(btn)btn.disabled=true;
+    showCurrencyRateStatus('A atualizar taxas de câmbio…');
+    currencyRefreshPromise=(async()=>{
+      try{
+        const response=await fetch('https://open.er-api.com/v6/latest/USD',{cache:'no-store'});
+        if(!response.ok)throw new Error('O serviço de câmbio respondeu com erro HTTP '+response.status+'.');
+        const data=await response.json();
+        if(data.result!=='success'||!data.rates||!Number.isFinite(data.rates.AOA)||!Number.isFinite(data.rates.USD))throw new Error('O serviço não devolveu taxas válidas.');
+        currencyRates=data.rates;
+        currencyRatesUpdated=data.time_last_update_utc||new Date().toLocaleString('pt-PT');
+        currencyRatesSavedAt=Date.now();
+        localStorage.setItem(currencyCacheKey,JSON.stringify({base:'USD',rates:currencyRates,updated:currencyRatesUpdated,savedAt:currencyRatesSavedAt}));
+        showCurrencyRateStatus('Taxas atualizadas: '+currencyRatesUpdated+'. Fonte: ExchangeRate-API. Próxima consulta automática após 24 horas.',false);
+        renderCurrencyConversion();
+      }catch(error){
+        const hadCache=currencyRates&&Number.isFinite(currencyRates.AOA);
+        if(!hadCache)applyCurrencyCache();
+        showCurrencyRateStatus(hadCache?'Não foi possível atualizar. A mostrar a última taxa guardada ('+(currencyRatesUpdated||'data desconhecida')+').':'Sem ligação ao serviço de câmbio. Liga-te à Internet e tenta novamente.',true);
+        renderCurrencyConversion();
+      }finally{
+        currencyRefreshPromise=null;if(btn)btn.disabled=false;
+      }
+    })();
+    return currencyRefreshPromise;
+  }
+  $('currencyAmount')?.addEventListener('input',renderCurrencyConversion);
+  $('currencyFrom')?.addEventListener('change',renderCurrencyConversion);
+  $('currencyTo')?.addEventListener('change',renderCurrencyConversion);
+  $('currencySwapBtn')?.addEventListener('click',()=>{
+    const from=$('currencyFrom'),to=$('currencyTo');const old=from.value;from.value=to.value;to.value=old;renderCurrencyConversion();
+  });
+  $('currencyRefreshBtn')?.addEventListener('click',()=>refreshCurrencyRates(true));
+  applyCurrencyCache();
+  if(!isCurrencyCacheFresh())refreshCurrencyRates();
   document.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
     document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b===btn));
     document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id===btn.dataset.page));
     openMenu(false);
     if(btn.dataset.page==='history') loadHistory();
     if(btn.dataset.page==='owner') loadOwnerDashboard();
+    if(btn.dataset.page==='converter') { renderCurrencyConversion(); if(!isCurrencyCacheFresh()) refreshCurrencyRates(); }
   }));
 
   async function loadBotSettings(){
@@ -937,6 +1112,37 @@
 
   // Feed público da Deriv: apenas cotações, sem autenticação e sem permissões de negociação.
   let derivFeedSocket=null, derivFeedSubscription=null, derivFeedTicks=[], derivFeedPingTimer=null, derivLiveCandles=[], derivCurrentCandle=null, derivFeedWanted=false, derivReconnectTimer=null, derivReconnectAttempts=0;
+  // Snapshot técnico: usa histórico oficial de candles da Deriv para o ativo exato da operação.
+  function buildTradeMarketSnapshot(sourceCandles,symbol){
+    const candles=(Array.isArray(sourceCandles)?sourceCandles:[]).filter(x=>Number.isFinite(Number(x.close))).slice(-300);
+    const closes=candles.map(x=>Number(x.close));
+    if(closes.length<21)return {version:2,status:'insufficient_data',reason:'A Deriv devolveu menos de 21 candles fechados.',timeframe:'1m',symbol,candle_count:closes.length,captured_at:new Date().toISOString()};
+    const fast=ema(closes,9),slow=ema(closes,21),r=rsi(closes,14),i=closes.length-1;
+    const last=candles[candles.length-1],trend=fast[i]>slow[i]?'bullish':fast[i]<slow[i]?'bearish':'neutral';
+    const signal=trend==='bullish'&&r[i]>=52&&r[i]<=68&&closes[i]>closes[i-1]?'COMPRA':trend==='bearish'&&r[i]>=32&&r[i]<=48&&closes[i]<closes[i-1]?'VENDA':'NONE';
+    return {version:2,status:'captured',source:'deriv_ticks_history',timeframe:'1m',symbol,candle_count:closes.length,captured_at:new Date().toISOString(),trend,ema9:Number(fast[i].toFixed(8)),ema21:Number(slow[i].toFixed(8)),rsi14:Number(r[i].toFixed(2)),signal,last_candle:{epoch:last.epoch,open:last.open,high:last.high,low:last.low,close:last.close},previous_close:closes[i-1]};
+  }
+  async function captureTradeMarketSnapshot(symbol){
+    if(!('WebSocket' in window))return {version:2,status:'unavailable',reason:'WebSocket não suportado.',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()};
+    return new Promise(resolve=>{
+      let done=false,ws=null;
+      const finish=value=>{if(done)return;done=true;clearTimeout(timer);try{if(ws)ws.close();}catch(e){}resolve(value);};
+      const timer=setTimeout(()=>finish({version:2,status:'unavailable',reason:'Tempo esgotado ao pedir candles à Deriv.',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()}),12000);
+      try{
+        ws=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+        ws.onopen=()=>ws.send(JSON.stringify({ticks_history:symbol,count:300,end:'latest',style:'candles',granularity:60,adjust_start_time:1,req_id:7319}));
+        ws.onmessage=event=>{
+          let data;try{data=JSON.parse(event.data);}catch(e){return;}
+          if(data.error){finish({version:2,status:'unavailable',reason:data.error.message||'Erro ao consultar histórico Deriv.',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});return;}
+          if(data.msg_type==='candles'||Array.isArray(data.candles)){
+            finish(buildTradeMarketSnapshot(data.candles||[],symbol));
+          }
+        };
+        ws.onerror=()=>finish({version:2,status:'unavailable',reason:'Falha na ligação ao histórico público da Deriv.',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});
+      }catch(e){finish({version:2,status:'unavailable',reason:e.message||'Não foi possível consultar o histórico.',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});}
+    });
+  }
+
   const DERIV_CANDLES_KEY='mendtrader_deriv_candles_v1';
   try{derivLiveCandles=JSON.parse(localStorage.getItem(DERIV_CANDLES_KEY)||'[]').slice(-300);}catch(e){derivLiveCandles=[];}
   function setDerivFeedStatus(label,kind='neutral'){
@@ -973,6 +1179,57 @@
     }
     $('derivCandleState').textContent='A recolher candle atual';
   }
+  async function loadLearningInsights(){
+    if(!currentUser)return;
+    const btn=$('learningRefreshBtn');if(btn)btn.disabled=true;
+    $('learningState').textContent='A analisar…';
+    const {data,error}=await client.from('trade_market_context').select('asset,direction,outcome,profit,market_snapshot,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(500);
+    if(error){
+      $('learningState').textContent='Indisponível';
+      $('learningNotice').textContent='Não foi possível ler os registos: '+error.message+'. Confirma a ligação e as permissões da tabela.';
+      if(btn)btn.disabled=false;return;
+    }
+    const rows=data||[];
+    const validRows=rows.filter(x=>{
+      const snap=x.market_snapshot||{};
+      return snap.status==='captured' && Number(snap.candle_count)>=21 &&
+        Number.isFinite(Number(snap.ema9)) && Number.isFinite(Number(snap.ema21)) &&
+        Number.isFinite(Number(snap.rsi14));
+    });
+    const invalidCount=rows.length-validRows.length;
+    const wins=validRows.filter(x=>x.outcome==='win').length;
+    const losses=validRows.filter(x=>x.outcome==='loss').length;
+    const done=wins+losses;
+    $('learningRegistered').textContent=String(rows.length);
+    $('learningTotal').textContent=String(validRows.length);
+    $('learningInvalid').textContent=String(invalidCount);
+    $('learningWinsLosses').textContent=wins+' / '+losses;
+    $('learningWinRate').textContent=done?(wins/done*100).toFixed(1)+'%':'—';
+    $('learningLastUpdate').textContent=rows.length?'Último registo: '+new Date(rows[0].created_at).toLocaleString('pt-PT')+' · máximo de 500 operações recentes.':'Ainda não existem operações registadas.';
+    if(validRows.length<20){
+      $('learningState').textContent='Dados técnicos insuficientes';
+      $('learningPatternRows').innerHTML='<tr><td colspan="5" class="muted">Precisamos de 20 capturas técnicas válidas para iniciar a análise.</td></tr>';
+      $('learningNotice').textContent=rows.length+' operações registadas · '+validRows.length+' com dados técnicos válidos · '+invalidCount+' sem contexto técnico válido. Progresso: '+validRows.length+' de 20 capturas válidas. Não precisas de repetir operações antigas; apenas novas capturas válidas contam para a análise.';
+      if(btn)btn.disabled=false;return;
+    }
+    const groups=new Map();
+    for(const row of validRows){
+      if(row.outcome==='breakeven')continue;
+      const snap=row.market_snapshot||{};
+      const trend=snap.trend||'sem tendência identificada';
+      const r=Number(snap.rsi14);
+      const rsiBand=r<40?'RSI abaixo de 40':r<50?'RSI 40–49':r<60?'RSI 50–59':r<70?'RSI 60–69':'RSI 70 ou mais';
+      const key=[row.asset,row.direction,trend,rsiBand].join('|');
+      if(!groups.has(key))groups.set(key,{asset:row.asset,direction:row.direction,trend,rsiBand,total:0,wins:0,losses:0});
+      const g=groups.get(key);g.total++;if(row.outcome==='win')g.wins++;if(row.outcome==='loss')g.losses++;
+    }
+    const patterns=[...groups.values()].filter(g=>g.total>=5).sort((a,b)=>(b.wins/b.total)-(a.wins/a.total)||b.total-a.total).slice(0,8);
+    $('learningState').textContent='Análise observacional';
+    $('learningPatternRows').innerHTML=patterns.length?patterns.map(g=>'<tr><td>'+escapeHtml(g.asset)+' · '+escapeHtml(g.direction)+'<br><span class="small muted">'+escapeHtml(g.trend)+' · '+escapeHtml(g.rsiBand)+'</span></td><td>'+g.total+'</td><td>'+g.wins+'</td><td>'+g.losses+'</td><td>'+((g.wins/g.total)*100).toFixed(1)+'%</td></tr>').join(''):'<tr><td colspan="5" class="muted">Ainda não há grupos com pelo menos 5 operações comparáveis.</td></tr>';
+    $('learningNotice').textContent='Análise baseada apenas em '+validRows.length+' capturas técnicas válidas (de '+rows.length+' operações registadas). Leitura exploratória: grupos com 5 ou mais operações. Não prevê resultados, não é aprendizagem validada e não modifica o bot.';
+    if(btn)btn.disabled=false;
+  }
+  $('learningRefreshBtn')?.addEventListener('click',loadLearningInsights);
   function renderDerivCandles(){
     $('derivCandleCount').textContent=String(derivLiveCandles.length);
     $('derivCandleRows').innerHTML=derivLiveCandles.slice(-8).reverse().map(c=>'<tr><td>'+escapeHtml(c.time)+'</td><td>'+c.open+'</td><td>'+c.high+'</td><td>'+c.low+'</td><td>'+c.close+'</td></tr>').join('')||'<tr><td colspan="5" class="muted">Ainda sem candles fechados.</td></tr>';

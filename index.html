@@ -502,6 +502,99 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     a{color:#65bdff}
     @media(max-width:760px){.nav{background:linear-gradient(180deg,#0b1523,#050a12)!important}}
 
+  
+    /* DARK PRO — reconstrução de composição inspirada no mockup aprovado */
+    :root{--bg:#03060c;--panel:#080f19;--panel2:#0d1928;--line:#263b55;--text:#f4f7fc;--muted:#a1b0c4;--green:#00d878;--red:#ff4055;--gold:#f6c744;--blue:#159cff}
+    body{background:radial-gradient(ellipse at 48% -18%,#16385e 0,transparent 48%),#03060c!important}
+    .wrap{max-width:none;width:100%;padding:12px 18px}
+    .top{min-height:76px;padding:8px 14px;background:linear-gradient(100deg,#080f19,#0b1726);border:1px solid #253b55;border-radius:16px;box-shadow:0 8px 30px #0008}
+    .brand{font-size:clamp(23px,2.3vw,32px);letter-spacing:.01em}
+    .brand span{color:#f6c744!important}
+    .brand-logo{filter:drop-shadow(0 0 8px #f6c74445)}
+    .top-tools .lang-select{background:#091525!important;border-color:#29435f!important}
+    #appView .layout{display:block}
+    #appView .content{width:100%;min-width:0}
+    #mainNav{position:fixed;z-index:30;top:104px;left:18px;bottom:16px;width:218px;height:auto;transform:none;border-radius:16px;background:linear-gradient(180deg,#0b1726,#050a12)!important;border:1px solid #253b55!important;box-shadow:0 12px 32px #0009;padding:14px;overflow-y:auto}
+    #mainNav .nav-heading{border-bottom:1px solid #263b55;margin-bottom:10px}
+    #mainNav .nav-heading .nav-close{display:none}
+    #mainNav button[data-page]{padding:13px 12px;border-radius:11px;font-size:14px}
+    #mainNav button.active,#mainNav button:hover{background:linear-gradient(100deg,#47370d,#142b43)!important;color:#ffdc68!important;border:1px solid #987522}
+    #appView{margin-left:236px}
+    .nav-backdrop{display:none}
+    #bot>.ops-hero{padding:14px 18px;margin:0 0 10px;border:1px solid #8e712b;background:linear-gradient(110deg,#101d2e,#090f19 72%,#211a08)!important}
+    #bot>.ops-hero .ops-title{color:#ffdc68;font-size:clamp(22px,2vw,30px)}
+    #bot>.window-dock{margin:8px 0;padding:8px 12px;background:#081321;border-color:#294765}
+    #bot>.window-dock .window-chip{background:#10243a;border-color:#27618e;color:#d9efff}
+    #bot>.window-dock .window-chip:hover{border-color:#f6c744}
+    #bot>#derivLivePanel{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.36fr);gap:10px;padding:12px!important;background:linear-gradient(145deg,#0d1725,#070c14)!important;border:1px solid #29415e!important;border-radius:16px}
+    #derivLivePanel>.row:first-child{grid-column:1/-1}
+    #derivLivePanel>#derivSignalPanel{grid-column:2;grid-row:2 / span 2;margin:0!important;align-self:start}
+    #derivLivePanel>#derivCandlePanel{grid-column:1;grid-row:2 / span 2;margin:0!important}
+    #derivLivePanel>#learningPanel{display:none}
+    #derivLivePanel>p:last-child{grid-column:1/-1;margin:0}
+    #derivLivePanel .card{background:#091321!important;border-color:#29415e!important}
+    #bot>.v5-grid{grid-template-columns:repeat(4,minmax(0,1fr));margin:10px 0}
+    #bot .v5-stat{background:linear-gradient(145deg,#101d2e,#080f19)!important;border-color:#2a405c!important}
+    #bot .ops-layout.dual-ops{display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,340px);gap:12px;align-items:start;margin:10px 0}
+    #bot .operation-panel{background:linear-gradient(145deg,#0d1725,#070c14)!important;border-color:#29415e!important;border-radius:16px}
+    #bot .bot-panel{max-height:none;overflow:visible}
+    #bot .manual-panel{max-width:none;margin:0;max-height:none;overflow:visible;position:sticky;top:12px}
+    #bot .market-screen{min-height:260px;background:#050c16!important;border-color:#1766a0!important}
+    #bot #botCandlestickChart{height:245px}
+    #bot .market-screen svg{height:245px}
+    #bot .panel-heading{border-bottom:1px solid #2b4058;padding-bottom:10px}
+    #bot .manual-panel .signal-card{background:linear-gradient(145deg,#0b2032,#0a111c)!important;border-color:#1b6ca3!important}
+    #bot .manual-panel .manual-actions button{min-height:54px;font-size:16px}
+    #bot .manual-panel .buy-btn{background:linear-gradient(180deg,#10e58a,#009b59)!important;color:#00190d!important}
+    #bot .manual-panel .sell-btn{background:linear-gradient(180deg,#ff5264,#c91e39)!important;color:#fff!important}
+    #bot .manual-result-grid .ops-mini{background:#0a1726!important}
+    #bot .manual-panel .row[style*="Tempo restante"]{background:#101b2b!important;border-color:#8d712a!important}
+    #bot .manual-panel #manualTradeCountdown{color:#ffda60;font-size:20px}
+    #bot .darkpro-bottom{display:grid;grid-template-columns:minmax(190px,.8fr) minmax(190px,.8fr) minmax(300px,1.5fr);gap:12px;margin:12px 0}
+    #bot .darkpro-shortcut{background:linear-gradient(145deg,#0d1725,#070c14)!important;border-color:#29415e!important;min-width:0}
+    .darkpro-widget-title{font-weight:850;font-size:16px;color:#ffdc68;margin-bottom:8px}
+    #bot .darkpro-shortcut button{background:linear-gradient(180deg,#ffdf70,#dca91d)!important;color:#171100!important}
+    #bot .darkpro-learning{min-width:0}
+    #bot .darkpro-learning #learningPanel{margin:0!important;height:100%;background:linear-gradient(145deg,#0d1725,#070c14)!important;border-color:#29415e!important}
+    #bot button{border-radius:10px}
+    #bot button:not(.secondary):not(.buy-btn):not(.sell-btn){background:linear-gradient(180deg,#ffdf70,#dca91d)!important;color:#171100!important}
+    #bot button.secondary{background:linear-gradient(180deg,#1b3450,#102238)!important;color:#e8f3ff!important;border:1px solid #315779}
+    #bot .signal-tag{background:#102a42;border-color:#236b9d;color:#cceaff}
+    #bot .signal-tag.neutral{background:#302609;border-color:#947323;color:#ffe28a}
+    #bot .notice.warning{background:#302609;border-color:#87691e;color:#ffe6a0}
+    #bot .field input,#bot .field select{background:#050b13!important;color:#f4f7fc!important;border-color:#2a405b!important}
+    #bot th{color:#f3cf62}
+    #bot th,#bot td{border-bottom-color:#20334a}
+    @media(max-width:1100px){
+      #mainNav{width:190px;left:10px}
+      #appView{margin-left:204px}
+      #bot .ops-layout.dual-ops{grid-template-columns:minmax(0,1fr) 300px}
+      #bot .darkpro-bottom{grid-template-columns:1fr 1fr}
+      #bot .darkpro-learning{grid-column:1/-1}
+    }
+    @media(max-width:760px){
+      .wrap{padding:8px}
+      .top{min-height:58px;padding:6px 9px}
+      #mainNav{top:0;left:0;bottom:0;width:min(310px,86vw);height:100dvh;transform:translateX(-105%);border-radius:0 18px 18px 0}
+      #mainNav.open{transform:translateX(0)}
+      #mainNav .nav-heading .nav-close{display:block}
+      #appView{margin-left:0}
+      #bot>#derivLivePanel{display:block}
+      #derivLivePanel>#derivSignalPanel,#derivLivePanel>#derivCandlePanel{margin-top:10px!important}
+      #bot>.v5-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      #bot .ops-layout.dual-ops{grid-template-columns:1fr}
+      #bot .manual-panel{position:static}
+      #bot .market-screen,#bot .market-screen svg,#bot #botCandlestickChart{height:190px}
+      #bot .darkpro-bottom{grid-template-columns:1fr 1fr}
+      #bot .darkpro-learning{grid-column:1/-1}
+    }
+    @media(max-width:420px){
+      #bot .darkpro-bottom{grid-template-columns:1fr}
+      #bot .darkpro-learning{grid-column:auto}
+      #bot>.v5-grid{gap:7px}
+      #bot .manual-panel .manual-actions button{font-size:14px}
+    }
+
   </style>
 </head>
 <body>
@@ -735,7 +828,21 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
             <div class="notice small" id="btDetails">O relatório do teste aparecerá aqui.</div><div class="tablewrap"><table><thead><tr><th>Indicador</th><th>Valor</th></tr></thead><tbody id="btMetrics"><tr><td colspan="2" class="muted">Ainda sem resultados.</td></tr></tbody></table></div>
           </div>
           <div class="notice warning">A execução automática e manual continuam desligadas até existir feed validado, ligação segura à corretora, testes DEMO e controlos de risco no servidor. Nenhum lucro é garantido.</div>
-        </section>
+        
+          <div id="darkProBottom" class="darkpro-bottom">
+            <div class="darkpro-shortcut card">
+              <div class="darkpro-widget-title">💱 Conversor de Moedas</div>
+              <p class="small muted">Conversão rápida entre moedas disponíveis.</p>
+              <button type="button" class="secondary" data-page="converter">Abrir conversor</button>
+            </div>
+            <div class="darkpro-shortcut card">
+              <div class="darkpro-widget-title">▤ Últimas Operações</div>
+              <p class="small muted">Consulta o histórico completo das operações registadas.</p>
+              <button type="button" class="secondary" data-page="history">Ver histórico</button>
+            </div>
+            <div id="darkProLearningSlot" class="darkpro-learning"></div>
+          </div>
+</section>
 
         <section id="history" class="section">
           <h1>Histórico de operações</h1><div class="card"><div class="row"><p class="muted">Operações guardadas na tua conta.</p><button id="refreshHistory" class="secondary right">Atualizar</button></div><div class="tablewrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Tipo</th><th>Resultado</th><th>Comissão</th><th>Estado</th></tr></thead><tbody id="historyRows"><tr><td colspan="6" class="muted">A carregar...</td></tr></tbody></table></div><p id="historyMsg" class="small muted"></p></div>
@@ -1920,7 +2027,22 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     if(!win){message('botMsg','O navegador bloqueou a janela. Permite pop-ups para este ficheiro e tenta novamente.','error');return;}
     const safe=escapeHtml(asset);
     win.document.write(`<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MendtradeR · ${safe}</title><style>body{margin:0;background:#050806;color:#effff5;font:16px system-ui;padding:22px}header,.panel{background:#0d1711;border:1px solid #245438;border-radius:14px;padding:16px;margin-bottom:14px}.green{color:#00df75}svg{width:100%;height:420px;background:#070c09;border-radius:10px}.muted{color:#9eb0a4}
-  </style></head><body><header><h2 class="green">MendtradeR · Janela de gráfico</h2><b>${safe}</b> <span class="muted">· MODO DEMO</span></header><div class="panel"><b>Gráfico independente</b><p class="muted">Área preparada para gráfico e dados de mercado. O desenho abaixo é ilustrativo e não representa cotações ao vivo.</p><svg viewBox="0 0 900 400" preserveAspectRatio="none"><path d="M0 80H900M0 160H900M0 240H900M0 320H900" stroke="#23382c"/><path d="M10 300 L70 250 L130 270 L190 190 L250 220 L310 145 L370 175 L430 110 L490 155 L550 90 L610 125 L670 70 L730 120 L790 60 L890 85" fill="none" stroke="#00d978" stroke-width="4"/></svg><p class="muted">Quando a integração de cotações for concluída, esta janela poderá apresentar candles, indicadores e períodos selecionáveis.</p></div></body></html>`);
+  </style></head><body><header><h2 class="green">MendtradeR · Janela de gráfico</h2><b>${safe}</b> <span class="muted">· MODO DEMO</span></header><div class="panel"><b>Gráfico independente</b><p class="muted">Área preparada para gráfico e dados de mercado. O desenho abaixo é ilustrativo e não representa cotações ao vivo.</p><svg viewBox="0 0 900 400" preserveAspectRatio="none"><path d="M0 80H900M0 160H900M0 240H900M0 320H900" stroke="#23382c"/><path d="M10 300 L70 250 L130 270 L190 190 L250 220 L310 145 L370 175 L430 110 L490 155 L550 90 L610 125 L670 70 L730 120 L790 60 L890 85" fill="none" stroke="#00d978" stroke-width="4"/></svg><p class="muted">Quando a integração de cotações for concluída, esta janela poderá apresentar candles, indicadores e períodos selecionáveis.</p></div>
+<script>
+/* Move only the existing learning widget into the lower dashboard slot.
+   Its IDs and handlers remain unchanged. */
+(function(){
+  const placeLearning=()=>{
+    const panel=document.getElementById('learningPanel');
+    const slot=document.getElementById('darkProLearningSlot');
+    if(panel&&slot&&panel.parentElement!==slot)slot.appendChild(panel);
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',placeLearning,{once:true});
+  else placeLearning();
+})();
+</script>
+
+</body></html>`);
     win.document.close();
   }
   $('openChartWindow')?.addEventListener('click',()=>openChartWindow());

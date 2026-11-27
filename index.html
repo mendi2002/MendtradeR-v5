@@ -1123,6 +1123,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     <button data-page="overview">▦ Visão geral</button>
     <button data-page="history">▤ Histórico</button>
     <button data-page="instructions">ⓘ Instruções e técnicas</button>
+    <button data-page="learning">🧠 Aprendizagem inteligente</button>
     <button data-page="wallet">＋ Depósitos</button>
     <button data-page="withdraw">↗ Levantamentos</button>
     <button data-page="support">✦ Suporte IA / Proprietário</button>
@@ -1230,7 +1231,6 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
               <div class="row" style="margin-top:12px"><button id="derivCandleBacktest" class="secondary">Testar estratégia em demo</button></div>
               <p id="derivCandleTestResult" class="small muted">O teste ficará disponível após recolher pelo menos 60 candles fechados (aproximadamente 1 hora).</p>
             </div>
-            <div id="learningPanel" class="card" style="margin-top:14px"><h3>🧠 Aprendizagem inteligente · análise de resultados</h3><p class="small muted">Análise observacional das operações DEMO. Não altera entradas, estratégia ou valor de operação.</p><div class="formgrid"><div class="field"><label>Operações registadas</label><strong id="learningRegistered">0</strong></div><div class="field"><label>Capturas técnicas válidas</label><strong id="learningTotal">0</strong></div><div class="field"><label>Sem contexto válido</label><strong id="learningInvalid">0</strong></div><div class="field"><label>Positivas / negativas válidas</label><strong id="learningWinsLosses">0 / 0</strong></div><div class="field"><label>Taxa positiva observada</label><strong id="learningWinRate">—</strong></div><div class="field"><label>Estado</label><strong id="learningState">A aguardar dados</strong></div></div><p id="learningLastUpdate" class="small muted">Ainda sem análise.</p><div class="tablewrap"><table><thead><tr><th>Contexto</th><th>Amostras</th><th>Positivas</th><th>Negativas</th><th>Taxa</th></tr></thead><tbody id="learningPatternRows"><tr><td colspan="5" class="muted">A aguardar dados suficientes.</td></tr></tbody></table></div><div class="row" style="margin-top:10px"><button id="learningRefreshBtn" class="secondary">Atualizar análise</button></div><p id="learningNotice" class="small muted">São necessárias 20 capturas técnicas válidas. Não prevê resultados nem modifica o bot.</p></div>
             <p class="small muted">As cotações são fornecidas pela Deriv através de uma ligação pública. A ligação não envia operações. Os sinais e o bot continuam desligados até serem validados separadamente.</p>
           </div>
           <div class="v5-grid">
@@ -1320,9 +1320,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
               <div class="darkpro-widget-title">▤ Últimas Operações</div>
               <p class="small muted">Consulta o histórico completo das operações registadas.</p>
               <button type="button" class="secondary" data-page="history">Ver histórico</button>
-            </div>
-            <div id="darkProLearningSlot" class="darkpro-learning"></div>
-          </div>
+            </div></div>
 </section>
 
         <section id="history" class="section">
@@ -1410,6 +1408,12 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
           </div>
         </section>
 
+        <section id="learning" class="section">
+          <h1>Aprendizagem inteligente</h1>
+          <p class="muted">Acompanhamento centralizado dos resultados e contextos das operações DEMO. Esta área aparece apenas aqui.</p>
+          <div id="learningPanel" class="card" style="margin-top:14px"><h3>🧠 Aprendizagem inteligente · análise de resultados</h3><p class="small muted">Análise observacional das operações DEMO. Não altera entradas, estratégia ou valor de operação.</p><div class="formgrid"><div class="field"><label>Operações registadas</label><strong id="learningRegistered">0</strong></div><div class="field"><label>Capturas técnicas válidas</label><strong id="learningTotal">0</strong></div><div class="field"><label>Sem contexto válido</label><strong id="learningInvalid">0</strong></div><div class="field"><label>Positivas / negativas válidas</label><strong id="learningWinsLosses">0 / 0</strong></div><div class="field"><label>Taxa positiva observada</label><strong id="learningWinRate">—</strong></div><div class="field"><label>Estado</label><strong id="learningState">A aguardar dados</strong></div></div><p id="learningLastUpdate" class="small muted">Ainda sem análise.</p><div class="tablewrap"><table><thead><tr><th>Contexto</th><th>Amostras</th><th>Positivas</th><th>Negativas</th><th>Taxa</th></tr></thead><tbody id="learningPatternRows"><tr><td colspan="5" class="muted">A aguardar dados suficientes.</td></tr></tbody></table></div><div class="row" style="margin-top:10px"><button id="learningRefreshBtn" class="secondary">Atualizar análise</button></div><p id="learningNotice" class="small muted">São necessárias 20 capturas técnicas válidas. Não prevê resultados nem modifica o bot.</p></div>
+        </section>
+
         <section id="support" class="section">
           <h1>Centro de suporte</h1><p class="muted">Escolhe se queres ajuda imediata da IA ou enviar uma mensagem diretamente ao proprietário da plataforma.</p>
           <div class="support-grid">
@@ -1460,19 +1464,6 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
               <div class="row" style="margin-top:12px"><span class="pill">Regra comercial definida</span><span class="pill">Resumo financeiro: integração pendente</span></div>
             </div></div>
 
-          <div class="card" id="derivAccountCard" style="margin-top:14px;border-color:#087b42">
-            <div class="row" style="justify-content:space-between;align-items:center">
-              <div><span class="badge">DERIV · CONTA</span><h2 style="margin:9px 0 4px">🔐 Ligar conta Deriv</h2></div>
-              <span id="derivAccountStatus" class="pill">Não ligada</span>
-            </div>
-            <p class="small muted">Autoriza a MendtradeR a aceder à tua conta Deriv. A palavra-passe é introduzida apenas no site oficial da Deriv. Nesta etapa nenhuma ordem é enviada.</p>
-            <div class="row"><button id="derivAccountConnect" type="button">Conectar à Deriv</button><button id="derivAccountDisconnect" class="secondary" type="button" disabled>Desligar conta</button></div>
-            <p id="derivAccountMsg" class="small muted" aria-live="polite">Ainda não existe uma conta Deriv autorizada nesta sessão.</p>
-            <div class="field"><label for="derivTradingAccount">Conta para consultar</label><select id="derivTradingAccount" disabled><option value="">Liga primeiro a Deriv</option></select></div>
-            <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>
-            <div id="derivBalanceMode" class="small muted" style="margin-top:10px">Saldo Deriv: ainda não consultado.</div>
-          </div>
-
           <div class="card" style="margin-top:14px">
             <h2>🎨 Aparência da plataforma</h2>
             <p class="small muted">Escolhe uma cor visual. A preferência fica guardada neste dispositivo.</p>
@@ -1489,6 +1480,19 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
 
         <section id="invites" class="section">
           <div class="ops-hero"><span class="ops-status"><i class="ops-dot"></i> CONVITES MENDTRADER</span><div class="ops-title">Convida outras pessoas</div><p class="ops-sub">Partilha o teu link pessoal. Quando alguém criar uma conta através dele, a indicação ficará associada ao teu perfil.</p></div>
+          <div class="card" id="derivAccountCard" style="margin-top:14px;border-color:#087b42">
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <div><span class="badge">DERIV · CONTA</span><h2 style="margin:9px 0 4px">🔐 Ligar conta Deriv</h2></div>
+              <span id="derivAccountStatus" class="pill">Não ligada</span>
+            </div>
+            <p class="small muted">Autoriza a MendtradeR a aceder à tua conta Deriv. A palavra-passe é introduzida apenas no site oficial da Deriv. Nesta etapa nenhuma ordem é enviada.</p>
+            <div class="row"><button id="derivAccountConnect" type="button">Conectar à Deriv</button><button id="derivAccountDisconnect" class="secondary" type="button" disabled>Desligar conta</button></div>
+            <p id="derivAccountMsg" class="small muted" aria-live="polite">Ainda não existe uma conta Deriv autorizada nesta sessão.</p>
+            <div class="field"><label for="derivTradingAccount">Conta para consultar</label><select id="derivTradingAccount" disabled><option value="">Liga primeiro a Deriv</option></select></div>
+            <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>
+            <div id="derivBalanceMode" class="small muted" style="margin-top:10px">Saldo Deriv: ainda não consultado.</div>
+          </div>
+
           <div class="card">
             <h2>🔗 O teu link de convite</h2>
             <p class="small muted">Este link é exclusivo da tua conta. Copia ou partilha para convidar novos utilizadores.</p>
@@ -3366,20 +3370,6 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
 })();
 </script>
 <script>
-/* Move only the existing learning widget into the lower dashboard slot.
-   Its IDs and handlers remain unchanged. */
-(function(){
-  const placeLearning=()=>{
-    const panel=document.getElementById('learningPanel');
-    const slot=document.getElementById('darkProLearningSlot');
-    if(panel&&slot&&panel.parentElement!==slot)slot.appendChild(panel);
-  };
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',placeLearning,{once:true});
-  else placeLearning();
-  document.addEventListener('click',event=>{const button=event.target.closest('#darkProBottom [data-page]');if(!button)return;const target=document.querySelector('#mainNav [data-page="'+button.dataset.page+'"]');if(target)target.click();});
-})();
-</script>
-<script>
 /* Montagem resiliente do painel visual: tenta após login e só marca sucesso no fim. */
 (function(){
  let running=false;
@@ -3401,7 +3391,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
    const liveDetails=document.createElement('details');liveDetails.className='ref-details';const liveSummary=document.createElement('summary');liveSummary.textContent='Mercado em tempo real · análise técnica · candles · ligação Deriv';liveDetails.append(liveSummary,live);ops.after(liveDetails);
    const botPanel=ops.querySelector('.bot-panel');
    if(botPanel&&!botPanel.querySelector(':scope > .ref-details')){const heading=botPanel.querySelector('.panel-heading'),market=botPanel.querySelector('.market-screen'),nodes=[...botPanel.children],settings=document.createElement('details'),summary=document.createElement('summary');settings.className='ref-details';summary.textContent='Configurações e controlo do bot';settings.append(summary);nodes.forEach(node=>{if(node!==heading&&node!==market)settings.append(node);});botPanel.append(settings);const h=heading?.querySelector('h2');if(h)h.textContent='Gráfico do Mercado';}
-   const learning=document.getElementById('learningPanel'),slot=document.getElementById('darkProLearningSlot');if(learning&&slot&&learning.parentElement!==slot)slot.append(learning);
+
    bot.dataset.refLayout='mounted';
   }catch(error){console.error('MendtradeR: falha ao montar o painel visual; será tentado novamente.',error);}
   finally{running=false;}

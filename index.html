@@ -1245,7 +1245,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
                   <g id="botCandlestickGrid"><path class="market-gridline" d="M0 25H620 M0 65H620 M0 105H620 M0 145H620"/></g>
                   <g id="botCandlestickBodies"><text x="310" y="92" text-anchor="middle" fill="#9aa9a0" font-size="13">A aguardar cotações da Deriv…</text></g>
                 </svg>
-                <div class="row"><span class="small muted">Sinal do motor: indisponível</span><span class="small muted right">Feed não ligado</span></div>
+                <div class="row"><span id="botChartEngineStatus" class="small muted">Motor de sinais: em preparação</span><span id="botChartFeedStatus" class="small muted right">Feed desligado</span></div>
               </div>
               <div class="formgrid">
                 <div class="field"><label>Ativo</label><input id="asset" value="Volatility 100 Index" maxlength="80"></div>
@@ -2909,8 +2909,17 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   }
   renderBotCandlestickChart();
   function setDerivFeedStatus(label,kind='neutral'){
-    const el=$('derivFeedStatus'); if(!el)return;
-    el.textContent=label; el.className='signal-tag '+kind;
+    const el=$('derivFeedStatus');
+    if(el){el.textContent=label;el.className='signal-tag '+kind;}
+    const chartFeed=$('botChartFeedStatus');
+    if(chartFeed){
+      if(label.includes('Deriv ligada')) chartFeed.textContent='Feed ligado · à espera de preço';
+      else if(label.includes('Preço parado')) chartFeed.textContent='Feed sem atualização';
+      else if(label.includes('Erro')||label.includes('Falha')) chartFeed.textContent='Feed com erro';
+      else if(label.includes('A ligar')||label.includes('reconectar')) chartFeed.textContent='A ligar feed…';
+      else if(label.includes('Desligado')) chartFeed.textContent='Feed desligado';
+      else chartFeed.textContent='Servidor ligado · à espera da Deriv';
+    }
   }
   function closeDerivFeed(){
     derivFeedWanted=false;clearTimeout(derivReconnectTimer);derivReconnectTimer=null;
@@ -3272,6 +3281,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       }
       if(data.type==='tick'&&data.tick){
         derivLastTickAt=Date.now();
+        const chartFeed=$('botChartFeedStatus');if(chartFeed)chartFeed.textContent='Feed ativo · cotações recebidas';
         const t=data.tick, quote=Number(t.quote);
         if(!Number.isFinite(quote))return;
         const time=new Date((Number(t.epoch)||Date.now()/1000)*1000);

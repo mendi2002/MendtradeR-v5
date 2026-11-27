@@ -2076,7 +2076,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     return { ready: !failed, reason: failed ? failed[1] : 'Tendência, RSI, vela e distância às zonas técnicas estão alinhados.' };
   }
   const MANUAL_ENTRY_WAIT_MS = 10000;
-  const MANUAL_ENTRY_MAX_CHECKS = 9;
+  const MANUAL_ENTRY_MAX_CHECKS = 6;
   async function executeManualTrade(direction) {
     if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo') {
       message('manualTradeStatus', 'Por segurança, as ordens manuais só estão disponíveis numa conta DEMO ligada.', 'error');
@@ -2116,7 +2116,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         if (attempt < MANUAL_ENTRY_MAX_CHECKS) await new Promise(resolve => setTimeout(resolve, MANUAL_ENTRY_WAIT_MS));
       }
       if (!entryDecision.ready) {
-        throw new Error('Entrada cancelada: não surgiu confirmação técnica em 90 segundos. ' + entryDecision.reason);
+        throw new Error('Entrada cancelada: não surgiu confirmação técnica em cerca de 2 minutos. ' + entryDecision.reason);
       }
       if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
         throw new Error('A ligação DEMO caiu antes da entrada. Nenhuma ordem foi enviada.');

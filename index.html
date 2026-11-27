@@ -1284,12 +1284,13 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
               <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" type="button" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" type="button" disabled>↓ VENDA</button></div>
               <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
               <div class="row" style="margin:8px 0;padding:10px;border:1px solid #315c45;border-radius:10px;background:#07110b"><span class="small muted">⏱ Tempo restante da operação</span><b id="manualTradeCountdown" style="font-variant-numeric:tabular-nums">Sem operação ativa</b></div>
+              <div class="notice small" id="manualProtectionStatus" aria-live="polite">Proteção dinâmica: à espera de uma operação DEMO. A monitorização depende da ligação ativa à Deriv.</div>
               <div class="manual-result-grid">
                 <div class="ops-mini"><span class="label">P/L em aberto</span><strong id="manualOpenPnl">0.00</strong></div>
                 <div class="ops-mini"><span class="label">Resultado fechado</span><strong id="manualClosedPnl">0.00</strong></div>
                 <div class="ops-mini"><span class="label">Ganhos / perdas</span><strong id="manualWinLoss">0 / 0</strong></div>
               </div>
-              <div class="notice warning small">Área manual em DEMO: um toque envia a ordem sem confirmação extra. A Deriv fecha o contrato automaticamente no prazo escolhido; o resultado é acompanhado nesta janela. A conta REAL continua bloqueada.</div>
+              <div class="notice warning small">Área manual em DEMO. A proteção dinâmica acompanha o lucro e tenta vender antecipadamente quando o stop móvel é atingido, se a Deriv indicar is_valid_to_sell=true. É uma proteção monitorizada por esta página: não é garantida se a ligação cair. A conta REAL continua bloqueada.</div>
               <h3>Histórico manual</h3><div id="manualHistory" class="mini-list"><div class="mini-row"><span class="muted">Ainda sem operações manuais</span><span class="pill">DEMO</span></div></div>
             </div>
           </div>
@@ -1831,6 +1832,82 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     }
     return raw || 'Não foi possível executar a operação DEMO. Verifica a ligação e tenta novamente.';
   }
+  function setManualProtectionStatus(tracked, text, tone) {
+    if (tracked) {
+      tracked.protectionMessage = text;
+      if (tracked.protectionEl) {
+        tracked.protectionEl.textContent = text;
+        tracked.protectionEl.className = 'small ' + (tone || 'muted');
+      }
+    }
+    const globalStatus = $('manualProtectionStatus');
+    if (globalStatus) {
+      globalStatus.textContent = text;
+      globalStatus.className = 'notice small ' + (tone === 'error' ? 'warning' : '');
+    }
+  }
+  function manualTrailingThresholds(tracked) {
+    const stake = Math.max(0, Number(tracked.amount) || 0);
+    const activation = Math.max(0.01, stake * 0.03);
+    const peak = Math.max(0, Number(tracked.peakProfit) || 0);
+    const gap = Math.max(0.01, stake * 0.02, peak * 0.25);
+    return { activation, gap, floor: Math.max(0, peak - gap) };
+  }
+  async function evaluateManualTrailingProtection(tracked, contract) {
+    if (!tracked || tracked.closed || tracked.protectionClosing || tracked.protectionAttempted) return;
+    if (contract.is_sold) return;
+    const profit = Number(contract.profit);
+    if (!Number.isFinite(profit)) return;
+    tracked.peakProfit = Math.max(Number(tracked.peakProfit) || 0, profit);
+    const limits = manualTrailingThresholds(tracked);
+    if (!tracked.protectionActive && tracked.peakProfit >= limits.activation) {
+      tracked.protectionActive = true;
+      setManualProtectionStatus(tracked,
+        'Proteção ativa · pico ' + tracked.peakProfit.toFixed(2) + ' ' + tracked.currency +
+        ' · margem de correção ' + limits.gap.toFixed(2) + ' ' + tracked.currency + '.',
+        'success');
+    }
+    if (!tracked.protectionActive) {
+      setManualProtectionStatus(tracked,
+        'A acompanhar lucro · proteção ativa a partir de ' + limits.activation.toFixed(2) + ' ' + tracked.currency + '.',
+        'muted');
+      return;
+    }
+    const updated = manualTrailingThresholds(tracked);
+    if (profit > updated.floor) {
+      setManualProtectionStatus(tracked,
+        'MANTER · lucro atual ' + profit.toFixed(2) + ' ' + tracked.currency +
+        ' · pico ' + tracked.peakProfit.toFixed(2) + ' · stop móvel ' + updated.floor.toFixed(2) + '. Correção ainda dentro da margem.',
+        'success');
+      return;
+    }
+    if (contract.is_valid_to_sell !== true) {
+      setManualProtectionStatus(tracked,
+        'PROTEGER LUCRO · o stop móvel foi atingido, mas a Deriv não autoriza venda antecipada neste instante. A acompanhar até voltar a permitir ou até ao vencimento.',
+        'warning');
+      return;
+    }
+    tracked.protectionClosing = true;
+    tracked.protectionAttempted = true;
+    setManualProtectionStatus(tracked,
+      'FECHAR PARA PROTEGER LUCRO · correção atingiu o stop móvel. A enviar venda antecipada à Deriv…',
+      'warning');
+    try {
+      const response = await sendDerivTradeRequest({ sell: Number(contract.contract_id), price: 0 });
+      const sold = response.sell || response.data?.sell;
+      if (!sold) throw new Error(response.error?.message || 'A Deriv não confirmou a venda antecipada.');
+      setManualProtectionStatus(tracked,
+        'Venda de proteção aceite pela Deriv. A aguardar confirmação do resultado final.',
+        'success');
+    } catch (error) {
+      tracked.protectionAttempted = false;
+      tracked.protectionClosing = false;
+      setManualProtectionStatus(tracked,
+        'A Deriv não confirmou a venda de proteção: ' + (error.message || 'erro desconhecido') +
+        '. O contrato continua a ser acompanhado; a proteção automática pode não conseguir fechar.',
+        'error');
+    }
+  }
   function addManualHistoryRow(contractId, direction, asset, amount, currency, duration, marketSnapshot) {
     const list = $('manualHistory');
     if (!list) return null;
@@ -1843,12 +1920,17 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const status = document.createElement('span');
     status.className = 'pill';
     status.textContent = 'Contrato #' + contractId + ' · em aberto';
+    const protection = document.createElement('span');
+    protection.className = 'small muted';
+    protection.textContent = 'Proteção: a aguardar lucro';
     const pnl = document.createElement('strong');
     pnl.className = 'small';
     pnl.textContent = 'P/L: a aguardar';
-    row.append(label, status, pnl);
+    row.append(label, status, pnl, protection);
     list.prepend(row);
-    derivOpenContracts.set(String(contractId), { row, status, label, pnl, profit: 0, closed: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null, marketSnapshot: marketSnapshot || {status:'unavailable'}, direction: direction === 'CALL' ? 'COMPRA' : 'VENDA', asset, amount: Number(amount)||0, persisted:false });
+    const tracked = { row, status, label, pnl, protectionEl: protection, profit: 0, closed: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null, marketSnapshot: marketSnapshot || {status:'unavailable'}, direction: direction === 'CALL' ? 'COMPRA' : 'VENDA', asset, amount: Number(amount)||0, persisted:false, peakProfit: 0, protectionActive: false, protectionClosing: false, protectionAttempted: false };
+    derivOpenContracts.set(String(contractId), tracked);
+    setManualProtectionStatus(tracked, 'A acompanhar contrato DEMO · a proteção será ativada quando houver lucro suficiente.', 'muted');
     renderManualTradeStats();
     return row;
   }
@@ -2032,6 +2114,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
             const profit = Number(contract.profit);
             const state = contract.status || (contract.is_sold ? 'fechado' : 'em aberto');
             if (Number.isFinite(profit)) tracked.profit = profit;
+            if (!contract.is_sold) evaluateManualTrailingProtection(tracked, contract).catch(error => setManualProtectionStatus(tracked, 'Falha na proteção automática: ' + (error.message || 'erro'), 'error'));
             const expiry = Number(contract.date_expiry);
             if (Number.isFinite(expiry) && expiry > 0) tracked.expiryEpoch = expiry;
             else if (!Number.isFinite(Number(tracked.expiryEpoch)) && Number(contract.date_start) > 0 && tracked.durationSeconds > 0) tracked.expiryEpoch = Number(contract.date_start) + tracked.durationSeconds;
@@ -2070,6 +2153,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         if (derivTradingSocket === socket) {
           derivTradingSocket = null;
           derivConnectedAccount = null;
+          for (const tracked of derivOpenContracts.values()) {
+            if (!tracked.closed) setManualProtectionStatus(tracked, 'LIGAÇÃO PERDIDA · a proteção dinâmica está suspensa até a ligação DEMO ser restabelecida. O stop é monitorizado neste navegador, não no servidor da Deriv.', 'error');
+          }
           updateManualTradeControls();
           $('derivBalanceMode').textContent = 'Ligação à conta encerrada. A autorização pode continuar válida.';
           scheduleDerivTradingReconnect();

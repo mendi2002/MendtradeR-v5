@@ -958,6 +958,53 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
  #bot .bot-panel .market-screen{min-height:225px!important}
 }
 
+
+/* V6 REF STRUCTURE — reorganização real do espaço de operações */
+#bot .ref-workspace{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start;margin:12px 0}
+#bot .ref-topline{grid-template-columns:1.25fr repeat(3,minmax(145px,.8fr));gap:12px;margin:12px 0 14px}
+#bot .ref-topbox{min-height:78px;padding:14px 16px;gap:12px;background:linear-gradient(145deg,#101d2d,#080e18);border:1px solid #29435e;border-radius:15px}
+#bot .ref-topbox strong{font-size:clamp(17px,1.8vw,24px);letter-spacing:-.02em}
+#bot .ref-topbox small{font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+#bot .ref-brandmark{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#126da6,#0b3150);color:#fff;font-size:23px}
+#bot .ref-demo-dot{width:11px;height:11px;border-radius:50%;background:#20df91;box-shadow:0 0 0 6px #20df9120}
+#bot .ref-marketbar{margin:0 0 12px;padding:10px 12px;min-height:58px}
+#bot .ref-marketbar label{color:#93a9bf;font-size:11px;font-weight:900;letter-spacing:.12em;margin-right:6px;white-space:nowrap}
+#bot .ref-workspace>.ops-layout{margin:0!important;grid-template-columns:minmax(0,1.55fr) minmax(300px,.85fr)!important;gap:14px!important;align-items:start}
+#bot .ref-workspace>.ref-details{margin:0!important;min-width:0}
+#bot .ref-workspace .bot-panel,#bot .ref-workspace .manual-panel{max-height:none!important;min-height:0;overflow:visible!important;padding:16px!important}
+#bot .ref-workspace .bot-panel .market-screen{min-height:330px!important;padding:15px!important}
+#bot .ref-workspace .bot-panel #botCandlestickChart{height:260px!important}
+#bot .ref-workspace .manual-panel{position:static!important;max-width:none!important}
+#bot .ref-workspace .manual-panel .formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+#bot .ref-workspace .manual-panel .manual-actions button{min-height:52px}
+#bot .ref-workspace .ref-details{background:#0a1421;border:1px solid #29435e;border-radius:14px;padding:13px}
+#bot .ref-workspace .ref-details>summary{padding:5px 4px;font-weight:800}
+#bot .ref-workspace .ref-details[open]>summary{margin-bottom:12px;color:#7fc8ff}
+#bot .ref-workspace #derivLivePanel{max-height:none!important;overflow:visible!important;margin:8px 0 0!important}
+#bot>.darkpro-bottom{margin-top:16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) minmax(0,2fr);gap:12px}
+#bot .darkpro-shortcut,#bot .darkpro-learning{min-width:0;border:1px solid #29435e;border-radius:15px;background:linear-gradient(145deg,#101d2d,#080e18);padding:15px}
+@media(max-width:900px){
+ #bot .ref-topline{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #bot .ref-workspace>.ops-layout{grid-template-columns:minmax(0,1fr)!important}
+ #bot .ref-workspace .bot-panel .market-screen{min-height:260px!important}
+ #bot .ref-workspace .bot-panel #botCandlestickChart{height:210px!important}
+ #bot>.darkpro-bottom{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #bot .darkpro-learning{grid-column:1/-1}
+}
+@media(max-width:560px){
+ #bot .ref-topline{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ #bot .ref-topbox{min-height:68px;padding:10px}
+ #bot .ref-brandmark{width:34px;height:34px}
+ #bot .ref-marketbar{gap:6px;padding:8px}
+ #bot .ref-marketbar button{padding:9px 11px!important;font-size:12px}
+ #bot .ref-workspace{gap:10px;margin:9px 0}
+ #bot .ref-workspace .bot-panel,#bot .ref-workspace .manual-panel{padding:12px!important}
+ #bot .ref-workspace .manual-panel .formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #bot .ref-workspace .bot-panel .market-screen{min-height:220px!important}
+ #bot .ref-workspace .bot-panel #botCandlestickChart{height:170px!important}
+ #bot>.darkpro-bottom{grid-template-columns:1fr 1fr}
+}
+
 </style>
 </head>
 <body>
@@ -2395,6 +2442,36 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
 
 
 
+
+
+<script>
+/* Estrutura V6: agrupa gráfico, execução e feed num único espaço de trabalho.
+   Os elementos originais, IDs, controlos e listeners são preservados. */
+(function(){
+ function buildReferenceWorkspace(){
+  const bot=document.getElementById('bot');
+  if(!bot||bot.dataset.refWorkspace==='ready')return;
+  const ops=bot.querySelector('.ops-layout.dual-ops');
+  const liveDetails=bot.querySelector(':scope > details.ref-details');
+  if(!ops)return;
+  const workspace=document.createElement('div');
+  workspace.className='ref-workspace';
+  workspace.setAttribute('aria-label','Área principal de negociação');
+  ops.parentNode.insertBefore(workspace,ops);
+  workspace.appendChild(ops);
+  if(liveDetails)workspace.appendChild(liveDetails);
+  bot.dataset.refWorkspace='ready';
+ }
+ function init(){
+  buildReferenceWorkspace();
+  const app=document.getElementById('appView');
+  if(app&&!app.classList.contains('hidden'))buildReferenceWorkspace();
+  if(app)new MutationObserver(()=>{if(!app.classList.contains('hidden'))buildReferenceWorkspace();}).observe(app,{attributes:true,attributeFilter:['class']});
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+ else init();
+})();
+</script>
 
 </body></html>`);
     win.document.close();

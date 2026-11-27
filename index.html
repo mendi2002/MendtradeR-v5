@@ -301,7 +301,7 @@
               <div class="card" style="margin:12px 0;border:1px solid #315c45;background:#07110b">
                 <div class="row" style="justify-content:space-between"><b>🔐 Ligação segura à Deriv · DEMO</b><span id="derivTradeStatus" class="signal-tag neutral">● Não ligada</span></div>
                 <p class="small muted">Token pessoal Deriv com permissão trade. É usado apenas para gerar uma sessão temporária e não fica guardado. Esta primeira versão aceita somente conta DEMO.</p>
-                <div class="field"><label for="derivTradeToken">Token pessoal Deriv (PAT)</label><input id="derivTradeToken" type="password" autocomplete="off" placeholder="Token com permissão trade"></div>
+                <div class="field"><label for="derivTradeToken">Token pessoal Deriv (PAT)</label><input id="derivTradeToken" type="password" autocomplete="off" placeholder="Token com permissão trade"><label class="small"><input id="rememberDerivToken" type="checkbox" style="width:auto;vertical-align:middle;margin-right:6px">Lembrar token neste dispositivo</label><span class="small muted">Guarda apenas neste navegador. Não atives em dispositivos partilhados.</span></div>
                 <div class="formgrid"><div class="field"><label for="derivTradeAccount">ID da conta DEMO (opcional)</label><input id="derivTradeAccount" type="text" autocomplete="off" placeholder="Deixa vazio para detetar automaticamente"></div><div class="field"><label for="derivTradeAppId">App ID Deriv</label><input id="derivTradeAppId" type="text" value="34TEm2Gavyti0dcVDw73V" autocomplete="off"></div></div>
                 <div class="row"><button id="derivTradeConnect">Ligar conta DEMO</button><button id="derivTradeDisconnect" class="secondary" disabled>Desligar</button></div>
                 <p id="derivTradeMessage" class="small muted" aria-live="polite">Conta ainda não autenticada.</p>
@@ -579,6 +579,24 @@
     $('manualBuyBtn').disabled=true;$('manualSellBtn').disabled=true;$('derivTradeConnect').disabled=false;$('derivTradeDisconnect').disabled=true;
     $('derivTradeBalance').textContent='—';$('derivTradeCurrency').textContent='—';setDerivTradeStatus('● Não ligada');$('derivTradeMessage').textContent='Conta desligada.';
   }
+  const DERIV_TOKEN_STORAGE_KEY='mendtrader_deriv_token_local_v1';
+  const derivTokenInput=$('derivTradeToken');
+  const rememberDerivToken=$('rememberDerivToken');
+  try{
+    const savedDerivToken=localStorage.getItem(DERIV_TOKEN_STORAGE_KEY);
+    if(savedDerivToken){derivTokenInput.value=savedDerivToken;rememberDerivToken.checked=true;}
+  }catch(e){}
+  rememberDerivToken?.addEventListener('change',()=>{
+    try{
+      if(rememberDerivToken.checked){
+        if(derivTokenInput.value.trim())localStorage.setItem(DERIV_TOKEN_STORAGE_KEY,derivTokenInput.value.trim());
+      }else localStorage.removeItem(DERIV_TOKEN_STORAGE_KEY);
+    }catch(e){$('derivTradeMessage').textContent='Não foi possível guardar o token neste navegador.';}
+  });
+  derivTokenInput?.addEventListener('input',()=>{
+    if(!rememberDerivToken?.checked)return;
+    try{if(derivTokenInput.value.trim())localStorage.setItem(DERIV_TOKEN_STORAGE_KEY,derivTokenInput.value.trim());else localStorage.removeItem(DERIV_TOKEN_STORAGE_KEY);}catch(e){}
+  });
   async function connectDerivTrade(){
     if(!currentUser)return message('derivTradeMessage','Entra primeiro no MendtradeR.','error');
     const token=$('derivTradeToken').value.trim(),accountId=$('derivTradeAccount').value.trim(),appId=$('derivTradeAppId').value.trim();
@@ -586,7 +604,6 @@
     $('derivTradeConnect').disabled=true;$('derivTradeMessage').textContent='A validar conta DEMO…';
     try{
       const {data,error}=await client.functions.invoke('deriv-demo-otp',{body:{token,account_id:accountId,app_id:appId}});
-      $('derivTradeToken').value='';
       if(error||!data?.url)throw Error(data?.error||error?.message||'Não foi possível obter a sessão DEMO.');
       if(data.account_id)$('derivTradeAccount').value=data.account_id;
       closeDerivTradeSocket();$('derivTradeConnect').disabled=true;setDerivTradeStatus('● A ligar');

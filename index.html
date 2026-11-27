@@ -580,7 +580,7 @@
   async function connectDerivTrade(){
     if(!currentUser)return message('derivTradeMessage','Entra primeiro no MendtradeR.','error');
     const token=$('derivTradeToken').value.trim(),accountId=$('derivTradeAccount').value.trim(),appId=$('derivTradeAppId').value.trim();
-    if(!token||!accountId||!appId)return message('derivTradeMessage','Preenche o token Deriv e o App ID. O ID da conta é opcional.','error');
+    if(!token||!appId)return message('derivTradeMessage','Preenche o token Deriv e o App ID. O ID da conta é opcional.','error');
     $('derivTradeConnect').disabled=true;$('derivTradeMessage').textContent='A validar conta DEMO…';
     try{
       const {data,error}=await client.functions.invoke('deriv-demo-otp',{body:{token,account_id:accountId,app_id:appId}});

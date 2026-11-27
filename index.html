@@ -2100,7 +2100,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if (!data.session?.access_token) return message('derivAccountMsg', 'A tua sessão MendtradeR não está ativa. Entra novamente e inicia a ligação Deriv.', 'error');
     message('derivAccountMsg', 'A validar a autorização com segurança…');
     try {
-      const response = await fetch('${window.location.origin}/oauth/deriv/token', {
+      const response = await fetch(window.location.origin + '/oauth/deriv/token', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + data.session.access_token },
         body: JSON.stringify({ code, code_verifier: verifier, redirect_uri: DERIV_REDIRECT_URI })
@@ -3242,7 +3242,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     $('derivFeedPrice').textContent='—';$('derivFeedTime').textContent='A ligar…';
     $('derivFeedRows').innerHTML='<tr><td colspan="3" class="muted">A estabelecer ligação segura…</td></tr>';
     setDerivFeedStatus('● A ligar','neutral');$('derivFeedMessage').textContent='A contactar a Deriv…';
-    const ws=new WebSocket('${window.location.origin.replace(/^https:/, 'wss:')}/stream?symbol='+encodeURIComponent(symbol));
+    const ws=new WebSocket(window.location.origin.replace(/^https:/, 'wss:') + '/stream?symbol='+encodeURIComponent(symbol));
     derivFeedSocket=ws;derivFeedTicks=[];renderDerivCandles();$('derivCandleState').textContent='A iniciar/reiniciar recolha';
     ws.onopen=()=>{
       if(derivFeedSocket!==ws)return;

@@ -1872,6 +1872,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if(error||!row?.id){t.persisted=false;console.warn('Falha ao guardar operação manual:',error?.message);return;}
     const {error:ctxError}=await client.from('trade_market_context').insert({user_id:currentUser.id,trade_history_id:row.id,asset:t.asset,direction:t.direction,outcome:profit>0?'win':profit<0?'loss':'breakeven',profit,market_snapshot:t.marketSnapshot||{status:'unavailable'}});
     if(ctxError)console.warn('Falha ao guardar contexto técnico:',ctxError.message);
+    loadManualHistory();
     loadLearningInsights();
   }
   function renderManualTradeCountdown() {
@@ -2155,7 +2156,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const savedManualDuration = Number(localStorage.getItem(manualDurationKey));
     if ([60,300,900,1800,3600,14400,86400,604800,2592000].includes(savedManualDuration)) $('manualExpiry').value = String(savedManualDuration);
     if (typeof ensureReferralAttribution === 'function') ensureReferralAttribution(user); $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); $('menuToggle').classList.remove('hidden');
-    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); loadLearningInsights(); checkOwnerAccess(); checkManualDurationAvailability();
+    $('userEmail').textContent=user.email || '—'; $('userId').textContent=user.id; updateCountry(user.user_metadata?.country || localStorage.getItem('mendtrader_country') || 'AO', false); loadBotSettings(); loadHistory(); loadManualHistory(); loadLearningInsights(); checkOwnerAccess(); checkManualDurationAvailability();
     // Ao entrar na plataforma, ligar automaticamente ao fluxo de cotações público.
     // O servidor mantém a subscrição Deriv independentemente desta ligação do navegador.
     setTimeout(()=>{ if(!derivFeedWanted) connectDerivFeed(); }, 250);
@@ -2511,6 +2512,31 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if(!data?.length){$('historyRows').innerHTML='<tr><td colspan="6" class="muted">Ainda não existem operações registadas.</td></tr>';return message('historyMsg','As operações aparecerão aqui depois da integração.');}
     $('historyRows').innerHTML=data.map(r=>`<tr><td>${new Date(r.created_at).toLocaleString('pt-PT')}</td><td>${escapeHtml(r.asset||'—')}</td><td>${escapeHtml(r.trade_type||'—')}</td><td>${money(r.result)}</td><td>${money(r.commission)}</td><td>${escapeHtml(r.status||'—')}</td></tr>`).join('');
     message('historyMsg','A mostrar até 50 operações.');
+  }
+  async function loadManualHistory(){
+    if(!currentUser)return;
+    const list=$('manualHistory');if(!list)return;
+    const {data,error}=await client.from('trade_history')
+      .select('created_at,asset,direction,entry_amount,result,status,stake,profit')
+      .eq('user_id',currentUser.id).eq('trade_type','manual')
+      .order('created_at',{ascending:false}).limit(20);
+    if(error){list.textContent='Não foi possível carregar o histórico manual. Atualiza a página e tenta novamente.';console.warn('Falha ao carregar histórico manual:',error.message);return;}
+    if(!data?.length){list.innerHTML='<div class="mini-row"><span class="muted">Ainda sem operações manuais</span><span class="pill">DEMO</span></div>';return;}
+    list.replaceChildren();
+    data.forEach(item=>{
+      const row=document.createElement('div');row.className='mini-row';row.style.flexWrap='wrap';
+      const label=document.createElement('span');
+      const direction=String(item.direction||'').toUpperCase();
+      const amount=Number(item.stake??item.entry_amount??0);
+      label.textContent=(direction==='CALL'?'COMPRA':direction==='PUT'?'VENDA':direction||'OPERAÇÃO')+' · '+String(item.asset||'Ativo')+' · '+amount.toFixed(2);
+      const status=document.createElement('span');status.className='pill';
+      status.textContent=String(item.status||'registada').toUpperCase()+' · '+new Date(item.created_at).toLocaleDateString('pt-PT');
+      const pnl=document.createElement('strong');pnl.className='small';
+      const result=Number(item.profit??item.result??0);
+      pnl.textContent='Resultado: '+result.toFixed(2);
+      pnl.classList.add(result>0?'manual-pnl-positive':result<0?'manual-pnl-negative':'');
+      row.append(label,status,pnl);list.append(row);
+    });
   }
   function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   $('refreshHistory').addEventListener('click',loadHistory);

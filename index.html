@@ -1864,12 +1864,17 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   function manualTrailingThresholds(tracked) {
     const atr = Number(tracked.marketAtr);
     if (!Number.isFinite(atr) || atr <= 0) return null;
-    return { activation: atr * 0.75, gap: atr * 1.25 };
+    // Só ativa depois de uma deslocação favorável de 1,5 ATR.
+    // A margem de 0,75 ATR deixa respirar pequenas correções e coloca o stop
+    // pelo menos 0,75 ATR além da entrada quando a proteção é ativada.
+    return { activation: atr * 1.5, gap: atr * 0.75 };
   }
   async function evaluateManualTrailingProtection(tracked, contract) {
     if (!tracked || tracked.closed || tracked.protectionClosing || tracked.protectionAttempted || contract.is_sold) return;
-    const spot = Number(contract.current_spot);
-    const entry = Number(contract.entry_spot);
+    const spotRaw = contract.current_spot;
+    const entryRaw = contract.entry_spot;
+    const spot = spotRaw === null || spotRaw === undefined || spotRaw === '' ? NaN : Number(spotRaw);
+    const entry = entryRaw === null || entryRaw === undefined || entryRaw === '' ? NaN : Number(entryRaw);
     const thresholds = manualTrailingThresholds(tracked);
     if (!Number.isFinite(spot) || !Number.isFinite(entry) || !thresholds) {
       setManualProtectionStatus(tracked, 'A aguardar cotação/entrada e volatilidade válidas da Deriv. A proteção por preço ainda não pode ser calculada.', 'warning');
@@ -1883,25 +1888,30 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const favorableMove = isCall ? tracked.bestSpot - tracked.entrySpot : tracked.entrySpot - tracked.bestSpot;
     if (!tracked.protectionActive && favorableMove >= thresholds.activation) {
       tracked.protectionActive = true;
-      tracked.trailingStopSpot = isCall ? tracked.bestSpot - thresholds.gap : tracked.bestSpot + thresholds.gap;
+      // Primeiro stop já fica no lado lucrativo da cotação de entrada.
+      tracked.trailingStopSpot = isCall
+        ? Math.max(tracked.entrySpot + thresholds.gap, tracked.bestSpot - thresholds.gap)
+        : Math.min(tracked.entrySpot - thresholds.gap, tracked.bestSpot + thresholds.gap);
     }
     if (!tracked.protectionActive) {
       setManualProtectionStatus(tracked,
         'A acompanhar cotação · entrada ' + tracked.entrySpot + ' · atual ' + spot +
-        ' · ativação após movimento favorável de ' + thresholds.activation.toFixed(6) + ' pontos.',
+        ' · precisa avançar ' + thresholds.activation.toFixed(6) + ' pontos a favor para ativar a proteção de lucro.',
         'muted');
       return;
     }
-    const candidateStop = isCall ? tracked.bestSpot - thresholds.gap : tracked.bestSpot + thresholds.gap;
+    const candidateStop = isCall
+      ? Math.max(tracked.entrySpot + thresholds.gap, tracked.bestSpot - thresholds.gap)
+      : Math.min(tracked.entrySpot - thresholds.gap, tracked.bestSpot + thresholds.gap);
     tracked.trailingStopSpot = Number.isFinite(Number(tracked.trailingStopSpot))
       ? (isCall ? Math.max(Number(tracked.trailingStopSpot), candidateStop) : Math.min(Number(tracked.trailingStopSpot), candidateStop))
       : candidateStop;
     const stopHit = isCall ? spot <= tracked.trailingStopSpot : spot >= tracked.trailingStopSpot;
     if (!stopHit) {
       setManualProtectionStatus(tracked,
-        'STOP MÓVEL ATIVO · melhor cotação ' + tracked.bestSpot +
-        ' · cotação atual ' + spot + ' · proteção em ' + tracked.trailingStopSpot.toFixed(6) +
-        '. Pequenas correções dentro da margem são permitidas.',
+        'LUCRO PROTEGIDO · melhor cotação ' + tracked.bestSpot +
+        ' · cotação atual ' + spot + ' · stop de proteção ' + tracked.trailingStopSpot.toFixed(6) +
+        '. O stop só avança a favor e permite correções de até 0,75 ATR.',
         'success');
       return;
     }

@@ -1426,7 +1426,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
               <div class="field"><label for="ownerMessage">Mensagem</label><textarea id="ownerMessage" rows="5" placeholder="Escreve a tua mensagem..."></textarea></div><button id="sendOwnerMessage">Preparar mensagem</button><p id="ownerSupportMsg" class="small muted" aria-live="polite">O envio real será ativado quando o backend de suporte estiver configurado.</p>
             </div>
           </div>
-          <div class="card" style="margin-top:14px"><h2>👑 Área do proprietário</h2><p>Gestão de utilizadores, controlo de cadastros, suspensões, métricas e acompanhamento dos pedidos de suporte.</p><div class="notice warning">A área administrativa deve ser liberada exclusivamente por uma função de proprietário validada no servidor. O painel visual pode ser preparado agora, mas não vamos fingir que a proteção está ativa sem configurar a autorização no backend.</div><div class="row"><span class="pill">Acesso administrativo: pendente de validação segura</span><span class="pill">Não visível como ferramenta de utilizador comum</span></div></div>
+
         </section>
 
         <section id="converter" class="section">
@@ -1458,9 +1458,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         <section id="account" class="section">
           <h1>Conta e definições</h1><div class="card"><p class="label">E-mail autenticado</p><p id="userEmail" class="amount">—</p><p class="label">País e moeda</p><p id="userCountry" class="amount">Angola · AOA</p><p class="label">ID do utilizador</p><p id="userId" class="small muted" style="overflow-wrap:anywhere">—</p><div class="notice"><b>Comissão da plataforma: 10%</b> sobre o lucro líquido positivo de cada operação concluída de cada utilizador. Exemplo: se uma operação fechar com 10 USD de lucro elegível, a comissão prevista é 1 USD. Em operações sem lucro positivo, a comissão é 0 USD. A cobrança só poderá ocorrer após implementação e validação no backend.</div>
             <div class="commission-box">
-              <div class="v5-kicker">Painel do proprietário · receitas de comissão</div>
+              <div class="v5-kicker">Regra de comissão da plataforma</div>
               <div class="commission-value">10% por lucro positivo</div>
-              <p class="small" style="color:#e5d6b2;margin:5px 0 0">A área de receitas por utilizador será privada e só poderá mostrar valores reais quando existir uma função de proprietário validada no servidor. Não é seguro calcular ou revelar a receita global apenas no navegador.</p>
+              <p class="small" style="color:#e5d6b2;margin:5px 0 0">O resumo de comissões por utilizador será privado e só poderá mostrar valores reais quando existir uma autorização administrativa validada no servidor. Não é seguro calcular ou revelar a receita global apenas no navegador.</p>
               <div class="row" style="margin-top:12px"><span class="pill">Regra comercial definida</span><span class="pill">Resumo financeiro: integração pendente</span></div>
             </div></div>
 
@@ -1475,6 +1475,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
             <div class="row"><button id="toggleKeepScreen" class="secondary" type="button">📱 Manter ecrã ligado: desligado</button><span id="keepScreenStatus" class="small muted">O ecrã pode bloquear normalmente.</span></div>
             <div class="row" style="margin-top:12px"><button id="toggleWinSound" class="secondary" type="button">🔔 Som de lucro: desligado</button><span id="winSoundStatus" class="small muted">Sem alerta sonoro para lucros.</span></div>
             <p class="small muted">O ecrã ligado depende do suporte do navegador. O som de lucro só toca depois de ativares esta opção.</p>
+          </div>
           <div class="card" id="derivAccountCard" style="margin-top:14px;border-color:#087b42">
             <div class="row" style="justify-content:space-between;align-items:center">
               <div><span class="badge">DERIV · CONTA</span><h2 style="margin:9px 0 4px">🔐 Ligar conta Deriv</h2></div>
@@ -1486,7 +1487,6 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
             <div class="field"><label for="derivTradingAccount">Conta para consultar</label><select id="derivTradingAccount" disabled><option value="">Liga primeiro a Deriv</option></select></div>
             <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>
             <div id="derivBalanceMode" class="small muted" style="margin-top:10px">Saldo Deriv: ainda não consultado.</div>
-          </div>
           </div>
         </section>
 
@@ -2613,9 +2613,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
 
   // Tradução centralizada da interface. Mantém valores, dados de mercado e conteúdo dinâmico intactos.
   const translations={
-    pt:{nav:['Área de operações','Visão geral','Histórico','Instruções e técnicas','Depósitos','Levantamentos','Suporte IA / Proprietário','Conta e definições','Área do Proprietário'],hint:'Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.'},
-    en:{nav:['Trading workspace','Overview','History','Guides & techniques','Deposits','Withdrawals','AI / Owner support','Account & settings','Owner area'],hint:'Swipe left to view the other panels. BOT is always first.'},
-    es:{nav:['Área de operaciones','Resumen','Historial','Instrucciones y técnicas','Depósitos','Retiros','Soporte IA / Propietario','Cuenta y ajustes','Área del propietario'],hint:'Desliza hacia la izquierda para ver los otros paneles. BOT aparece primero.'}
+    pt:{nav:['Área de operações','Visão geral','Histórico','Instruções e técnicas','Aprendizagem inteligente','Depósitos','Levantamentos','Suporte IA / Proprietário','Conversor de Moedas','Conta e definições','Convites e indicações','Área do Proprietário'],hint:'Desliza para a esquerda para veres os outros painéis. O BOT aparece sempre primeiro.'},
+    en:{nav:['Trading workspace','Overview','History','Guides & techniques','Smart learning','Deposits','Withdrawals','AI / Owner support','Currency converter','Account & settings','Invites & referrals','Owner area'],hint:'Swipe left to view the other panels. BOT is always first.'},
+    es:{nav:['Área de operaciones','Resumen','Historial','Instrucciones y técnicas','Aprendizaje inteligente','Depósitos','Retiros','Soporte IA / Propietario','Conversor de monedas','Cuenta y ajustes','Invitaciones y referidos','Área del propietario'],hint:'Desliza hacia la izquierda para ver los otros paneles. BOT aparece primero.'}
   };
   const uiText={
     en:{

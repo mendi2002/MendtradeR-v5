@@ -905,6 +905,59 @@ body{
  #bot .bot-panel,#bot .manual-panel{padding:12px!important}
 }
 
+/* DARK PRO — acabamento de aparência no painel real (desktop e telemóvel) */
+:root{color-scheme:dark}
+html,body{background:#03060b!important}
+body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 46%),linear-gradient(180deg,#03060b,#050a12 65%,#020407)!important}
+.wrap{max-width:1500px!important;padding:12px clamp(10px,2vw,24px) 34px!important}
+.top{background:linear-gradient(110deg,#080f19,#0b1726 70%,#101a20)!important;border:1px solid #263b52!important;border-radius:18px!important;box-shadow:0 12px 34px #000a!important}
+.brand-name{color:#f4f7fc!important}
+.brand-logo{filter:drop-shadow(0 0 10px #f4c94f44)}
+#menuToggle{background:linear-gradient(145deg,#18dca1,#00a879)!important;color:#002318!important;border:0!important;border-radius:15px!important;box-shadow:0 6px 22px #00d78b35!important}
+#bot .ref-topline{grid-template-columns:1.25fr repeat(3,minmax(0,.85fr))!important;gap:10px!important}
+#bot .ref-topbox{background:linear-gradient(145deg,#101d2d,#080e17)!important;border:1px solid #304963!important;border-radius:16px!important;box-shadow:0 10px 26px #0009!important}
+#bot .ref-topbox:first-child{border-color:#80692f!important}
+#bot .ref-topbox strong{color:#f4f7fc!important}
+#bot .ref-topbox .ref-accent,#bot .ref-brandmark{color:#f4c94f!important}
+#bot .ref-marketbar{display:flex!important;gap:9px!important;overflow-x:auto!important;scrollbar-width:thin;padding:8px 2px 11px!important;background:transparent!important;border:0!important;border-radius:0!important}
+#bot .ref-marketbar button,#bot .ref-marketbar button:not(.secondary):not(.buy-btn):not(.sell-btn){
+ flex:0 0 auto!important;min-height:44px!important;padding:10px 17px!important;
+ background:linear-gradient(145deg,#10253a,#091522)!important;color:#d9eaff!important;
+ border:1px solid #31516f!important;border-radius:13px!important;box-shadow:none!important;
+}
+#bot .ref-marketbar button.active{
+ background:linear-gradient(135deg,#17649a,#103b60)!important;color:#fff!important;
+ border:1px solid #36b5ff!important;box-shadow:0 0 0 1px #25a9ff33,0 5px 18px #007bca25!important;
+}
+#bot .ops-layout.dual-ops{gap:14px!important}
+#bot .bot-panel,#bot .manual-panel{background:linear-gradient(150deg,#0e1927,#070c14)!important;border:1px solid #2d435b!important;border-radius:18px!important;box-shadow:0 14px 36px #000a!important}
+#bot .bot-panel .panel-heading,#bot .manual-panel .panel-heading{border-bottom:1px solid #30465f!important}
+#bot .bot-panel .market-screen{background:linear-gradient(180deg,#040a12,#071321)!important;border:1px solid #1d6598!important;border-radius:15px!important}
+#bot .ref-details{background:linear-gradient(145deg,#0c1724,#070c13)!important;border:1px solid #2b4058!important;border-radius:15px!important}
+#bot .ref-details>summary{color:#dce9f7!important}
+#bot .ref-details[open]>summary{color:#f4c94f!important}
+#bot .ops-carousel-tabs button,#bot .ops-carousel-tabs button:not(.active){
+ background:linear-gradient(145deg,#10243a,#091522)!important;color:#d9eaff!important;border:1px solid #31516f!important;
+}
+#bot .ops-carousel-tabs button.active{background:linear-gradient(135deg,#17649a,#103b60)!important;color:#fff!important;border-color:#36b5ff!important}
+@media(max-width:760px){
+ .wrap{padding:9px 10px 26px!important}
+ .top{padding:9px!important;gap:9px!important;border-radius:16px!important}
+ .brand{font-size:clamp(20px,5.4vw,27px)!important}
+ .brand-logo{width:39px!important;height:39px!important}
+ #bot .ref-topline{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+ #bot .ref-topbox{min-height:66px!important;padding:10px!important}
+ #bot .ref-marketbar{margin:8px 0 12px!important}
+ #bot .ref-marketbar button{min-height:42px!important;padding:9px 14px!important}
+ #bot .bot-panel,#bot .manual-panel{padding:13px!important}
+ #bot .bot-panel .market-screen{min-height:245px!important}
+}
+@media(max-width:420px){
+ #bot .ref-topbox strong{font-size:15px!important}
+ #bot .ref-topbox small{font-size:10px!important}
+ #bot .bot-panel .market-screen{min-height:225px!important}
+}
+
 </style>
 </head>
 <body>

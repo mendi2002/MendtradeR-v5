@@ -1273,18 +1273,6 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
             </div>
             <div class="card operation-panel manual-panel">
               <div class="row panel-heading"><h2 style="margin:0">🎯 Operações Manuais</h2><span class="signal-tag neutral">Execução manual</span></div>
-          <div class="card" id="derivAccountCard" style="margin-top:14px;border-color:#087b42">
-            <div class="row" style="justify-content:space-between;align-items:center">
-              <div><span class="badge">DERIV · CONTA</span><h2 style="margin:9px 0 4px">🔐 Ligar conta Deriv</h2></div>
-              <span id="derivAccountStatus" class="pill">Não ligada</span>
-            </div>
-            <p class="small muted">Autoriza a MendtradeR a aceder à tua conta Deriv. A palavra-passe é introduzida apenas no site oficial da Deriv. Nesta etapa nenhuma ordem é enviada.</p>
-            <div class="row"><button id="derivAccountConnect" type="button">Conectar à Deriv</button><button id="derivAccountDisconnect" class="secondary" type="button" disabled>Desligar conta</button></div>
-            <p id="derivAccountMsg" class="small muted" aria-live="polite">Ainda não existe uma conta Deriv autorizada nesta sessão.</p>
-            <div class="field"><label for="derivTradingAccount">Conta para consultar</label><select id="derivTradingAccount" disabled><option value="">Liga primeiro a Deriv</option></select></div>
-            <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>
-            <div id="derivBalanceMode" class="small muted" style="margin-top:10px">Saldo Deriv: ainda não consultado.</div>
-          </div>
               <div class="field"><label>Ativo</label><select id="manualAsset"><option value="frxEURUSD">EUR/USD</option><option value="frxGBPUSD">GBP/USD</option><option value="frxUSDJPY">USD/JPY</option><option value="1HZ100V">Volatility 100 (1s)</option></select></div>
               <div class="field"><label id="manualAmountLabel">Valor da operação</label><input id="manualAmount" type="number" min="0.35" step="0.01" value="1" inputmode="decimal"></div>
               <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option><option value="1800">30 minutos</option><option value="3600">1 hora</option><option value="14400">4 horas</option><option value="86400">1 dia</option><option value="604800">1 semana</option><option value="2592000">1 mês (30 dias)</option></select><p class="small muted">A duração escolhida é guardada automaticamente neste navegador.</p><p id="manualDurationStatus" class="small muted" aria-live="polite">Os limites de duração serão consultados na Deriv.</p><p class="small muted">A duração é validada automaticamente conforme os limites do ativo na Deriv.</p></div>
@@ -1476,6 +1464,19 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
               <p class="small" style="color:#e5d6b2;margin:5px 0 0">A área de receitas por utilizador será privada e só poderá mostrar valores reais quando existir uma função de proprietário validada no servidor. Não é seguro calcular ou revelar a receita global apenas no navegador.</p>
               <div class="row" style="margin-top:12px"><span class="pill">Regra comercial definida</span><span class="pill">Resumo financeiro: integração pendente</span></div>
             </div></div>
+
+          <div class="card" id="derivAccountCard" style="margin-top:14px;border-color:#087b42">
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <div><span class="badge">DERIV · CONTA</span><h2 style="margin:9px 0 4px">🔐 Ligar conta Deriv</h2></div>
+              <span id="derivAccountStatus" class="pill">Não ligada</span>
+            </div>
+            <p class="small muted">Autoriza a MendtradeR a aceder à tua conta Deriv. A palavra-passe é introduzida apenas no site oficial da Deriv. Nesta etapa nenhuma ordem é enviada.</p>
+            <div class="row"><button id="derivAccountConnect" type="button">Conectar à Deriv</button><button id="derivAccountDisconnect" class="secondary" type="button" disabled>Desligar conta</button></div>
+            <p id="derivAccountMsg" class="small muted" aria-live="polite">Ainda não existe uma conta Deriv autorizada nesta sessão.</p>
+            <div class="field"><label for="derivTradingAccount">Conta para consultar</label><select id="derivTradingAccount" disabled><option value="">Liga primeiro a Deriv</option></select></div>
+            <div class="row"><button id="derivLoadAccounts" class="secondary" type="button" disabled>Atualizar contas</button><button id="derivConnectTrading" type="button" disabled>Ligar conta selecionada</button></div>
+            <div id="derivBalanceMode" class="small muted" style="margin-top:10px">Saldo Deriv: ainda não consultado.</div>
+          </div>
 
           <div class="card" style="margin-top:14px">
             <h2>🎨 Aparência da plataforma</h2>

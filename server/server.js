@@ -17,8 +17,8 @@ const FRONTEND_FILE = path.resolve(__dirname, '..', 'index.html');
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rfgcsprgcbravydlnnuc.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_kF7ycrRT90LwZCW532E3Jg_MHE03QKf';
 const DERIV_CLIENT_ID = process.env.DERIV_CLIENT_ID || '34TEm2Gavyti0dcVDw73V';
-const DERIV_REDIRECT_URI = process.env.DERIV_REDIRECT_URI || 'https://mendtrader-v6-manual-test.onrender.com/callback';
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://mendtrader-v6-manual-test.onrender.com';
+const DERIV_REDIRECT_URI = process.env.DERIV_REDIRECT_URI || 'https://mendtrader-v6-integration-test.onrender.com/callback';
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://mendtrader-v6-integration-test.onrender.com';
 
 const server = http.createServer((req, res) => {
   const requestUrl = new URL(req.url, 'http://localhost');

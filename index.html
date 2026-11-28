@@ -3488,7 +3488,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   });
   // Motor direcional estável: mantém uma única direção até uma reversão confirmada.
   let derivSignalCandidate='neutral',derivSignalConfirmations=0,derivSignalLastSide='neutral';
-  let derivActiveSignal=null,derivSignalLastEvaluationAt=0;
+  let derivActiveSignal=null,derivSignalLastEvaluationAt=0,derivSignalProfileSeconds=null;
   function getDirectionalProfile(){
     const seconds=Math.max(1,Number($('botExpiry')?.value)||60);
     if(seconds<=60)return {seconds,label:'1 minuto',window:60,fast:9,slow:21,interval:5000};
@@ -3504,6 +3504,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const prices=derivFeedTicks.slice().reverse().map(x=>Number(x.quote));
     const latestTick=derivFeedTicks[0];
     const profile=getDirectionalProfile();
+    if(derivSignalProfileSeconds!==profile.seconds){
+      derivSignalProfileSeconds=profile.seconds;derivActiveSignal=null;derivSignalCandidate='neutral';derivSignalConfirmations=0;derivSignalLastEvaluationAt=0;derivSignalLastSide='neutral';
+    }
     const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
     const manualTag=$('manualSignalStatus'),manualDir=$('manualSignalDirection'),manualReason=$('manualSignalReason');
     if(!tag||!dir||!strength||!reason)return;

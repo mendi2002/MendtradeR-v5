@@ -1208,6 +1208,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
                 <div class="field"><label>Força técnica indicativa</label><strong id="derivSignalStrength" style="font-size:22px">—</strong></div>
               </div>
               <p id="derivSignalReason" class="small muted">São necessários pelo menos 60 ticks recentes e 3 confirmações consecutivas para uma primeira leitura.</p>
+              <div class="row" style="margin-top:10px;padding:10px 12px;border:1px solid #315c45;border-radius:10px;background:#07110b;align-items:center;justify-content:space-between"><span class="small muted">⏱ Tempo de movimento da vela · <b id="derivCandleTimeframe">A aguardar</b></span><strong id="derivCandleElapsed" style="font-variant-numeric:tabular-nums;font-size:18px">—</strong></div>
               <p id="derivSignalWarning" class="small muted">Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.</p>
             </div>
             <div id="derivCandlePanel" class="card" style="margin-top:14px">
@@ -3500,6 +3501,26 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if(seconds<=604800)return {seconds,label:'1 semana',window:120,fast:20,slow:42,interval:60000};
     return {seconds,label:'1 mês',window:120,fast:21,slow:45,interval:60000};
   }
+  function renderDerivCandleChronometer(){
+    const display=$('derivCandleElapsed'),label=$('derivCandleTimeframe');
+    if(!display||!label)return;
+    const profile=getDirectionalProfile();
+    label.textContent=profile.label;
+    const latest=derivFeedTicks[0];
+    if(!latest||!Number.isFinite(Number(latest.epoch))||!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN||Date.now()-derivLastTickAt>20000){
+      display.textContent='A aguardar cotação';
+      return;
+    }
+    const estimatedEpoch=Number(latest.epoch)+Math.max(0,(Date.now()-derivLastTickAt)/1000);
+    const elapsed=Math.max(0,Math.floor(estimatedEpoch%profile.seconds));
+    const total=profile.seconds;
+    const format=seconds=>{
+      const h=Math.floor(seconds/3600),m=Math.floor((seconds%3600)/60),s=seconds%60;
+      return h>0?[h,m,s].map(v=>String(v).padStart(2,'0')).join(':'):[m,s].map(v=>String(v).padStart(2,'0')).join(':');
+    };
+    display.textContent=format(elapsed)+' / '+format(total);
+  }
+  setInterval(renderDerivCandleChronometer,1000);
   function updateDerivLiveSignal(){
     const prices=derivFeedTicks.slice().reverse().map(x=>Number(x.quote));
     const latestTick=derivFeedTicks[0];

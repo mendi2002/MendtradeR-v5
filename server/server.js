@@ -105,8 +105,9 @@ const server = http.createServer((req, res) => {
     if (!validSymbol(symbol) || !allowedGranularities.has(granularity) || !Number.isFinite(count)) {
       return sendHistory(400, { error: 'Parâmetros de histórico inválidos.' });
     }
-    let upstream, settled = false;
-    const timer = setTimeout(() => finish(new Error('A Deriv demorou a devolver o histórico.')), 15000);
+    let upstream, settled = false, attempt = 0, lastError = null;
+    const endpoints = [DERIV_URL, 'wss://ws.derivws.com/websockets/v3?app_id=' + encodeURIComponent(DERIV_CLIENT_ID)];
+    const timer = setTimeout(() => finish(new Error('A Deriv não respondeu ao pedido de histórico dentro do prazo.')), 20000);
     const finish = (error, candles) => {
       if (settled) return;
       settled = true;
@@ -115,21 +116,35 @@ const server = http.createServer((req, res) => {
       if (error) return sendHistory(502, { error: error.message || 'Falha ao consultar o histórico da Deriv.' });
       return sendHistory(200, { candles });
     };
-    try {
-      upstream = new WebSocket(DERIV_URL);
-      upstream.on('open', () => upstream.send(JSON.stringify({
-        ticks_history: symbol, adjust_start_time: 1, count, end: 'latest',
-        style: 'candles', granularity, req_id: 78124
-      })));
-      upstream.on('message', raw => {
-        let data;
-        try { data = JSON.parse(raw.toString()); } catch { return; }
-        if (data.error) return finish(new Error(data.error.message || 'A Deriv recusou o histórico.'));
-        if (Array.isArray(data.candles)) return finish(null, data.candles);
-      });
-      upstream.on('error', () => finish(new Error('O servidor não conseguiu estabelecer ligação ao histórico público da Deriv.')));
-      upstream.on('close', () => { if (!settled) finish(new Error('A Deriv encerrou a ligação antes de enviar os candles.')); });
-    } catch (error) { finish(error); }
+    const connectNext = (error) => {
+      if (settled) return;
+      if (error) lastError = error;
+      if (attempt >= endpoints.length) return finish(lastError || new Error('Não foi possível ligar ao histórico público da Deriv.'));
+      const endpoint = endpoints[attempt++];
+      let socket;
+      try {
+        socket = new WebSocket(endpoint);
+        upstream = socket;
+        socket.on('open', () => {
+          if (settled || upstream !== socket) return;
+          socket.send(JSON.stringify({
+            ticks_history: symbol, adjust_start_time: 1, count, end: 'latest',
+            style: 'candles', granularity, req_id: 78124
+          }));
+        });
+        socket.on('message', raw => {
+          if (settled || upstream !== socket) return;
+          let data;
+          try { data = JSON.parse(raw.toString()); } catch { return; }
+          if (data.error) return connectNext(new Error(data.error.message || 'A Deriv recusou o histórico.'));
+          if (Array.isArray(data.candles)) return finish(null, data.candles);
+          if (Array.isArray(data.history?.candles)) return finish(null, data.history.candles);
+        });
+        socket.on('error', () => { if (!settled && upstream === socket) connectNext(new Error('Falha de ligação ao endpoint público da Deriv.')); });
+        socket.on('close', () => { if (!settled && upstream === socket) connectNext(new Error('A Deriv encerrou a ligação antes de enviar os candles.')); });
+      } catch (err) { connectNext(err); }
+    };
+    connectNext();
     return;
   }
   if (requestUrl.pathname === '/health') {

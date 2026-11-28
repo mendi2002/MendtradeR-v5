@@ -3486,123 +3486,128 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       if(signalSoundEnabled)playSignalAlert();
     }catch(e){$('signalSoundStatus').textContent='Não foi possível ativar o áudio.';}
   });
+  // Motor principal baseado exclusivamente em candles FECHADOS do período escolhido.
+  // A direção ativa não expira por relógio nem reage a oscilações de ticks.
   let derivSignalCandidate='neutral',derivSignalConfirmations=0,derivSignalLastSide='neutral';
   let derivActiveSignal=null;
-  const DERIV_SIGNAL_HOLD_MS=45000;
-  function updateDerivLiveSignal(){
-    const prices=derivFeedTicks.slice().reverse().map(x=>Number(x.quote));
-    const latestTick=derivFeedTicks[0];
+  let derivSignalLastClosedKey='';
+  let derivSignalLastCheckAt=0;
+  let derivSignalCheckInFlight=false;
+  function resetDerivSignalForContext(){
+    derivSignalCandidate='neutral';derivSignalConfirmations=0;
+    derivActiveSignal=null;derivSignalLastClosedKey='';
+    derivSignalLastSide='neutral';lastSoundSignal='neutral';
+    const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
+    const manualTag=$('manualSignalStatus'),manualDir=$('manualSignalDirection'),manualReason=$('manualSignalReason');
+    if(tag){tag.textContent='● A aguardar novo período';tag.className='signal-tag neutral';}
+    if(dir){dir.textContent='A AGUARDAR';dir.style.color='';}
+    if(strength)strength.textContent='—';
+    if(reason)reason.textContent='A iniciar uma nova leitura de candles fechados para o ativo/período selecionado.';
+    if(manualTag)manualTag.textContent='A aguardar nova análise';
+    if(manualDir){manualDir.textContent='—';manualDir.style.color='';}
+    if(manualReason)manualReason.textContent='A análise será atualizada quando fechar uma nova vela do período escolhido. A entrada continua manual.';
+  }
+  function renderDerivSignal(side,score,detail,statusText){
     const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
     const manualTag=$('manualSignalStatus'),manualDir=$('manualSignalDirection'),manualReason=$('manualSignalReason');
     if(!tag||!dir||!strength||!reason)return;
-    const showActive=(extra='')=>{
-      const active=derivActiveSignal;
-      if(!active)return false;
-      const remaining=active.expiresAt-Date.now();
-      if(remaining<=0){derivActiveSignal=null;return false;}
-      const side=active.side,symbol=active.symbol;
-      const age=Math.max(0,Math.floor((Date.now()-(active.createdAt||Date.now()))/1000));
-      tag.textContent='● Sinal '+side+' · ativo há '+age+'s · reavaliação contínua';
-      tag.className='signal-tag '+(side==='COMPRA'?'positive':'negative');
+    if(side==='COMPRA'||side==='VENDA'){
+      tag.textContent='● SINAL FIXO · '+side;tag.className='signal-tag '+(side==='COMPRA'?'positive':'negative');
       dir.textContent=side;dir.style.color=side==='COMPRA'?'var(--green)':'var(--red)';
-      strength.textContent=active.score+'/4 critérios';
-      reason.textContent=active.reason+' Sinal mantido durante até 45 segundos para evitar oscilações. '+extra;
-      if(manualTag)manualTag.textContent='SINAL ATIVO · '+symbol+' · há '+age+'s';
+      strength.textContent=score+' confirmações por candles fechados';
+      reason.textContent=detail+' '+(statusText||'A direção só será revista após o fecho de novas velas.');
+      if(manualTag)manualTag.textContent='SINAL ATIVO · '+side;
       if(manualDir){manualDir.textContent=side;manualDir.style.color=side==='COMPRA'?'var(--green)':'var(--red)';}
       if(manualReason)manualReason.textContent=reason.textContent+' A entrada continua manual.';
-      return true;
-    };
-    const wait=(msg,forceClear=false)=>{
-      derivSignalCandidate='neutral';derivSignalConfirmations=0;
-      if(!forceClear&&showActive(msg))return;
-      if(forceClear)derivActiveSignal=null;
-      tag.textContent='● A aguardar';tag.className='signal-tag neutral';
-      dir.textContent='A AGUARDAR';dir.style.color='';strength.textContent='—';reason.textContent=msg;
+    }else{
+      tag.textContent='● A AGUARDAR';tag.className='signal-tag neutral';
+      dir.textContent='A AGUARDAR';dir.style.color='';strength.textContent='—';reason.textContent=detail;
       if(manualTag)manualTag.textContent='Aguardar sinal';
-      if(manualDir){manualDir.innerHTML='— <span class="muted">Nenhum sinal ativo</span>';manualDir.style.color='';}
-      if(manualReason)manualReason.textContent=msg;
-      derivSignalCandidate='neutral';derivSignalConfirmations=0;
-      if(forceClear){derivSignalLastSide='neutral';lastSoundSignal='neutral';}
-    };
-    if(!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN){wait('Feed de mercado desligado. Liga o mercado para iniciar a análise.',true);return;}
-    if(!latestTick||Date.now()-derivLastTickAt>20000){wait('Cotação desatualizada. Nenhum sinal é válido sem atualização recente do mercado.',true);return;}
-    if(prices.length<60){wait('A recolher histórico curto: '+prices.length+'/60 ticks recentes.');return;}
-    if(prices.some(p=>!Number.isFinite(p)||p<=0)){wait('Dados de preço inválidos. A análise foi suspensa.',true);return;}
-    const ema=(arr,period)=>{
-      const k=2/(period+1);let value=arr.slice(0,period).reduce((a,b)=>a+b,0)/period;
-      for(let i=period;i<arr.length;i++)value=arr[i]*k+value*(1-k);
-      return value;
-    };
-    const rsi=(arr,period=14)=>{
-      let gains=0,losses=0;
-      for(let i=arr.length-period;i<arr.length;i++){const change=arr[i]-arr[i-1];gains+=Math.max(change,0);losses+=Math.max(-change,0);}
-      const avgGain=gains/period,avgLoss=losses/period;
-      if(avgGain===0&&avgLoss===0)return 50;
-      if(avgLoss===0)return 100;
-      return 100-(100/(1+avgGain/avgLoss));
-    };
-    const windowPrices=prices.slice(-60),last=windowPrices[windowPrices.length-1];
-    const fast=ema(windowPrices,9),slow=ema(windowPrices,21),momentumBase=windowPrices[windowPrices.length-11];
-    const momentum=last-momentumBase,oscillator=rsi(windowPrices,14);
-    const meanMove=windowPrices.slice(1).reduce((sum,p,i)=>sum+Math.abs(p-windowPrices[i]),0)/(windowPrices.length-1);
-    const activeMarket=meanMove>Math.max(Math.abs(last)*1e-10,Number.EPSILON);
-    const bullChecks=[fast>slow,last>slow,oscillator>=52&&oscillator<=68,momentum>0&&Math.abs(momentum)>=meanMove*2];
-    const bearChecks=[fast<slow,last<slow,oscillator>=32&&oscillator<=48,momentum<0&&Math.abs(momentum)>=meanMove*2];
-    const bullScore=bullChecks.filter(Boolean).length;
-    const bearScore=bearChecks.filter(Boolean).length;
-    const activeSide=derivActiveSignal?.side;
-    const oppositeScore=activeSide==='COMPRA'?bearScore:activeSide==='VENDA'?bullScore:0;
-    // Dois ou mais critérios contra o sinal atual retiram imediatamente a indicação antiga.
-    if(derivActiveSignal&&oppositeScore>=2){
-      const opposite=activeSide==='COMPRA'?'VENDA':'COMPRA';
-      derivActiveSignal=null;
-      derivSignalCandidate=opposite;
-      derivSignalConfirmations=1;
-      tag.textContent='● POSSÍVEL '+opposite+' · 1/3';
-      tag.className='signal-tag neutral';
-      dir.textContent='A PERDER FORÇA';
-      dir.style.color='var(--gold)';
-      strength.textContent=oppositeScore+'/4 critérios contra o sinal anterior';
-      reason.textContent='O sinal anterior de '+activeSide+' foi retirado. Há sinais iniciais de reversão para '+opposite+'. Aguardar confirmação; ainda não é uma ordem.';
-      if(manualTag)manualTag.textContent='POSSÍVEL '+opposite+' · 1/3 confirmações';
-      if(manualDir){manualDir.textContent='A PERDER FORÇA';manualDir.style.color='var(--gold)';}
-      if(manualReason)manualReason.textContent=reason.textContent;
+      if(manualDir){manualDir.textContent='—';manualDir.style.color='';}
+      if(manualReason)manualReason.textContent=detail;
+    }
+  }
+  async function updateDerivLiveSignal(){
+    if(derivSignalCheckInFlight||Date.now()-derivSignalLastCheckAt<12000)return;
+    const tag=$('derivSignalTag');
+    if(!tag)return;
+    if(!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN){
+      if(!derivActiveSignal)renderDerivSignal('neutral',0,'Feed de mercado desligado. Liga o mercado para iniciar a análise.');
       return;
     }
-    let side='neutral',score=0;
-    if(activeMarket&&bullScore===4){side='COMPRA';score=bullScore;}
-    else if(activeMarket&&bearScore===4){side='VENDA';score=bearScore;}
-    if(side==='neutral'){
-      wait(activeMarket?'Sem alinhamento completo: EMA 9/21, posição do preço, RSI e impulso precisam confirmar juntos. RSI: '+oscillator.toFixed(1)+'.':'Mercado sem variação suficiente nos últimos ticks.');
+    if(!derivFeedTicks[0]||Date.now()-derivLastTickAt>20000){
+      if(!derivActiveSignal)renderDerivSignal('neutral',0,'Cotação desatualizada. Nenhum novo sinal será calculado até o feed recuperar.');
       return;
     }
-    if(derivSignalCandidate===side)derivSignalConfirmations++;
-    else{derivSignalCandidate=side;derivSignalConfirmations=1;}
-    if(derivSignalConfirmations<3){
-      // Nunca manter COMPRA/VENDA antigo visível enquanto a direção contrária está a ser confirmada.
-      if(derivActiveSignal&&derivActiveSignal.side!==side)derivActiveSignal=null;
-      tag.textContent='● Possível '+side+' · '+derivSignalConfirmations+'/3';tag.className='signal-tag neutral';
-      dir.textContent='A CONFIRMAR '+side;dir.style.color='var(--gold)';strength.textContent=score+'/4 critérios';
-      reason.textContent='Possível '+side+' detetada. Aguardar '+(3-derivSignalConfirmations)+' confirmação(ões) consecutiva(s). A direção anterior foi retirada; nenhuma ordem é enviada.';
-      if(manualTag)manualTag.textContent='POSSÍVEL '+side+' · '+derivSignalConfirmations+'/3';
-      if(manualDir){manualDir.textContent='A CONFIRMAR '+side;manualDir.style.color='var(--gold)';}
-      if(manualReason)manualReason.textContent=reason.textContent;
-      return;
-    }
-    const feedSelect=$('derivFeedSymbol');
-    const symbolCode=feedSelect?.value||latestTick.symbol||'';
-    const symbol=feedSelect?.selectedOptions?.[0]?.textContent||latestTick.symbol||'Mercado selecionado';
-    const manualAssetSelect=$('manualAsset');
-    const matchingManualAsset=!!manualAssetSelect&&Array.from(manualAssetSelect.options).some(option=>option.value===symbolCode);
-    const isNewSignal=!derivActiveSignal||derivActiveSignal.side!==side||derivActiveSignal.symbolCode!==symbolCode;
-    if(isNewSignal&&matchingManualAsset)manualAssetSelect.value=symbolCode;
-    const signalAssetNote=matchingManualAsset
-      ? ' Ativo da entrada manual alinhado com o sinal.'
-      : ' Atenção: confirma se o ativo escolhido na entrada manual corresponde a este sinal.';
-    const signalReason=symbol+' · RSI '+oscillator.toFixed(1)+' · EMA 9/21 alinhadas · impulso confirmado em 3 atualizações.'+signalAssetNote;
-    derivActiveSignal={side,symbol,symbolCode,score,reason:signalReason,createdAt:Date.now(),expiresAt:Date.now()+DERIV_SIGNAL_HOLD_MS};
-    showActive();
-    if(isNewSignal&&derivSignalLastSide!==side){playSignalAlert();lastSoundSignal=side;derivSignalLastSide=side;}
+    derivSignalCheckInFlight=true;derivSignalLastCheckAt=Date.now();
+    try{
+      const feedSelect=$('derivFeedSymbol');
+      const symbolCode=feedSelect?.value||derivFeedTicks[0].symbol||'';
+      const symbol=feedSelect?.selectedOptions?.[0]?.textContent||derivFeedTicks[0].symbol||'Mercado selecionado';
+      const selected=$('v5Timeframe')?.value||$('derivAnalysisTimeframe')?.value||'M1';
+      const periods=selected==='AUTO'?['M15','H1','H4','D1']:[selected];
+      const results=await Promise.all(periods.map(async timeframe=>{
+        const candles=await fetchTimeframeCandles(symbolCode,timeframe);
+        // A última vela é descartada porque pode ainda estar em formação.
+        const closed=candles.slice(0,-1);
+        return {timeframe,reading:calculateTimeframeReading(closed.slice(-150)),lastClosed:closed[closed.length-1]};
+      }));
+      if(!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN)return;
+      if(results.some(x=>!x.lastClosed||x.reading.side==='INSUFFICIENT')){
+        if(!derivActiveSignal)renderDerivSignal('neutral',0,'Histórico fechado insuficiente no período escolhido. Aguardar mais candles.');
+        return;
+      }
+      const closedKey=symbolCode+'|'+selected+'|'+results.map(x=>x.timeframe+':'+x.lastClosed.epoch).join(',');
+      if(closedKey===derivSignalLastClosedKey)return;
+      derivSignalLastClosedKey=closedKey;
+      let side='neutral',score=0,details='';
+      if(selected==='AUTO'){
+        const bullish=results.filter(x=>x.reading.side==='ALTA').length;
+        const bearish=results.filter(x=>x.reading.side==='BAIXA').length;
+        if(bullish===4){side='COMPRA';score=4;}
+        else if(bearish===4){side='VENDA';score=4;}
+        details='Análise multi-período M15/H1/H4/D1: '+results.map(x=>x.timeframe+' '+x.reading.side+' (RSI '+x.reading.rsi.toFixed(1)+')').join(' · ')+'.';
+      }else{
+        const reading=results[0].reading;
+        if(reading.side==='ALTA'){side='COMPRA';score=1;}
+        else if(reading.side==='BAIXA'){side='VENDA';score=1;}
+        details=symbol+' · '+selected+' · '+reading.detail+'.';
+      }
+      if(side==='neutral'){
+        derivSignalCandidate='neutral';derivSignalConfirmations=0;
+        if(derivActiveSignal){
+          renderDerivSignal(derivActiveSignal.side,derivActiveSignal.confirmations,
+            derivActiveSignal.details,
+            'A leitura mais recente está lateral/mista. O sinal atual fica preservado; não muda por uma vela isolada.');
+        }else renderDerivSignal('neutral',0,details+' Sem tendência confirmada. Aguardar o próximo candle fechado.');
+        return;
+      }
+      if(derivSignalCandidate===side)derivSignalConfirmations++;
+      else{derivSignalCandidate=side;derivSignalConfirmations=1;}
+      const required=2;
+      if(derivActiveSignal&&derivActiveSignal.side===side){
+        derivActiveSignal.confirmations=derivSignalConfirmations;
+        derivActiveSignal.details=details;
+        renderDerivSignal(side,derivSignalConfirmations,details,'Direção mantida. Nova avaliação apenas após o fecho de outra vela.');
+        return;
+      }
+      if(derivSignalConfirmations<required){
+        if(derivActiveSignal){
+          renderDerivSignal(derivActiveSignal.side,derivActiveSignal.confirmations,
+            derivActiveSignal.details,
+            'Possível reversão para '+side+' · confirmação '+derivSignalConfirmations+'/'+required+'. O sinal atual permanece fixo até confirmação.');
+        }else renderDerivSignal('neutral',0,'Possível '+side+' detetada · '+derivSignalConfirmations+'/'+required+' candles fechados. Aguardar confirmação.');
+        return;
+      }
+      const isNew=!derivActiveSignal||derivActiveSignal.side!==side||derivActiveSignal.symbolCode!==symbolCode||derivActiveSignal.timeframe!==selected;
+      derivActiveSignal={side,symbolCode,timeframe:selected,confirmations:derivSignalConfirmations,details};
+      if(isNew&&derivSignalLastSide!==side){playSignalAlert();derivSignalLastSide=side;lastSoundSignal=side;}
+      renderDerivSignal(side,derivSignalConfirmations,details,'Sinal fixo. Só muda após duas velas fechadas consecutivas confirmarem a direção contrária.');
+      const manualAssetSelect=$('manualAsset');
+      if(manualAssetSelect&&Array.from(manualAssetSelect.options).some(option=>option.value===symbolCode))manualAssetSelect.value=symbolCode;
+    }catch(error){
+      if(!derivActiveSignal)renderDerivSignal('neutral',0,'Não foi possível consultar candles fechados: '+(error.message||'erro desconhecido')+'. O motor não inventará sinais.');
+    }finally{derivSignalCheckInFlight=false;}
   }
   function scheduleDerivReconnect(){
     if(!derivFeedWanted||derivReconnectTimer)return;

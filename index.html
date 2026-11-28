@@ -1996,10 +1996,16 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         ws.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(x){return}if(d.error){finish({version:1,status:'unavailable',reason:d.error.message,symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});return;}if(d.msg_type!=='candles'&&!Array.isArray(d.candles))return;
           const cs=(d.candles||[]).filter(c=>Number.isFinite(Number(c.close))).slice(-300),cl=cs.map(c=>Number(c.close));
           if(cl.length<21){finish({version:1,status:'insufficient_data',symbol,timeframe:'1m',candle_count:cl.length,captured_at:new Date().toISOString()});return;}
-          const a=ema(cl,9),b=ema(cl,21),r=rsi(cl,14),i=cl.length-1,last=cs[i];
+          const a=ema(cl,9),b=ema(cl,21),e50=ema(cl,50),r=rsi(cl,14),macdFast=ema(cl,12),macdSlow=ema(cl,26);
+          const macd=cl.map((_,j)=>macdFast[j]===null||macdSlow[j]===null?null:macdFast[j]-macdSlow[j]);
+          const macdSignal=ema(macd.map(v=>v===null?0:v),9),hist=macd.map((v,j)=>v===null||macdSignal[j]===null?null:v-macdSignal[j]);
+          const i=cl.length-1,last=cs[i],prev=cs[i-1];
           const trueRanges=cs.slice(1).map((c,j)=>Math.max(Number(c.high)-Number(c.low),Math.abs(Number(c.high)-Number(cs[j].close)),Math.abs(Number(c.low)-Number(cs[j].close)))).filter(v=>Number.isFinite(v)&&v>0);
           const atrValues=trueRanges.slice(-14),atr14=atrValues.length===14?atrValues.reduce((sum,v)=>sum+v,0)/atrValues.length:null;
-          finish({version:1,status:'captured',source:'deriv_ticks_history',timeframe:'1m',symbol,candle_count:cl.length,captured_at:new Date().toISOString(),trend:a[i]>b[i]?'bullish':a[i]<b[i]?'bearish':'neutral',ema9:Number(a[i].toFixed(8)),ema21:Number(b[i].toFixed(8)),rsi14:Number(r[i].toFixed(2)),atr14:atr14&&Number.isFinite(atr14)?Number(atr14.toFixed(10)):null,last_candle:{epoch:last.epoch,open:last.open,high:last.high,low:last.low,close:last.close},recentResistance:Math.max(...cs.slice(-31,-1).map(c=>Number(c.high)).filter(Number.isFinite)),recentSupport:Math.min(...cs.slice(-31,-1).map(c=>Number(c.low)).filter(Number.isFinite)),previous_close:cl[i-1]});};
+          const closedIndex=Math.max(1,i-1),closed=cs[closedIndex];
+          const closedResistance=Math.max(...cs.slice(Math.max(0,closedIndex-30),closedIndex).map(c=>Number(c.high)).filter(Number.isFinite));
+          const closedSupport=Math.min(...cs.slice(Math.max(0,closedIndex-30),closedIndex).map(c=>Number(c.low)).filter(Number.isFinite));
+          finish({version:2,status:'captured',source:'deriv_ticks_history',timeframe:'1m',symbol,candle_count:cl.length,captured_at:new Date().toISOString(),trend:a[closedIndex]>b[closedIndex]?'bullish':a[closedIndex]<b[closedIndex]?'bearish':'neutral',ema9:Number(a[closedIndex].toFixed(8)),ema21:Number(b[closedIndex].toFixed(8)),ema50:Number(e50[closedIndex].toFixed(8)),ema50Slope:Number((e50[closedIndex]-e50[Math.max(0,closedIndex-5)]).toFixed(8)),rsi14:Number(r[closedIndex].toFixed(2)),macdHistogram:Number(hist[closedIndex]?.toFixed(10)),previousMacdHistogram:Number(hist[Math.max(0,closedIndex-1)]?.toFixed(10)),atr14:atr14&&Number.isFinite(atr14)?Number(atr14.toFixed(10)):null,last_candle:{epoch:closed.epoch,open:closed.open,high:closed.high,low:closed.low,close:closed.close},recentResistance:Number.isFinite(closedResistance)?closedResistance:null,recentSupport:Number.isFinite(closedSupport)?closedSupport:null,previous_close:prev.close});};
         ws.onerror=()=>finish({version:1,status:'unavailable',reason:'Falha na ligação Deriv',symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});
       }catch(e){finish({version:1,status:'unavailable',reason:e.message,symbol,timeframe:'1m',candle_count:0,captured_at:new Date().toISOString()});}
     });
@@ -2051,28 +2057,49 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   }
   function evaluateManualEntryWindow(snapshot, direction) {
     if (!snapshot || snapshot.status !== 'captured' || !snapshot.last_candle) {
-      return { ready: false, reason: 'Dados de candles insuficientes ou indisponíveis.' };
+      return { ready: false, score: 0, reason: 'Dados reais de candles insuficientes ou indisponíveis.' };
     }
     const isCall = direction === 'CALL';
-    const trendMatches = isCall ? snapshot.trend === 'bullish' : snapshot.trend === 'bearish';
-    const rsiValue = Number(snapshot.rsi14);
-    const rsiMatches = Number.isFinite(rsiValue) && (isCall ? rsiValue >= 48 && rsiValue <= 68 : rsiValue >= 32 && rsiValue <= 52);
     const candle = snapshot.last_candle;
     const open = Number(candle.open), close = Number(candle.close), high = Number(candle.high), low = Number(candle.low);
+    const atr = Number(snapshot.atr14), rsiValue = Number(snapshot.rsi14);
+    if (![open,close,high,low,atr,rsiValue].every(Number.isFinite) || atr <= 0) {
+      return { ready: false, score: 0, reason: 'Indicadores incompletos; o motor não vai adivinhar a direção.' };
+    }
+    const trendMatches = isCall
+      ? snapshot.trend === 'bullish' && Number(snapshot.ema9) > Number(snapshot.ema21) && Number(snapshot.ema21) > Number(snapshot.ema50) && Number(snapshot.ema50Slope) > 0
+      : snapshot.trend === 'bearish' && Number(snapshot.ema9) < Number(snapshot.ema21) && Number(snapshot.ema21) < Number(snapshot.ema50) && Number(snapshot.ema50Slope) < 0;
+    const momentumMatches = isCall
+      ? Number(snapshot.macdHistogram) > 0 && Number(snapshot.macdHistogram) > Number(snapshot.previousMacdHistogram)
+      : Number(snapshot.macdHistogram) < 0 && Number(snapshot.macdHistogram) < Number(snapshot.previousMacdHistogram);
+    const rsiMatches = isCall ? rsiValue >= 51 && rsiValue <= 67 : rsiValue >= 33 && rsiValue <= 49;
     const range = high - low;
     const bodyRatio = range > 0 ? Math.abs(close - open) / range : 0;
-    const candleMatches = Number.isFinite(open) && Number.isFinite(close) && bodyRatio >= 0.25 && (isCall ? close > open : close < open);
-    const atr = Number(snapshot.atr14);
-    const resistanceClear = !isCall || !Number.isFinite(Number(snapshot.recentResistance)) || !Number.isFinite(atr) || Number(snapshot.recentResistance) - close > atr * 0.2;
-    const supportClear = isCall || !Number.isFinite(Number(snapshot.recentSupport)) || !Number.isFinite(atr) || close - Number(snapshot.recentSupport) > atr * 0.2;
+    const closeLocation = range > 0 ? (close - low) / range : 0.5;
+    const candleMatches = bodyRatio >= 0.35 && (isCall ? close > open && closeLocation >= 0.68 : close < open && closeLocation <= 0.32);
+    const resistance = Number(snapshot.recentResistance), support = Number(snapshot.recentSupport);
+    const roomToBarrier = isCall ? resistance - close : close - support;
+    const structureClear = Number.isFinite(roomToBarrier) && roomToBarrier >= atr * 0.45;
+    const extension = Math.abs(close - Number(snapshot.ema9));
+    const notChasing = Number.isFinite(extension) && extension <= atr * 0.9;
     const checks = [
-      [trendMatches, 'A tendência EMA 9/21 ainda não confirma a direção escolhida.'],
-      [rsiMatches, 'O RSI indica entrada esticada ou sem força suficiente.'],
-      [candleMatches, 'A última vela ainda não confirmou a direção com corpo suficiente.'],
-      [resistanceClear && supportClear, 'O preço está demasiado perto de uma zona de suporte/resistência.']
+      { ok: trendMatches, points: 2, label: 'tendência EMA 9/21/50 e inclinação' },
+      { ok: momentumMatches, points: 1, label: 'momentum MACD' },
+      { ok: rsiMatches, points: 1, label: 'RSI em zona favorável' },
+      { ok: candleMatches, points: 1, label: 'vela fechada com corpo e fecho fortes' },
+      { ok: structureClear, points: 1, label: 'espaço até suporte/resistência' },
+      { ok: notChasing, points: 1, label: 'preço não demasiado afastado da EMA 9' }
     ];
-    const failed = checks.find(item => !item[0]);
-    return { ready: !failed, reason: failed ? failed[1] : 'Tendência, RSI, vela e distância às zonas técnicas estão alinhados.' };
+    const score = checks.reduce((sum, item) => sum + (item.ok ? item.points : 0), 0);
+    const mandatory = trendMatches && momentumMatches && candleMatches;
+    const ready = mandatory && score >= 5;
+    const missing = checks.filter(item => !item.ok).map(item => item.label);
+    return {
+      ready, score, maxScore: 7,
+      reason: ready
+        ? 'Confluência confirmada (' + score + '/7): ' + checks.filter(item => item.ok).map(item => item.label).join(', ') + '.'
+        : 'AGUARDAR (' + score + '/7). ' + (mandatory ? 'Falta pontuação suficiente.' : 'Falta confirmação de tendência, momentum ou vela.') + (missing.length ? ' A verificar: ' + missing.join('; ') + '.' : '')
+    };
   }
   const MANUAL_ENTRY_WAIT_MS = 10000;
   const MANUAL_ENTRY_MAX_CHECKS = 6;
@@ -2081,8 +2108,8 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const sell = evaluateManualEntryWindow(snapshot, 'PUT');
     if (buy.ready && !sell.ready) return { direction: 'CALL', decision: buy };
     if (sell.ready && !buy.ready) return { direction: 'PUT', decision: sell };
-    if (buy.ready && sell.ready) return { direction: null, decision: { ready: false, reason: 'Critérios contraditórios; aguardar nova confirmação.' } };
-    return { direction: null, decision: { ready: false, reason: 'COMPRA e VENDA ainda não têm confirmação técnica suficiente.' } };
+    if (buy.ready && sell.ready) return { direction: null, decision: { ready: false, reason: 'Sinais contraditórios. O motor não abre posição.' } };
+    return { direction: null, decision: { ready: false, reason: 'Sem confluência suficiente. COMPRA ' + buy.score + '/7 · VENDA ' + sell.score + '/7. Aguardar.' } };
   }
   async function executeManualTrade() {
     if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo') {
@@ -2105,6 +2132,11 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       return;
     }
     if (manualTradeBusy) return;
+    const openDemoTrades = Array.from(derivOpenContracts.values()).filter(trade => !trade.closed);
+    if (openDemoTrades.length > 0) {
+      message('manualTradeStatus', 'Já existe uma operação aberta. O motor não vai empilhar outra entrada enquanto acompanha a atual.', 'error');
+      return;
+    }
     manualTradeBusy = true;
     updateManualTradeControls();
     try {

@@ -116,7 +116,7 @@ const server = http.createServer((req, res) => {
       return sendHistory(200, { candles });
     };
     try {
-      upstream = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=' + encodeURIComponent(DERIV_CLIENT_ID));
+      upstream = new WebSocket(DERIV_URL);
       upstream.on('open', () => upstream.send(JSON.stringify({
         ticks_history: symbol, adjust_start_time: 1, count, end: 'latest',
         style: 'candles', granularity, req_id: 78124

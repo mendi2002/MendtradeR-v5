@@ -1281,7 +1281,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
                 <div id="manualSignalDirection" class="signal-direction">— <span class="muted">Nenhum sinal confirmado</span></div>
                 <p id="manualSignalReason" class="small muted">O motor analisa o mercado real e escolhe COMPRA, VENDA ou AGUARDAR. A entrada só acontece quando clicares no botão.</p>
               </div>
-              <div class="row manual-actions"><button id="manualAutoBtn" class="buy-btn" type="button" disabled>✦ DECISÃO INTELIGENTE · ANALISAR E OPERAR</button><button id="manualExitBtn" class="sell-btn" type="button" disabled>SAIR DA OPERAÇÃO</button></div>
+              <div class="row manual-actions"><button id="manualAutoBtn" class="buy-btn" type="button" disabled>✦ ENTRAR · USAR SINAL ATUAL</button><button id="manualExitBtn" class="sell-btn" type="button" disabled>SAIR DA OPERAÇÃO</button></div>
               <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
               <div class="row" style="margin:8px 0;padding:10px;border:1px solid #315c45;border-radius:10px;background:#07110b"><span class="small muted">⏱ Tempo restante da operação</span><b id="manualTradeCountdown" style="font-variant-numeric:tabular-nums">Sem operação ativa</b></div>
               <div class="notice small" id="manualProtectionStatus" aria-live="polite">Proteção dinâmica: à espera de uma operação DEMO. A monitorização depende da ligação ativa à Deriv.</div>
@@ -2184,7 +2184,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   }
   async function executeManualTrade() {
     if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo') {
-      message('manualTradeStatus', 'Por segurança, a decisão inteligente só executa ordens numa conta DEMO ligada.', 'error');
+      message('manualTradeStatus', 'Por segurança, as entradas só estão disponíveis numa conta DEMO ligada.', 'error');
       updateManualTradeControls();
       return;
     }
@@ -2205,30 +2205,25 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if (manualTradeBusy) return;
     const openDemoTrades = Array.from(derivOpenContracts.values()).filter(trade => !trade.closed);
     if (openDemoTrades.length > 0) {
-      message('manualTradeStatus', 'Já existe uma operação aberta. O motor não vai empilhar outra entrada enquanto acompanha a atual.', 'error');
+      message('manualTradeStatus', 'Já existe uma operação aberta. Fecha ou aguarda a operação atual antes de abrir outra.', 'error');
       return;
     }
+    const signal = derivActiveSignal;
+    if (!signal || !signal.side || !['COMPRA', 'VENDA'].includes(signal.side) || Number(signal.expiresAt) <= Date.now()) {
+      message('manualTradeStatus', 'Não há sinal ativo de COMPRA ou VENDA. Aguarda aparecer um sinal antes de entrar.', 'warning');
+      return;
+    }
+    if (String(signal.symbolCode) !== String(symbol)) {
+      message('manualTradeStatus', 'O ativo selecionado não corresponde ao ativo do sinal (' + signal.symbol + '). Seleciona o mesmo ativo do sinal.', 'warning');
+      return;
+    }
+    const direction = signal.side === 'COMPRA' ? 'CALL' : 'PUT';
+    const sideLabel = signal.side;
+    const signalSymbol = String(signal.symbolCode);
     manualTradeBusy = true;
     updateManualTradeControls();
     try {
-      let marketSnapshot = null;
-      let autoChoice = { direction: null, decision: { ready: false, reason: 'A recolher dados recentes.' } };
-      for (let attempt = 1; attempt <= MANUAL_ENTRY_MAX_CHECKS; attempt++) {
-        if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
-          throw new Error('A ligação DEMO caiu durante a análise. Nenhuma entrada foi enviada.');
-        }
-        message('manualTradeStatus', 'Motor inteligente a analisar o mercado real · leitura ' + attempt + '/' + MANUAL_ENTRY_MAX_CHECKS + ' · ' + autoChoice.decision.reason);
-        marketSnapshot = await captureTradeMarketSnapshot(symbol, duration);
-        autoChoice = chooseManualAutoDirection(marketSnapshot);
-        if (autoChoice.direction) break;
-        if (attempt < MANUAL_ENTRY_MAX_CHECKS) await new Promise(resolve => setTimeout(resolve, MANUAL_ENTRY_WAIT_MS));
-      }
-      if (!autoChoice.direction) {
-        throw new Error('AGUARDAR: não apareceu uma oportunidade suficientemente confirmada. Nenhuma ordem foi enviada. ' + autoChoice.decision.reason);
-      }
-      const direction = autoChoice.direction;
-      const sideLabel = direction === 'CALL' ? 'COMPRA' : 'VENDA';
-      message('manualTradeStatus', 'Direção escolhida pelo motor: ' + sideLabel + '. A validar contrato e prazo na Deriv…');
+      message('manualTradeStatus', 'Sinal apresentado: ' + sideLabel + ' · ' + signal.symbol + '. A validar contrato e prazo na Deriv…');
       await validateManualTradeAvailability(symbol, direction, duration);
       if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
         throw new Error('A ligação DEMO caiu antes da cotação. Nenhuma ordem foi enviada.');
@@ -2243,20 +2238,25 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       if (!quote?.id || !Number.isFinite(Number(quote.ask_price))) {
         throw new Error(quoteResponse.error?.message || 'A Deriv não devolveu uma cotação válida para este ativo e valor.');
       }
-      const latestSnapshot = await captureTradeMarketSnapshot(symbol, duration);
-      const finalChoice = chooseManualAutoDirection(latestSnapshot);
-      if (finalChoice.direction !== direction) {
-        throw new Error('Entrada cancelada: o mercado deixou de confirmar ' + sideLabel + ' enquanto a cotação era preparada. O motor vai aguardar uma nova análise.');
+      const latestSignal = derivActiveSignal;
+      if (!latestSignal || latestSignal.side !== sideLabel || String(latestSignal.symbolCode) !== signalSymbol || Number(latestSignal.expiresAt) <= Date.now()) {
+        throw new Error('O sinal mudou ou expirou enquanto a cotação era preparada. Nenhuma ordem foi enviada. Aguarda o próximo sinal.');
       }
       if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
         throw new Error('A ligação DEMO caiu antes da confirmação. Nenhuma ordem foi enviada.');
       }
-      message('manualTradeStatus', 'COMPRA/VENDA confirmada novamente pelo mercado. A enviar ordem para a conta DEMO…');
+      message('manualTradeStatus', 'Sinal ' + sideLabel + ' continua ativo. A enviar a ordem correspondente para a conta DEMO…');
       const buyResponse = await sendDerivTradeRequest({ buy: quote.id, price: Number(quote.ask_price) });
       const bought = buyResponse.buy || buyResponse.data?.buy;
       if (!bought?.contract_id) throw new Error(buyResponse.error?.message || 'A Deriv não confirmou a abertura do contrato.');
-      addManualHistoryRow(bought.contract_id, direction, assetLabel, amount, currency, duration, latestSnapshot);
-      message('manualTradeStatus', 'Ordem ' + sideLabel + ' aberta na conta DEMO após confirmação técnica. Contrato #' + bought.contract_id + '. A acompanhar o mercado e a proteção.', 'success');
+      const signalSnapshot = {
+        status: 'signal_entry', source: 'deriv_live_signal',
+        symbol: signalSymbol, direction: sideLabel,
+        signal_score: signal.score, signal_reason: signal.reason,
+        captured_at: new Date().toISOString()
+      };
+      addManualHistoryRow(bought.contract_id, direction, assetLabel, amount, currency, duration, signalSnapshot);
+      message('manualTradeStatus', 'Ordem ' + sideLabel + ' aberta na conta DEMO com base no sinal apresentado. Contrato #' + bought.contract_id + '. A acompanhar a operação.', 'success');
       if (derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN) {
         derivTradingSocket.send(JSON.stringify({
           proposal_open_contract: 1, contract_id: bought.contract_id,

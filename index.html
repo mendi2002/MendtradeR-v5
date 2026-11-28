@@ -1281,7 +1281,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
                 <div id="manualSignalDirection" class="signal-direction">— <span class="muted">Nenhum sinal confirmado</span></div>
                 <p id="manualSignalReason" class="small muted">O motor analisa o mercado real e escolhe COMPRA, VENDA ou AGUARDAR. A execução automática é apenas na conta DEMO.</p>
               </div>
-              <div class="row manual-actions"><button id="manualAutoBtn" class="buy-btn" type="button" disabled>✦ DECISÃO INTELIGENTE · ANALISAR E OPERAR</button></div>
+              <div class="row manual-actions"><button id="manualAutoBtn" class="buy-btn" type="button" disabled>✦ DECISÃO INTELIGENTE · ANALISAR E OPERAR</button><button id="manualExitBtn" class="sell-btn" type="button" disabled>SAIR DA OPERAÇÃO</button></div>
               <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
               <div class="row" style="margin:8px 0;padding:10px;border:1px solid #315c45;border-radius:10px;background:#07110b"><span class="small muted">⏱ Tempo restante da operação</span><b id="manualTradeCountdown" style="font-variant-numeric:tabular-nums">Sem operação ativa</b></div>
               <div class="notice small" id="manualProtectionStatus" aria-live="polite">Proteção dinâmica: à espera de uma operação DEMO. A monitorização depende da ligação ativa à Deriv.</div>
@@ -1698,11 +1698,44 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const socketReady = !!derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN;
     const enabled = isDemo && socketReady;
     if ($('manualAutoBtn')) $('manualAutoBtn').disabled = !enabled || manualTradeBusy;
+    const openTrade = Array.from(derivOpenContracts.values()).find(trade => !trade.closed);
+    if ($('manualExitBtn')) $('manualExitBtn').disabled = !enabled || !openTrade || !!openTrade.manualExitBusy || !!openTrade.protectionClosing;
     if ($('manualAmountLabel')) $('manualAmountLabel').textContent = 'Valor da operação (' + (derivConnectedAccount?.currency || 'moeda da conta') + ')';
     if ($('manualTradeStatus') && !enabled) {
       $('manualTradeStatus').textContent = derivConnectedAccount && derivAccountType(derivConnectedAccount) === 'real'
         ? 'Conta REAL ligada apenas para consulta. Seleciona uma conta DEMO para operar.'
         : 'Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.';
+    }
+  }
+  async function exitManualOpenTrade() {
+    if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo' || !derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
+      message('manualTradeStatus', 'Liga a conta DEMO para solicitar o fecho da operação.', 'error');
+      return;
+    }
+    const tracked = Array.from(derivOpenContracts.values()).find(trade => !trade.closed);
+    if (!tracked) {
+      message('manualTradeStatus', 'Não existe operação aberta para fechar.', 'error');
+      updateManualTradeControls();
+      return;
+    }
+    if (tracked.protectionClosing || tracked.manualExitBusy) return;
+    const contract = tracked.lastContract || {};
+    if (contract.is_valid_to_sell !== true && Number(contract.is_valid_to_sell) !== 1) {
+      message('manualTradeStatus', 'A Deriv ainda não permite fechar este contrato antecipadamente. O botão continuará disponível; tenta novamente quando a venda for autorizada.', 'warning');
+      return;
+    }
+    tracked.manualExitBusy = true;
+    updateManualTradeControls();
+    try {
+      const response = await sendDerivTradeRequest({ sell: Number(contract.contract_id || tracked.contractId), price: 0 });
+      const sold = response.sell || response.data?.sell;
+      if (!sold) throw new Error(response.error?.message || 'A Deriv não confirmou o pedido de fecho.');
+      message('manualTradeStatus', 'Pedido de saída enviado. A aguardar confirmação do resultado pela Deriv.', 'success');
+    } catch (error) {
+      message('manualTradeStatus', 'Não foi possível fechar agora: ' + (error.message || 'erro desconhecido'), 'error');
+    } finally {
+      tracked.manualExitBusy = false;
+      updateManualTradeControls();
     }
   }
   function sendDerivTradeRequest(payload) {
@@ -1981,7 +2014,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     pnl.textContent = 'P/L: a aguardar';
     row.append(label, status, pnl, protection);
     list.prepend(row);
-    const tracked = { row, status, label, pnl, protectionEl: protection, profit: 0, closed: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null, marketSnapshot: marketSnapshot || {status:'unavailable'}, marketAtr: Number(marketSnapshot?.atr14), direction: direction === 'CALL' ? 'COMPRA' : 'VENDA', asset, amount: Number(amount)||0, persisted:false, protectionActive: false, protectionClosing: false, protectionAttempted: false, entrySpot: null, currentSpot: null, bestSpot: null, trailingStopSpot: null, spotSamples: [] };
+    const tracked = { row, status, label, pnl, protectionEl: protection, profit: 0, closed: false, contractId: String(contractId), lastContract: null, manualExitBusy: false, currency, durationSeconds: Number(duration) || 0, expiryEpoch: null, marketSnapshot: marketSnapshot || {status:'unavailable'}, marketAtr: Number(marketSnapshot?.atr14), direction: direction === 'CALL' ? 'COMPRA' : 'VENDA', asset, amount: Number(amount)||0, persisted:false, protectionActive: false, protectionClosing: false, protectionAttempted: false, entrySpot: null, currentSpot: null, bestSpot: null, trailingStopSpot: null, spotSamples: [] };
     derivOpenContracts.set(String(contractId), tracked);
     setManualProtectionStatus(tracked, 'A acompanhar contrato DEMO · a proteção será ativada quando houver lucro suficiente.', 'muted');
     renderManualTradeStats();
@@ -2088,7 +2121,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if (closedEl) { closedEl.textContent = format(realized); closedEl.className = realized > 0 ? 'manual-pnl-positive' : realized < 0 ? 'manual-pnl-negative' : ''; }
     if (wlEl) wlEl.textContent = wins + ' / ' + losses;
   }
-  const manualLearningGuard = { sampleSize: 0, winRate: null, minimumScore: 5, pause: false, reason: 'Sem amostra histórica suficiente; critérios base ativos.' };
+  const manualLearningGuard = { sampleSize: 0, winRate: null, minimumScore: 3, pause: false, reason: 'Sem amostra histórica suficiente; critérios base ativos.' };
   function evaluateManualEntryWindow(snapshot, direction) {
     if (!snapshot || snapshot.status !== 'captured' || !snapshot.last_candle) {
       return { ready: false, score: 0, reason: 'Dados reais de candles insuficientes ou indisponíveis.' };
@@ -2126,8 +2159,11 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     ];
     const score = checks.reduce((sum, item) => sum + (item.ok ? item.points : 0), 0);
     const mandatory = trendMatches && momentumMatches && candleMatches;
-    const adaptiveFloor = Math.max(5, Math.min(6, Number(manualLearningGuard.minimumScore) || 5));
-    const ready = mandatory && score >= adaptiveFloor && !manualLearningGuard.pause;
+    const adaptiveFloor = Math.max(3, Math.min(4, Number(manualLearningGuard.minimumScore) || 3));
+    // Entrada menos restritiva: precisa de um sinal direcional coerente e pelo menos 3 pontos.
+    // Não exige simultaneamente tendência perfeita, MACD e vela ideal.
+    const directionalSignal = (trendMatches && (momentumMatches || candleMatches)) || (momentumMatches && candleMatches);
+    const ready = directionalSignal && score >= adaptiveFloor && !manualLearningGuard.pause;
     const missing = checks.filter(item => !item.ok).map(item => item.label);
     return {
       ready, score, maxScore: 7,
@@ -2136,8 +2172,8 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         : 'AGUARDAR (' + score + '/7). ' + (manualLearningGuard.pause ? manualLearningGuard.reason : mandatory ? 'Mínimo adaptativo: ' + adaptiveFloor + '/7.' : 'Falta confirmação de tendência, momentum ou vela.') + (missing.length ? ' A verificar: ' + missing.join('; ') + '.' : '')
     };
   }
-  const MANUAL_ENTRY_WAIT_MS = 10000;
-  const MANUAL_ENTRY_MAX_CHECKS = 6;
+  const MANUAL_ENTRY_WAIT_MS = 0;
+  const MANUAL_ENTRY_MAX_CHECKS = 1;
   function chooseManualAutoDirection(snapshot) {
     const buy = evaluateManualEntryWindow(snapshot, 'CALL');
     const sell = evaluateManualEntryWindow(snapshot, 'PUT');
@@ -2207,7 +2243,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       if (!quote?.id || !Number.isFinite(Number(quote.ask_price))) {
         throw new Error(quoteResponse.error?.message || 'A Deriv não devolveu uma cotação válida para este ativo e valor.');
       }
-      const latestSnapshot = await captureTradeMarketSnapshot(symbol);
+      const latestSnapshot = await captureTradeMarketSnapshot(symbol, duration);
       const finalChoice = chooseManualAutoDirection(latestSnapshot);
       if (finalChoice.direction !== direction) {
         throw new Error('Entrada cancelada: o mercado deixou de confirmar ' + sideLabel + ' enquanto a cotação era preparada. O motor vai aguardar uma nova análise.');
@@ -2298,6 +2334,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
           const contract = data.proposal_open_contract;
           const tracked = derivOpenContracts.get(String(contract.contract_id));
           if (tracked) {
+            tracked.lastContract = contract;
             const profit = Number(contract.profit);
             const state = contract.status || (contract.is_sold ? 'fechado' : 'em aberto');
             if (Number.isFinite(profit)) tracked.profit = profit;
@@ -2316,6 +2353,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
               tracked.pnl.className = 'small ' + (profit > 0 ? 'manual-pnl-positive' : profit < 0 ? 'manual-pnl-negative' : '');
             }
             renderManualTradeStats();
+            updateManualTradeControls();
             if (contract.is_sold && Number.isFinite(profit) && profit > 0 && !derivWinSoundPlayed.has(String(contract.contract_id))) {
               derivWinSoundPlayed.add(String(contract.contract_id));
               playWinAlert();
@@ -2417,6 +2455,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   $('derivLoadAccounts')?.addEventListener('click', () => loadDerivAccounts().catch(error => message('derivAccountMsg', error.message, 'error')));
   $('derivConnectTrading')?.addEventListener('click', connectDerivTradingAccount);
   $('manualAutoBtn')?.addEventListener('click', () => executeManualTrade());
+  $('manualExitBtn')?.addEventListener('click', () => exitManualOpenTrade());
   $('manualAsset')?.addEventListener('change', checkManualDurationAvailability);
   $('manualExpiry')?.addEventListener('change', () => {
     if (currentUser) localStorage.setItem('mendtrader_manual_expiry_' + currentUser.id, $('manualExpiry').value);
@@ -3381,7 +3420,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const rows=data||[],valid=rows.filter(x=>{const p=x.market_snapshot||{};return p.status==='captured'&&Number(p.candle_count)>=21&&Number.isFinite(Number(p.ema9))&&Number.isFinite(Number(p.ema21))&&Number.isFinite(Number(p.rsi14));});
     const wins=valid.filter(x=>x.outcome==='win').length,losses=valid.filter(x=>x.outcome==='loss').length,done=wins+losses;
     const recent=valid.filter(x=>x.outcome==='win'||x.outcome==='loss').slice(0,20);
-    if(recent.length>=20){const recentWins=recent.filter(x=>x.outcome==='win').length;const recentRate=recentWins/recent.length*100;manualLearningGuard.sampleSize=recent.length;manualLearningGuard.winRate=recentRate;manualLearningGuard.pause=recentRate<40;manualLearningGuard.minimumScore=recentRate<55?6:5;manualLearningGuard.reason=manualLearningGuard.pause?'Proteção adaptativa: taxa de acerto recente de '+recentRate.toFixed(1)+'% em 20 operações. Novas entradas bloqueadas até revisão dos dados.':'Proteção adaptativa: '+recentRate.toFixed(1)+'% de acerto nas últimas 20 operações; mínimo de entrada '+manualLearningGuard.minimumScore+'/7.';}else{manualLearningGuard.sampleSize=recent.length;manualLearningGuard.winRate=null;manualLearningGuard.pause=false;manualLearningGuard.minimumScore=5;manualLearningGuard.reason='Amostra adaptativa: '+recent.length+'/20 operações com resultado confirmado. Critérios base mantidos.';}
+    if(recent.length>=20){const recentWins=recent.filter(x=>x.outcome==='win').length;const recentRate=recentWins/recent.length*100;manualLearningGuard.sampleSize=recent.length;manualLearningGuard.winRate=recentRate;manualLearningGuard.pause=recentRate<40;manualLearningGuard.minimumScore=recentRate<55?4:3;manualLearningGuard.reason=manualLearningGuard.pause?'Proteção adaptativa: taxa de acerto recente de '+recentRate.toFixed(1)+'% em 20 operações. Novas entradas bloqueadas até revisão dos dados.':'Proteção adaptativa: '+recentRate.toFixed(1)+'% de acerto nas últimas 20 operações; mínimo de entrada '+manualLearningGuard.minimumScore+'/7.';}else{manualLearningGuard.sampleSize=recent.length;manualLearningGuard.winRate=null;manualLearningGuard.pause=false;manualLearningGuard.minimumScore=3;manualLearningGuard.reason='Amostra adaptativa: '+recent.length+'/20 operações com resultado confirmado. Critérios base mantidos.';}
     $('learningRegistered').textContent=String(rows.length);$('learningTotal').textContent=String(valid.length);$('learningInvalid').textContent=String(rows.length-valid.length);$('learningWinsLosses').textContent=wins+' / '+losses;$('learningWinRate').textContent=done?(wins/done*100).toFixed(1)+'%':'—';
     $('learningLastUpdate').textContent=rows.length?'Último registo: '+new Date(rows[0].created_at).toLocaleString('pt-PT'):'Ainda sem operações registadas.';
     if(valid.length<20){$('learningState').textContent='Dados técnicos insuficientes';$('learningPatternRows').innerHTML='<tr><td colspan="5" class="muted">São necessárias 20 capturas válidas.</td></tr>';$('learningNotice').textContent=valid.length+' de 20 capturas técnicas válidas. Registos sem contexto não contam.';if(btn)btn.disabled=false;return;}

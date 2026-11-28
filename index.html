@@ -3357,7 +3357,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         const direction=valid.length===4&&bullish===4?'ALTA':valid.length===4&&bearish===4?'BAIXA':'MISTA / SEM CONFIRMAÇÃO';
         trend.textContent='Leitura combinada: '+direction;
         details.textContent=readings.map(item=>item.timeframe+' '+item.side+(item.rsi===undefined?'':' · RSI '+item.rsi.toFixed(1))).join(' | ');
-        status.textContent='Comparação de M15, H1, H4 e D1. Só existe alinhamento quando os quatro períodos confirmam a mesma direção.';
+        status.textContent='Comparação de M15, H1, H4 e D1. No modo AUTO, uma direção pode ser confirmada quando pelo menos três dos quatro períodos concordam.';
       }else{
         const reading=readings[0];
         trend.textContent=reading.side==='INSUFFICIENT'?'Histórico insuficiente':'Tendência '+reading.side;
@@ -3567,9 +3567,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       if(selected==='AUTO'){
         const bullish=results.filter(x=>x.reading.side==='ALTA').length;
         const bearish=results.filter(x=>x.reading.side==='BAIXA').length;
-        if(bullish===4){side='COMPRA';score=4;}
-        else if(bearish===4){side='VENDA';score=4;}
-        details='Análise multi-período M15/H1/H4/D1: '+results.map(x=>x.timeframe+' '+x.reading.side+' (RSI '+x.reading.rsi.toFixed(1)+')').join(' · ')+'.';
+        if(bullish>=3){side='COMPRA';score=bullish;}
+        else if(bearish>=3){side='VENDA';score=bearish;}
+        details='Análise multi-período M15/H1/H4/D1: '+results.map(x=>x.timeframe+' '+x.reading.side+' (RSI '+x.reading.rsi.toFixed(1)+')').join(' · ')+'. Confirmação por maioria de 3 em 4 períodos.';
       }else{
         const reading=results[0].reading;
         if(reading.side==='ALTA'){side='COMPRA';score=1;}
@@ -3587,7 +3587,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       }
       if(derivSignalCandidate===side)derivSignalConfirmations++;
       else{derivSignalCandidate=side;derivSignalConfirmations=1;}
-      const required=2;
+      // Primeira entrada de sinal: basta uma vela fechada válida.
+      // Para inverter um sinal já ativo, exigimos duas velas fechadas opostas.
+      const required=derivActiveSignal&&derivActiveSignal.side!==side?2:1;
       if(derivActiveSignal&&derivActiveSignal.side===side){
         derivActiveSignal.confirmations=derivSignalConfirmations;
         derivActiveSignal.details=details;

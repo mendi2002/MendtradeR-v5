@@ -2055,6 +2055,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if (closedEl) { closedEl.textContent = format(realized); closedEl.className = realized > 0 ? 'manual-pnl-positive' : realized < 0 ? 'manual-pnl-negative' : ''; }
     if (wlEl) wlEl.textContent = wins + ' / ' + losses;
   }
+  const manualLearningGuard = { sampleSize: 0, winRate: null, minimumScore: 5, pause: false, reason: 'Sem amostra histórica suficiente; critérios base ativos.' };
   function evaluateManualEntryWindow(snapshot, direction) {
     if (!snapshot || snapshot.status !== 'captured' || !snapshot.last_candle) {
       return { ready: false, score: 0, reason: 'Dados reais de candles insuficientes ou indisponíveis.' };
@@ -2092,13 +2093,14 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     ];
     const score = checks.reduce((sum, item) => sum + (item.ok ? item.points : 0), 0);
     const mandatory = trendMatches && momentumMatches && candleMatches;
-    const ready = mandatory && score >= 5;
+    const adaptiveFloor = Math.max(5, Math.min(6, Number(manualLearningGuard.minimumScore) || 5));
+    const ready = mandatory && score >= adaptiveFloor && !manualLearningGuard.pause;
     const missing = checks.filter(item => !item.ok).map(item => item.label);
     return {
       ready, score, maxScore: 7,
       reason: ready
-        ? 'Confluência confirmada (' + score + '/7): ' + checks.filter(item => item.ok).map(item => item.label).join(', ') + '.'
-        : 'AGUARDAR (' + score + '/7). ' + (mandatory ? 'Falta pontuação suficiente.' : 'Falta confirmação de tendência, momentum ou vela.') + (missing.length ? ' A verificar: ' + missing.join('; ') + '.' : '')
+        ? 'Confluência confirmada (' + score + '/7; mínimo adaptativo ' + adaptiveFloor + '): ' + checks.filter(item => item.ok).map(item => item.label).join(', ') + '.'
+        : 'AGUARDAR (' + score + '/7). ' + (manualLearningGuard.pause ? manualLearningGuard.reason : mandatory ? 'Mínimo adaptativo: ' + adaptiveFloor + '/7.' : 'Falta confirmação de tendência, momentum ou vela.') + (missing.length ? ' A verificar: ' + missing.join('; ') + '.' : '')
     };
   }
   const MANUAL_ENTRY_WAIT_MS = 10000;
@@ -3345,13 +3347,15 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if(error){$('learningState').textContent='Indisponível';$('learningNotice').textContent='Erro ao consultar dados: '+error.message;if(btn)btn.disabled=false;return;}
     const rows=data||[],valid=rows.filter(x=>{const p=x.market_snapshot||{};return p.status==='captured'&&Number(p.candle_count)>=21&&Number.isFinite(Number(p.ema9))&&Number.isFinite(Number(p.ema21))&&Number.isFinite(Number(p.rsi14));});
     const wins=valid.filter(x=>x.outcome==='win').length,losses=valid.filter(x=>x.outcome==='loss').length,done=wins+losses;
+    const recent=valid.filter(x=>x.outcome==='win'||x.outcome==='loss').slice(0,20);
+    if(recent.length>=20){const recentWins=recent.filter(x=>x.outcome==='win').length;const recentRate=recentWins/recent.length*100;manualLearningGuard.sampleSize=recent.length;manualLearningGuard.winRate=recentRate;manualLearningGuard.pause=recentRate<40;manualLearningGuard.minimumScore=recentRate<55?6:5;manualLearningGuard.reason=manualLearningGuard.pause?'Proteção adaptativa: taxa de acerto recente de '+recentRate.toFixed(1)+'% em 20 operações. Novas entradas bloqueadas até revisão dos dados.':'Proteção adaptativa: '+recentRate.toFixed(1)+'% de acerto nas últimas 20 operações; mínimo de entrada '+manualLearningGuard.minimumScore+'/7.';}else{manualLearningGuard.sampleSize=recent.length;manualLearningGuard.winRate=null;manualLearningGuard.pause=false;manualLearningGuard.minimumScore=5;manualLearningGuard.reason='Amostra adaptativa: '+recent.length+'/20 operações com resultado confirmado. Critérios base mantidos.';}
     $('learningRegistered').textContent=String(rows.length);$('learningTotal').textContent=String(valid.length);$('learningInvalid').textContent=String(rows.length-valid.length);$('learningWinsLosses').textContent=wins+' / '+losses;$('learningWinRate').textContent=done?(wins/done*100).toFixed(1)+'%':'—';
     $('learningLastUpdate').textContent=rows.length?'Último registo: '+new Date(rows[0].created_at).toLocaleString('pt-PT'):'Ainda sem operações registadas.';
     if(valid.length<20){$('learningState').textContent='Dados técnicos insuficientes';$('learningPatternRows').innerHTML='<tr><td colspan="5" class="muted">São necessárias 20 capturas válidas.</td></tr>';$('learningNotice').textContent=valid.length+' de 20 capturas técnicas válidas. Registos sem contexto não contam.';if(btn)btn.disabled=false;return;}
     const groups=new Map();for(const x of valid){if(x.outcome==='breakeven')continue;const p=x.market_snapshot||{},r=Number(p.rsi14),band=r<40?'RSI <40':r<50?'RSI 40–49':r<60?'RSI 50–59':r<70?'RSI 60–69':'RSI ≥70',trend=p.trend||'neutra',key=[x.asset,x.direction,trend,band].join('|');if(!groups.has(key))groups.set(key,{asset:x.asset,direction:x.direction,trend,band,total:0,wins:0,losses:0});const g=groups.get(key);g.total++;if(x.outcome==='win')g.wins++;if(x.outcome==='loss')g.losses++;}
     const patterns=[...groups.values()].filter(g=>g.total>=5).sort((a,b)=>b.wins/b.total-a.wins/a.total||b.total-a.total).slice(0,8);
     $('learningState').textContent='Análise observacional';$('learningPatternRows').innerHTML=patterns.length?patterns.map(g=>'<tr><td>'+escapeHtml(g.asset)+' · '+escapeHtml(g.direction)+'<br><span class="small muted">'+escapeHtml(g.trend)+' · '+escapeHtml(g.band)+'</span></td><td>'+g.total+'</td><td>'+g.wins+'</td><td>'+g.losses+'</td><td>'+((g.wins/g.total)*100).toFixed(1)+'%</td></tr>').join(''):'<tr><td colspan="5" class="muted">Sem grupos com pelo menos 5 operações.</td></tr>';
-    $('learningNotice').textContent='Análise exploratória de '+valid.length+' capturas válidas. Não prevê resultados nem modifica o bot.';if(btn)btn.disabled=false;
+    $('learningNotice').textContent='Análise de '+valid.length+' capturas válidas. '+manualLearningGuard.reason+' O motor nunca reduz o mínimo abaixo de 5/7; com menos de 20 resultados confirmados não adapta os critérios.';if(btn)btn.disabled=false;
   }
   $('learningRefreshBtn')?.addEventListener('click',loadLearningInsights);
   function renderDerivCandles(){

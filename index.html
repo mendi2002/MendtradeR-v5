@@ -529,6 +529,10 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
                 <div class="field"><label>Força técnica indicativa</label><strong id="derivSignalStrength" style="font-size:22px">—</strong></div>
               </div>
               <p id="derivSignalReason" class="small muted">São necessários pelo menos 60 ticks recentes e 3 confirmações consecutivas para uma primeira leitura.</p>
+              <div class="row" style="margin-top:10px;padding:10px 12px;border:1px solid #315c45;border-radius:10px;background:#07110b;align-items:center;justify-content:space-between">
+                <span class="small muted">⏱ Tempo de movimento da vela · <b id="derivCandleTimeframe">1 minuto</b></span>
+                <strong id="derivCandleElapsed" style="font-variant-numeric:tabular-nums;font-size:18px">A aguardar cotação</strong>
+              </div>
               <p id="derivSignalWarning" class="small muted">Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.</p>
             </div>
             <div id="derivCandlePanel" class="card" style="margin-top:14px">
@@ -1918,6 +1922,30 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
     derivCurrentCandle=null;renderDerivCandles();
   }
   loadDerivCandlesForSymbol(derivCandleSymbol);
+
+  // Cronómetro da vela: usa o horário do último tick real e o período escolhido na operação manual.
+  function renderDerivCandleChronometer(){
+    const display=$('derivCandleElapsed'),label=$('derivCandleTimeframe');
+    if(!display||!label)return;
+    const select=$('manualExpiry');
+    const total=Math.max(1,Number(select?.value)||60);
+    const selectedLabel=select?.selectedOptions?.[0]?.textContent||'1 minuto';
+    label.textContent=selectedLabel;
+    const latest=derivFeedTicks[0];
+    if(!latest||!Number.isFinite(Number(latest.epoch))||!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN||Date.now()-derivLastTickAt>20000){
+      display.textContent='A aguardar cotação';
+      return;
+    }
+    const estimatedEpoch=Number(latest.epoch)+Math.max(0,(Date.now()-derivLastTickAt)/1000);
+    const elapsed=Math.max(0,Math.floor(estimatedEpoch%total));
+    const format=seconds=>{
+      const h=Math.floor(seconds/3600),m=Math.floor((seconds%3600)/60),s=seconds%60;
+      return h>0?[h,m,s].map(v=>String(v).padStart(2,'0')).join(':'):[m,s].map(v=>String(v).padStart(2,'0')).join(':');
+    };
+    display.textContent=format(elapsed)+' / '+format(total);
+  }
+  setInterval(renderDerivCandleChronometer,1000);
+  $('manualExpiry')?.addEventListener('change',renderDerivCandleChronometer);
   function setDerivFeedStatus(label,kind='neutral'){
     const el=$('derivFeedStatus'); if(!el)return;
     el.textContent=label; el.className='signal-tag '+kind;
@@ -2120,7 +2148,7 @@ td,th{padding:10px;border-bottom:1px solid rgba(111,165,127,.12)}
         const time=new Date((Number(t.epoch)||Date.now()/1000)*1000);
         $('derivFeedPrice').textContent=quote.toLocaleString('pt-PT',{maximumFractionDigits:8});
         $('derivFeedTime').textContent=time.toLocaleTimeString('pt-PT');
-        derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote});
+        derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote,epoch:Number(t.epoch)});
         derivFeedTicks=derivFeedTicks.slice(0,120);
         $('derivFeedRows').innerHTML=derivFeedTicks.slice(0,12).map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
         updateDerivLiveSignal();

@@ -27,10 +27,10 @@ const server = http.createServer((req, res) => {
   if (corsOrigins.has(origin)) {
     res.setHeader('access-control-allow-origin', origin);
     res.setHeader('vary', 'Origin');
-    res.setHeader('access-control-allow-methods', 'POST, OPTIONS');
+    res.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
     res.setHeader('access-control-allow-headers', 'authorization, content-type');
   }
-  if (requestUrl.pathname === '/oauth/deriv/token' && req.method === 'OPTIONS') {
+  if ((requestUrl.pathname === '/oauth/deriv/token' || requestUrl.pathname === '/history') && req.method === 'OPTIONS') {
     if (!corsOrigins.has(origin)) { res.writeHead(403); return res.end(); }
     res.writeHead(204); return res.end();
   }
@@ -89,6 +89,47 @@ const server = http.createServer((req, res) => {
         return sendJson(502, { error: 'Não foi possível contactar o serviço de autorização da Deriv. Tenta novamente.' });
       }
     });
+    return;
+  }
+  if (requestUrl.pathname === '/history' && req.method === 'GET') {
+    const sendHistory = (status, payload) => {
+      if (res.headersSent) return;
+      res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      res.end(JSON.stringify(payload));
+    };
+    if (origin && !corsOrigins.has(origin)) return sendHistory(403, { error: 'Origem não autorizada.' });
+    const symbol = requestUrl.searchParams.get('symbol') || DEFAULT_SYMBOL;
+    const granularity = Number(requestUrl.searchParams.get('granularity') || 60);
+    const count = Math.min(2000, Math.max(30, Number(requestUrl.searchParams.get('count') || 500)));
+    const allowedGranularities = new Set([60, 300, 900, 1800, 3600, 14400, 86400]);
+    if (!validSymbol(symbol) || !allowedGranularities.has(granularity) || !Number.isFinite(count)) {
+      return sendHistory(400, { error: 'Parâmetros de histórico inválidos.' });
+    }
+    let upstream, settled = false;
+    const timer = setTimeout(() => finish(new Error('A Deriv demorou a devolver o histórico.')), 15000);
+    const finish = (error, candles) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { upstream?.close(); } catch {}
+      if (error) return sendHistory(502, { error: error.message || 'Falha ao consultar o histórico da Deriv.' });
+      return sendHistory(200, { candles });
+    };
+    try {
+      upstream = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=' + encodeURIComponent(DERIV_CLIENT_ID));
+      upstream.on('open', () => upstream.send(JSON.stringify({
+        ticks_history: symbol, adjust_start_time: 1, count, end: 'latest',
+        style: 'candles', granularity, req_id: 78124
+      })));
+      upstream.on('message', raw => {
+        let data;
+        try { data = JSON.parse(raw.toString()); } catch { return; }
+        if (data.error) return finish(new Error(data.error.message || 'A Deriv recusou o histórico.'));
+        if (Array.isArray(data.candles)) return finish(null, data.candles);
+      });
+      upstream.on('error', () => finish(new Error('O servidor não conseguiu estabelecer ligação ao histórico público da Deriv.')));
+      upstream.on('close', () => { if (!settled) finish(new Error('A Deriv encerrou a ligação antes de enviar os candles.')); });
+    } catch (error) { finish(error); }
     return;
   }
   if (requestUrl.pathname === '/health') {

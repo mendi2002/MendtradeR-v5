@@ -1608,7 +1608,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   function money(n) { return '$'+(Number(n)||0).toFixed(2); }
   const DERIV_CLIENT_ID = '34TEm2Gavyti0dcVDw73V';
   const DERIV_BACKEND_ORIGIN = 'https://mendtrader-v6-oauth-test.onrender.com';
-  const DERIV_REDIRECT_URI = window.location.origin + '/';
+  const DERIV_REDIRECT_URI = window.location.origin + '/callback';
   function base64Url(bytes) {
     return btoa(Array.from(bytes, b => String.fromCharCode(b)).join('')).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
   }

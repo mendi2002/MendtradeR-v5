@@ -3687,7 +3687,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         const time=new Date((Number(t.epoch)||Date.now()/1000)*1000);
         $('derivFeedPrice').textContent=quote.toLocaleString('pt-PT',{maximumFractionDigits:8});
         $('derivFeedTime').textContent=time.toLocaleTimeString('pt-PT');
-        derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote});
+        derivFeedTicks.unshift({time:time.toLocaleTimeString('pt-PT'),symbol:t.symbol||symbol,quote,epoch:Number(t.epoch)||Date.now()/1000});
         derivFeedTicks=derivFeedTicks.slice(0,120);
         $('derivFeedRows').innerHTML=derivFeedTicks.slice(0,12).map(x=>'<tr><td>'+escapeHtml(x.time)+'</td><td>'+escapeHtml(x.symbol)+'</td><td>'+escapeHtml(x.quote.toLocaleString('pt-PT',{maximumFractionDigits:8}))+'</td></tr>').join('');
         updateDerivLiveSignal();

@@ -3539,6 +3539,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       derivSignalCandidate='neutral';derivSignalConfirmations=0;
       if(!forceClear&&showActive(msg))return;
       if(forceClear)derivActiveSignal=null;
+      if (manualAutoArmed) manualAutoLastSignalKey = '';
       tag.textContent='● A aguardar';tag.className='signal-tag neutral';
       dir.textContent='A AGUARDAR';dir.style.color='';strength.textContent='—';reason.textContent=msg;
       if(manualTag)manualTag.textContent='Aguardar sinal';
@@ -3628,8 +3629,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if(isNewSignal&&derivSignalLastSide!==side){playSignalAlert();lastSoundSignal=side;derivSignalLastSide=side;}
     if (manualAutoArmed && isNewSignal) {
       const signalKey = symbolCode + ':' + side + ':' + Math.floor(Date.now() / 1000);
-      if (matchingManualAsset && !manualTradeBusy && !manualAutoLastSignalKey) {
-        manualAutoLastSignalKey = signalKey;
+      const signalIdentity = symbolCode + ':' + side;
+      if (matchingManualAsset && !manualTradeBusy && manualAutoLastSignalKey !== signalIdentity) {
+        manualAutoLastSignalKey = signalIdentity;
         message('manualTradeStatus', 'Sinal confirmado: ' + side + ' em ' + symbol + '. O motor está a validar a estratégia e a preparar a ordem DEMO…', 'success');
         executeManualTrade();
       } else if (!matchingManualAsset) {

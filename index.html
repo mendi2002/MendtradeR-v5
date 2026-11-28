@@ -1209,7 +1209,8 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
               </div>
               <p id="derivSignalReason" class="small muted">A aguardar histórico real de candles fechados da Deriv.</p>
               <p id="derivSignalEta" class="small" style="color:#b7c8bd;margin:6px 0">Estimativa para sinal: a calcular após receber candles reais.</p>
-              <p id="derivSignalWarning" class="small muted">Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.</p>
+<div class="row" style="margin-top:10px;padding:10px 12px;border:1px solid #315c45;border-radius:10px;background:#07110b;align-items:center;justify-content:space-between"><span class="small muted">⏱ Tempo de movimento da vela · <b id="derivCandleTimeframe">A aguardar</b></span><strong id="derivCandleElapsed" style="font-variant-numeric:tabular-nums;font-size:18px">—</strong></div>
+                            <p id="derivSignalWarning" class="small muted">Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.</p>
             </div>
             <div id="derivCandlePanel" class="card" style="margin-top:14px">
               <h3>🕯️ Candles reais · 1 minuto</h3>
@@ -3530,6 +3531,36 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       if(manualReason)manualReason.textContent=detail;
     }
   }
+  // Cronómetro informativo da vela; não altera sinais nem executa operações.
+  function getCandleChronometerProfile(){
+    const seconds=Math.max(1,Number($('botExpiry')?.value)||60);
+    if(seconds<=60)return {seconds,label:'1 minuto'};
+    if(seconds<=300)return {seconds,label:'5 minutos'};
+    if(seconds<=900)return {seconds,label:'15 minutos'};
+    if(seconds<=3600)return {seconds,label:'1 hora'};
+    if(seconds<=14400)return {seconds,label:'4 horas'};
+    if(seconds<=86400)return {seconds,label:'1 dia'};
+    if(seconds<=604800)return {seconds,label:'1 semana'};
+    return {seconds,label:'1 mês'};
+  }
+  function renderDerivCandleChronometer(){
+    const display=$('derivCandleElapsed'),label=$('derivCandleTimeframe');
+    if(!display||!label)return;
+    const profile=getCandleChronometerProfile();
+    label.textContent=profile.label;
+    const latest=derivFeedTicks[0];
+    if(!latest||!Number.isFinite(Number(latest.epoch))||!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN||Date.now()-derivLastTickAt>20000){
+      display.textContent='A aguardar cotação';return;
+    }
+    const estimatedEpoch=Number(latest.epoch)+Math.max(0,(Date.now()-derivLastTickAt)/1000);
+    const elapsed=Math.max(0,Math.floor(estimatedEpoch%profile.seconds));
+    const format=seconds=>{
+      const h=Math.floor(seconds/3600),m=Math.floor((seconds%3600)/60),s=seconds%60;
+      return h>0?[h,m,s].map(v=>String(v).padStart(2,'0')).join(':'):[m,s].map(v=>String(v).padStart(2,'0')).join(':');
+    };
+    display.textContent=format(elapsed)+' / '+format(profile.seconds);
+  }
+  setInterval(renderDerivCandleChronometer,1000);
   async function updateDerivLiveSignal(){
     if(derivSignalCheckInFlight||Date.now()-derivSignalLastCheckAt<12000)return;
     const tag=$('derivSignalTag');

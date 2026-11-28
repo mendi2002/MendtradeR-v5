@@ -1567,6 +1567,8 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   const derivPendingRequests = new Map();
   const derivOpenContracts = new Map();
   let manualTradeBusy = false;
+  let manualAutoArmed = false;
+  let manualAutoLastSignalKey = '';
   const derivWinSoundPlayed = new Set();
   const DERIV_SELECTED_ACCOUNT_KEY = "mendtrader_deriv_selected_account";
   function countryInfo(code) { return COUNTRIES.find(c => c.code === code) || COUNTRIES.find(c => c.code === 'AO'); }
@@ -1697,7 +1699,12 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const isDemo = !!derivConnectedAccount && derivAccountType(derivConnectedAccount) === 'demo';
     const socketReady = !!derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN;
     const enabled = isDemo && socketReady;
-    if ($('manualAutoBtn')) $('manualAutoBtn').disabled = !enabled || manualTradeBusy;
+    if ($('manualAutoBtn')) {
+      $('manualAutoBtn').disabled = !enabled || manualTradeBusy;
+      $('manualAutoBtn').textContent = manualAutoArmed ? '■ PARAR BOT AUTOMÁTICO' : '✦ ENTRAR · ATIVAR BOT';
+      $('manualAutoBtn').classList.toggle('sell-btn', manualAutoArmed);
+      $('manualAutoBtn').classList.toggle('buy-btn', !manualAutoArmed);
+    }
     const openTrade = Array.from(derivOpenContracts.values()).find(trade => !trade.closed);
     if ($('manualExitBtn')) $('manualExitBtn').disabled = !enabled || !openTrade || !!openTrade.manualExitBusy || !!openTrade.protectionClosing;
     if ($('manualAmountLabel')) $('manualAmountLabel').textContent = 'Valor da operação (' + (derivConnectedAccount?.currency || 'moeda da conta') + ')';
@@ -2454,7 +2461,23 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   });
   $('derivLoadAccounts')?.addEventListener('click', () => loadDerivAccounts().catch(error => message('derivAccountMsg', error.message, 'error')));
   $('derivConnectTrading')?.addEventListener('click', connectDerivTradingAccount);
-  $('manualAutoBtn')?.addEventListener('click', () => executeManualTrade());
+  $('manualAutoBtn')?.addEventListener('click', () => {
+    if (manualAutoArmed) {
+      manualAutoArmed = false;
+      manualAutoLastSignalKey = '';
+      message('manualTradeStatus', 'Bot automático parado. Nenhuma nova entrada será iniciada.', 'warning');
+      updateManualTradeControls();
+      return;
+    }
+    if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo' || !derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
+      message('manualTradeStatus', 'Liga primeiro uma conta DEMO à Deriv para ativar o bot.', 'error');
+      return;
+    }
+    manualAutoArmed = true;
+    manualAutoLastSignalKey = '';
+    message('manualTradeStatus', 'Bot ativado. A aguardar um sinal confirmado de COMPRA ou VENDA; a ordem será enviada automaticamente após nova validação técnica.', 'success');
+    updateManualTradeControls();
+  });
   $('manualExitBtn')?.addEventListener('click', () => exitManualOpenTrade());
   $('manualAsset')?.addEventListener('change', checkManualDurationAvailability);
   $('manualExpiry')?.addEventListener('change', () => {
@@ -3603,6 +3626,16 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     derivActiveSignal={side,symbol,symbolCode,score,reason:signalReason,createdAt:Date.now(),expiresAt:Date.now()+DERIV_SIGNAL_HOLD_MS};
     showActive();
     if(isNewSignal&&derivSignalLastSide!==side){playSignalAlert();lastSoundSignal=side;derivSignalLastSide=side;}
+    if (manualAutoArmed && isNewSignal) {
+      const signalKey = symbolCode + ':' + side + ':' + Math.floor(Date.now() / 1000);
+      if (matchingManualAsset && !manualTradeBusy && !manualAutoLastSignalKey) {
+        manualAutoLastSignalKey = signalKey;
+        message('manualTradeStatus', 'Sinal confirmado: ' + side + ' em ' + symbol + '. O motor está a validar a estratégia e a preparar a ordem DEMO…', 'success');
+        executeManualTrade();
+      } else if (!matchingManualAsset) {
+        message('manualTradeStatus', 'Sinal confirmado em ' + symbol + ', mas este ativo não está disponível na lista de entrada. Nenhuma ordem foi enviada.', 'warning');
+      }
+    }
   }
   function scheduleDerivReconnect(){
     if(!derivFeedWanted||derivReconnectTimer)return;

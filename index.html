@@ -1272,16 +1272,16 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
               <p id="botMsg" class="small muted" aria-live="polite">O bot permanece desligado até à integração segura e aos testes DEMO.</p>
             </div>
             <div class="card operation-panel manual-panel">
-              <div class="row panel-heading"><h2 style="margin:0">🎯 Operações Manuais</h2><span class="signal-tag neutral">Sinais automáticos · DEMO</span></div>
+              <div class="row panel-heading"><h2 style="margin:0">🎯 Operações Manuais</h2><span class="signal-tag neutral">Execução manual · DEMO</span></div>
               <div class="field"><label>Ativo</label><select id="manualAsset"><option value="frxEURUSD">EUR/USD</option><option value="frxGBPUSD">GBP/USD</option><option value="frxUSDJPY">USD/JPY</option><option value="1HZ100V">Volatility 100 (1s)</option></select></div>
               <div class="field"><label id="manualAmountLabel">Valor da operação</label><input id="manualAmount" type="number" min="0.35" step="0.01" value="1" inputmode="decimal"></div>
               <div class="field"><label>Tempo de expiração</label><select id="manualExpiry"><option value="60">1 minuto</option><option value="300">5 minutos</option><option value="900">15 minutos</option><option value="1800">30 minutos</option><option value="3600">1 hora</option><option value="14400">4 horas</option><option value="86400">1 dia</option><option value="604800">1 semana</option><option value="2592000">1 mês (30 dias)</option></select><p class="small muted">A duração escolhida é guardada automaticamente neste navegador.</p><p id="manualDurationStatus" class="small muted" aria-live="polite">Os limites de duração serão consultados na Deriv.</p><p class="small muted">A duração é validada automaticamente conforme os limites do ativo na Deriv.</p></div>
               <div class="signal-card manual-signal-card">
                 <div class="row"><b>📊 Sinal atual do Bot</b><span id="manualSignalStatus" class="pill right">Aguardando feed</span></div>
                 <div id="manualSignalDirection" class="signal-direction">— <span class="muted">Nenhum sinal confirmado</span></div>
-                <p id="manualSignalReason" class="small muted">O motor analisa o mercado real e escolhe COMPRA, VENDA ou AGUARDAR. A execução automática é apenas na conta DEMO.</p>
+                <p id="manualSignalReason" class="small muted">O motor analisa o mercado real e escolhe COMPRA, VENDA ou AGUARDAR. A entrada só acontece quando clicares no botão.</p>
               </div>
-              <div class="row manual-actions"><button id="manualAutoBtn" class="buy-btn" type="button" disabled>▶ ATIVAR ENTRADA AUTOMÁTICA</button><button id="manualExitBtn" class="sell-btn" type="button" disabled>SAIR DA OPERAÇÃO</button></div>
+              <div class="row manual-actions"><button id="manualAutoBtn" class="buy-btn" type="button" disabled>✦ DECISÃO INTELIGENTE · ANALISAR E OPERAR</button><button id="manualExitBtn" class="sell-btn" type="button" disabled>SAIR DA OPERAÇÃO</button></div>
               <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
               <div class="row" style="margin:8px 0;padding:10px;border:1px solid #315c45;border-radius:10px;background:#07110b"><span class="small muted">⏱ Tempo restante da operação</span><b id="manualTradeCountdown" style="font-variant-numeric:tabular-nums">Sem operação ativa</b></div>
               <div class="notice small" id="manualProtectionStatus" aria-live="polite">Proteção dinâmica: à espera de uma operação DEMO. A monitorização depende da ligação ativa à Deriv.</div>
@@ -1697,11 +1697,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const isDemo = !!derivConnectedAccount && derivAccountType(derivConnectedAccount) === 'demo';
     const socketReady = !!derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN;
     const enabled = isDemo && socketReady;
-    if ($('manualAutoBtn')) {
-      $('manualAutoBtn').disabled = !enabled || (manualTradeBusy && !manualAutoMode);
-      $('manualAutoBtn').textContent = manualAutoMode ? '■ PARAR ENTRADA AUTOMÁTICA' : '▶ ATIVAR ENTRADA AUTOMÁTICA';
-      $('manualAutoBtn').classList.toggle('secondary', manualAutoMode);
-    }
+    if ($('manualAutoBtn')) $('manualAutoBtn').disabled = !enabled || manualTradeBusy;
     const openTrade = Array.from(derivOpenContracts.values()).find(trade => !trade.closed);
     if ($('manualExitBtn')) $('manualExitBtn').disabled = !enabled || !openTrade || !!openTrade.manualExitBusy || !!openTrade.protectionClosing;
     if ($('manualAmountLabel')) $('manualAmountLabel').textContent = 'Valor da operação (' + (derivConnectedAccount?.currency || 'moeda da conta') + ')';
@@ -2186,26 +2182,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if (buy.ready && sell.ready) return { direction: null, decision: { ready: false, reason: 'Sinais contraditórios. O motor não abre posição.' } };
     return { direction: null, decision: { ready: false, reason: 'Sem confluência suficiente. COMPRA ' + buy.score + '/7 · VENDA ' + sell.score + '/7. Aguardar.' } };
   }
-  let manualAutoMode = false;
-  let manualAutoSignalKey = '';
-  function maybeExecuteManualAutoSignal(signal = derivActiveSignal) {
-    if (!manualAutoMode || !signal || manualTradeBusy) return;
-    if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo' ||
-        !derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) return;
-    if (Date.now() - derivLastTickAt > 20000 || signal.expiresAt <= Date.now()) return;
-    if (Array.from(derivOpenContracts.values()).some(trade => !trade.closed)) return;
-    if ($('manualAsset')?.value !== signal.symbolCode) {
-      message('manualTradeStatus', 'Sinal recebido para outro ativo. A entrada automática não vai negociar um ativo diferente do selecionado.', 'error');
-      return;
-    }
-    const key = [signal.createdAt, signal.side, signal.symbolCode].join('|');
-    if (manualAutoSignalKey === key) return;
-    manualAutoSignalKey = key;
-    message('manualTradeStatus', 'Sinal '+signal.side+' confirmado no feed. A preparar entrada automática DEMO…');
-    executeManualTrade({ direction: signal.side === 'COMPRA' ? 'CALL' : 'PUT', side: signal.side, symbolCode: signal.symbolCode, createdAt: signal.createdAt, expiresAt: signal.expiresAt })
-      .catch(error => message('manualTradeStatus', error.message || 'Falha na entrada automática.', 'error'));
-  }
-  async function executeManualTrade(autoSignal = null) {
+  async function executeManualTrade() {
     if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo') {
       message('manualTradeStatus', 'Por segurança, a decisão inteligente só executa ordens numa conta DEMO ligada.', 'error');
       updateManualTradeControls();
@@ -2242,12 +2219,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         }
         message('manualTradeStatus', 'Motor inteligente a analisar o mercado real · leitura ' + attempt + '/' + MANUAL_ENTRY_MAX_CHECKS + ' · ' + autoChoice.decision.reason);
         marketSnapshot = await captureTradeMarketSnapshot(symbol, duration);
-        if (autoSignal) {
-          if (marketSnapshot.status !== 'captured') throw new Error('Sinal recebido, mas a leitura técnica complementar falhou. Nenhuma ordem enviada.');
-          autoChoice = { direction: autoSignal.direction, decision: { ready: true, reason: 'Sinal ao vivo confirmado por 3 atualizações consecutivas e 4/4 critérios.' } };
-        } else {
-          autoChoice = chooseManualAutoDirection(marketSnapshot);
-        }
+        autoChoice = chooseManualAutoDirection(marketSnapshot);
         if (autoChoice.direction) break;
         if (attempt < MANUAL_ENTRY_MAX_CHECKS) await new Promise(resolve => setTimeout(resolve, MANUAL_ENTRY_WAIT_MS));
       }
@@ -2272,20 +2244,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         throw new Error(quoteResponse.error?.message || 'A Deriv não devolveu uma cotação válida para este ativo e valor.');
       }
       const latestSnapshot = await captureTradeMarketSnapshot(symbol, duration);
-      if (autoSignal) {
-        const signalStillActive = derivActiveSignal &&
-          derivActiveSignal.createdAt === autoSignal.createdAt &&
-          derivActiveSignal.side === autoSignal.side &&
-          derivActiveSignal.symbolCode === autoSignal.symbolCode &&
-          Date.now() - derivLastTickAt <= 20000;
-        if (!signalStillActive || latestSnapshot.status !== 'captured') {
-          throw new Error('Entrada cancelada: o sinal ao vivo perdeu validade ou os dados ficaram desatualizados antes da ordem.');
-        }
-      } else {
-        const finalChoice = chooseManualAutoDirection(latestSnapshot);
-        if (finalChoice.direction !== direction) {
-          throw new Error('Entrada cancelada: o mercado deixou de confirmar ' + sideLabel + ' enquanto a cotação era preparada. O motor vai aguardar uma nova análise.');
-        }
+      const finalChoice = chooseManualAutoDirection(latestSnapshot);
+      if (finalChoice.direction !== direction) {
+        throw new Error('Entrada cancelada: o mercado deixou de confirmar ' + sideLabel + ' enquanto a cotação era preparada. O motor vai aguardar uma nova análise.');
       }
       if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
         throw new Error('A ligação DEMO caiu antes da confirmação. Nenhuma ordem foi enviada.');
@@ -2493,21 +2454,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   });
   $('derivLoadAccounts')?.addEventListener('click', () => loadDerivAccounts().catch(error => message('derivAccountMsg', error.message, 'error')));
   $('derivConnectTrading')?.addEventListener('click', connectDerivTradingAccount);
-  $('manualAutoBtn')?.addEventListener('click', () => {
-    if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo' || !derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
-      message('manualTradeStatus', 'Liga uma conta DEMO para ativar a entrada automática.', 'error');
-      return;
-    }
-    manualAutoMode = !manualAutoMode;
-    if (manualAutoMode) {
-      manualAutoSignalKey = '';
-      message('manualTradeStatus', 'Entrada automática ATIVA. O bot vai executar o próximo sinal confirmado no ativo selecionado.');
-      maybeExecuteManualAutoSignal();
-    } else {
-      message('manualTradeStatus', 'Entrada automática parada. A operação que já estiver aberta continua protegida.');
-    }
-    updateManualTradeControls();
-  });
+  $('manualAutoBtn')?.addEventListener('click', () => executeManualTrade());
   $('manualExitBtn')?.addEventListener('click', () => exitManualOpenTrade());
   $('manualAsset')?.addEventListener('change', checkManualDurationAvailability);
   $('manualExpiry')?.addEventListener('change', () => {
@@ -3562,8 +3509,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
       reason.textContent=active.reason+' Sinal mantido durante até 45 segundos para evitar oscilações. '+extra;
       if(manualTag)manualTag.textContent='SINAL ATIVO · '+symbol+' · há '+age+'s';
       if(manualDir){manualDir.textContent=side;manualDir.style.color=side==='COMPRA'?'var(--green)':'var(--red)';}
-      if(manualReason)manualReason.textContent=reason.textContent+' A entrada automática só executa quando o modo estiver ativo e a conta for DEMO.';
-      maybeExecuteManualAutoSignal(active);
+      if(manualReason)manualReason.textContent=reason.textContent+' A entrada continua manual.';
       return true;
     };
     const wait=(msg,forceClear=false)=>{

@@ -3279,26 +3279,13 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   const DERIV_ANALYSIS_SECONDS={M1:60,M5:300,M15:900,M30:1800,H1:3600,H4:14400,D1:86400,W1:604800,MN1:2592000};
   let derivAnalysisRequestToken=0;
   const derivAnalysisCache=new Map();
-  function requestDerivHistoricalCandles(symbol,granularity,count){
-    return new Promise((resolve,reject)=>{
-      let socket,settled=false;
-      const finish=(error,value)=>{
-        if(settled)return;settled=true;clearTimeout(timer);
-        try{socket?.close();}catch(e){}
-        error?reject(error):resolve(value);
-      };
-      const timer=setTimeout(()=>finish(new Error('A Deriv demorou a devolver o histórico. Tenta novamente.')),18000);
-      try{
-        socket=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id='+encodeURIComponent(DERIV_HISTORY_APP_ID));
-        socket.onopen=()=>socket.send(JSON.stringify({ticks_history:symbol,adjust_start_time:1,count,end:'latest',style:'candles',granularity,req_id:1}));
-        socket.onmessage=event=>{
-          let data;try{data=JSON.parse(event.data);}catch(e){return;}
-          if(data.error){finish(new Error(data.error.message||'A Deriv recusou o pedido de histórico.'));return;}
-          if(Array.isArray(data.candles)){finish(null,data.candles);return;}
-        };
-        socket.onerror=()=>finish(new Error('Não foi possível ligar ao histórico público da Deriv.'));
-      }catch(error){finish(error);}
-    });
+  async function requestDerivHistoricalCandles(symbol,granularity,count){
+    const endpoint=DERIV_BACKEND_ORIGIN+'/history?symbol='+encodeURIComponent(symbol)+'&granularity='+encodeURIComponent(granularity)+'&count='+encodeURIComponent(count);
+    const response=await fetch(endpoint,{method:'GET',cache:'no-store',headers:{'accept':'application/json'}});
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(payload.error||'O servidor não conseguiu consultar o histórico público da Deriv.');
+    if(!Array.isArray(payload.candles))throw new Error('A Deriv não devolveu uma lista válida de candles.');
+    return payload.candles;
   }
   function aggregateDerivCandles(candles,timeframe){
     const groups=new Map();

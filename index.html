@@ -1279,9 +1279,9 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
               <div class="signal-card manual-signal-card">
                 <div class="row"><b>📊 Sinal atual do Bot</b><span id="manualSignalStatus" class="pill right">Aguardando feed</span></div>
                 <div id="manualSignalDirection" class="signal-direction">— <span class="muted">Nenhum sinal confirmado</span></div>
-                <p id="manualSignalReason" class="small muted">O motor só apresenta uma indicação depois de confirmar os critérios técnicos com dados recentes. Tu decides se executas.</p>
+                <p id="manualSignalReason" class="small muted">O motor analisa o mercado real e escolhe COMPRA, VENDA ou AGUARDAR. A execução automática é apenas na conta DEMO.</p>
               </div>
-              <div class="row manual-actions"><button id="manualBuyBtn" class="buy-btn" type="button" disabled>↑ COMPRA</button><button id="manualSellBtn" class="sell-btn" type="button" disabled>↓ VENDA</button></div>
+              <div class="row manual-actions"><button id="manualAutoBtn" class="buy-btn" type="button" disabled>✦ DECISÃO INTELIGENTE · ANALISAR E OPERAR</button></div>
               <p id="manualTradeStatus" class="small muted" aria-live="polite">Liga uma conta DEMO na área Conta e definições para desbloquear as operações manuais.</p>
               <div class="row" style="margin:8px 0;padding:10px;border:1px solid #315c45;border-radius:10px;background:#07110b"><span class="small muted">⏱ Tempo restante da operação</span><b id="manualTradeCountdown" style="font-variant-numeric:tabular-nums">Sem operação ativa</b></div>
               <div class="notice small" id="manualProtectionStatus" aria-live="polite">Proteção dinâmica: à espera de uma operação DEMO. A monitorização depende da ligação ativa à Deriv.</div>
@@ -1697,8 +1697,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const isDemo = !!derivConnectedAccount && derivAccountType(derivConnectedAccount) === 'demo';
     const socketReady = !!derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN;
     const enabled = isDemo && socketReady;
-    if ($('manualBuyBtn')) $('manualBuyBtn').disabled = !enabled || manualTradeBusy;
-    if ($('manualSellBtn')) $('manualSellBtn').disabled = !enabled || manualTradeBusy;
+    if ($('manualAutoBtn')) $('manualAutoBtn').disabled = !enabled || manualTradeBusy;
     if ($('manualAmountLabel')) $('manualAmountLabel').textContent = 'Valor da operação (' + (derivConnectedAccount?.currency || 'moeda da conta') + ')';
     if ($('manualTradeStatus') && !enabled) {
       $('manualTradeStatus').textContent = derivConnectedAccount && derivAccountType(derivConnectedAccount) === 'real'
@@ -2077,9 +2076,17 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   }
   const MANUAL_ENTRY_WAIT_MS = 10000;
   const MANUAL_ENTRY_MAX_CHECKS = 6;
-  async function executeManualTrade(direction) {
+  function chooseManualAutoDirection(snapshot) {
+    const buy = evaluateManualEntryWindow(snapshot, 'CALL');
+    const sell = evaluateManualEntryWindow(snapshot, 'PUT');
+    if (buy.ready && !sell.ready) return { direction: 'CALL', decision: buy };
+    if (sell.ready && !buy.ready) return { direction: 'PUT', decision: sell };
+    if (buy.ready && sell.ready) return { direction: null, decision: { ready: false, reason: 'Critérios contraditórios; aguardar nova confirmação.' } };
+    return { direction: null, decision: { ready: false, reason: 'COMPRA e VENDA ainda não têm confirmação técnica suficiente.' } };
+  }
+  async function executeManualTrade() {
     if (!derivConnectedAccount || derivAccountType(derivConnectedAccount) !== 'demo') {
-      message('manualTradeStatus', 'Por segurança, as ordens manuais só estão disponíveis numa conta DEMO ligada.', 'error');
+      message('manualTradeStatus', 'Por segurança, a decisão inteligente só executa ordens numa conta DEMO ligada.', 'error');
       updateManualTradeControls();
       return;
     }
@@ -2101,27 +2108,28 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     manualTradeBusy = true;
     updateManualTradeControls();
     try {
-      message('manualTradeStatus', 'Pedido ' + (direction === 'CALL' ? 'COMPRA' : 'VENDA') + ' recebido. A analisar o mercado antes de entrar…');
-      await validateManualTradeAvailability(symbol, direction, duration);
       let marketSnapshot = null;
-      let entryDecision = { ready: false, reason: 'A recolher dados recentes.' };
+      let autoChoice = { direction: null, decision: { ready: false, reason: 'A recolher dados recentes.' } };
       for (let attempt = 1; attempt <= MANUAL_ENTRY_MAX_CHECKS; attempt++) {
         if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
-          throw new Error('A ligação DEMO caiu durante a espera. Nenhuma entrada foi enviada.');
+          throw new Error('A ligação DEMO caiu durante a análise. Nenhuma entrada foi enviada.');
         }
-        message('manualTradeStatus', 'A aguardar melhor momento · análise ' + attempt + '/' + MANUAL_ENTRY_MAX_CHECKS + ' · ' + entryDecision.reason);
+        message('manualTradeStatus', 'Motor inteligente a analisar o mercado real · leitura ' + attempt + '/' + MANUAL_ENTRY_MAX_CHECKS + ' · ' + autoChoice.decision.reason);
         marketSnapshot = await captureTradeMarketSnapshot(symbol);
-        entryDecision = evaluateManualEntryWindow(marketSnapshot, direction);
-        if (entryDecision.ready) break;
+        autoChoice = chooseManualAutoDirection(marketSnapshot);
+        if (autoChoice.direction) break;
         if (attempt < MANUAL_ENTRY_MAX_CHECKS) await new Promise(resolve => setTimeout(resolve, MANUAL_ENTRY_WAIT_MS));
       }
-      if (!entryDecision.ready) {
-        throw new Error('Entrada cancelada: não surgiu confirmação técnica em cerca de 2 minutos. ' + entryDecision.reason);
+      if (!autoChoice.direction) {
+        throw new Error('AGUARDAR: não apareceu uma oportunidade suficientemente confirmada. Nenhuma ordem foi enviada. ' + autoChoice.decision.reason);
       }
+      const direction = autoChoice.direction;
+      const sideLabel = direction === 'CALL' ? 'COMPRA' : 'VENDA';
+      message('manualTradeStatus', 'Direção escolhida pelo motor: ' + sideLabel + '. A validar contrato e prazo na Deriv…');
+      await validateManualTradeAvailability(symbol, direction, duration);
       if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
-        throw new Error('A ligação DEMO caiu antes da entrada. Nenhuma ordem foi enviada.');
+        throw new Error('A ligação DEMO caiu antes da cotação. Nenhuma ordem foi enviada.');
       }
-      message('manualTradeStatus', 'Oportunidade confirmada: ' + entryDecision.reason + ' A pedir cotação à Deriv…');
       const apiDuration = derivDurationForApi(duration);
       const quoteResponse = await sendDerivTradeRequest({
         proposal: 1, amount, basis: 'stake', contract_type: direction,
@@ -2133,19 +2141,19 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
         throw new Error(quoteResponse.error?.message || 'A Deriv não devolveu uma cotação válida para este ativo e valor.');
       }
       const latestSnapshot = await captureTradeMarketSnapshot(symbol);
-      const finalDecision = evaluateManualEntryWindow(latestSnapshot, direction);
-      if (!finalDecision.ready) {
-        throw new Error('Entrada cancelada: a oportunidade desapareceu enquanto a cotação era preparada. ' + finalDecision.reason);
+      const finalChoice = chooseManualAutoDirection(latestSnapshot);
+      if (finalChoice.direction !== direction) {
+        throw new Error('Entrada cancelada: o mercado deixou de confirmar ' + sideLabel + ' enquanto a cotação era preparada. O motor vai aguardar uma nova análise.');
       }
       if (!derivTradingSocket || derivTradingSocket.readyState !== WebSocket.OPEN) {
         throw new Error('A ligação DEMO caiu antes da confirmação. Nenhuma ordem foi enviada.');
       }
-      message('manualTradeStatus', 'Confirmação técnica mantida. A enviar ordem para a conta DEMO…');
+      message('manualTradeStatus', 'COMPRA/VENDA confirmada novamente pelo mercado. A enviar ordem para a conta DEMO…');
       const buyResponse = await sendDerivTradeRequest({ buy: quote.id, price: Number(quote.ask_price) });
       const bought = buyResponse.buy || buyResponse.data?.buy;
       if (!bought?.contract_id) throw new Error(buyResponse.error?.message || 'A Deriv não confirmou a abertura do contrato.');
-      const row = addManualHistoryRow(bought.contract_id, direction, assetLabel, amount, currency, duration, latestSnapshot);
-      message('manualTradeStatus', 'Contrato DEMO aberto após espera e confirmação técnica. ID: ' + bought.contract_id + '. A acompanhar a estrutura e a proteção.', 'success');
+      addManualHistoryRow(bought.contract_id, direction, assetLabel, amount, currency, duration, latestSnapshot);
+      message('manualTradeStatus', 'Ordem ' + sideLabel + ' aberta na conta DEMO após confirmação técnica. Contrato #' + bought.contract_id + '. A acompanhar o mercado e a proteção.', 'success');
       if (derivTradingSocket && derivTradingSocket.readyState === WebSocket.OPEN) {
         derivTradingSocket.send(JSON.stringify({
           proposal_open_contract: 1, contract_id: bought.contract_id,
@@ -2341,8 +2349,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   });
   $('derivLoadAccounts')?.addEventListener('click', () => loadDerivAccounts().catch(error => message('derivAccountMsg', error.message, 'error')));
   $('derivConnectTrading')?.addEventListener('click', connectDerivTradingAccount);
-  $('manualBuyBtn')?.addEventListener('click', () => executeManualTrade('CALL'));
-  $('manualSellBtn')?.addEventListener('click', () => executeManualTrade('PUT'));
+  $('manualAutoBtn')?.addEventListener('click', () => executeManualTrade());
   $('manualAsset')?.addEventListener('change', checkManualDurationAvailability);
   $('manualExpiry')?.addEventListener('change', () => {
     if (currentUser) localStorage.setItem('mendtrader_manual_expiry_' + currentUser.id, $('manualExpiry').value);

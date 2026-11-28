@@ -17,20 +17,21 @@ const FRONTEND_FILE = path.resolve(__dirname, '..', 'index.html');
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rfgcsprgcbravydlnnuc.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_kF7ycrRT90LwZCW532E3Jg_MHE03QKf';
 const DERIV_CLIENT_ID = process.env.DERIV_CLIENT_ID || '34TEm2Gavyti0dcVDw73V';
-const DERIV_REDIRECT_URI = process.env.DERIV_REDIRECT_URI || 'https://mendtrader-v6-manual-test.onrender.com/callback';
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://mendtrader-v6-manual-test.onrender.com';
+const DERIV_REDIRECT_URI = process.env.DERIV_REDIRECT_URI || 'https://mendtrader-v6-integration-test.onrender.com/callback';
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'https://mendtrader-v6-integration-test.onrender.com';
 
 const server = http.createServer((req, res) => {
   const requestUrl = new URL(req.url, 'http://localhost');
   const origin = req.headers.origin || '';
-  if (origin === FRONTEND_ORIGIN) {
-    res.setHeader('access-control-allow-origin', FRONTEND_ORIGIN);
+  const corsOrigins = new Set([FRONTEND_ORIGIN, ...ALLOWED_ORIGINS]);
+  if (corsOrigins.has(origin)) {
+    res.setHeader('access-control-allow-origin', origin);
     res.setHeader('vary', 'Origin');
-    res.setHeader('access-control-allow-methods', 'POST, OPTIONS');
+    res.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
     res.setHeader('access-control-allow-headers', 'authorization, content-type');
   }
-  if (requestUrl.pathname === '/oauth/deriv/token' && req.method === 'OPTIONS') {
-    if (origin !== FRONTEND_ORIGIN) { res.writeHead(403); return res.end(); }
+  if ((requestUrl.pathname === '/oauth/deriv/token' || requestUrl.pathname === '/history') && req.method === 'OPTIONS') {
+    if (!corsOrigins.has(origin)) { res.writeHead(403); return res.end(); }
     res.writeHead(204); return res.end();
   }
   if (requestUrl.pathname === '/callback' && req.method === 'GET') {
@@ -88,6 +89,62 @@ const server = http.createServer((req, res) => {
         return sendJson(502, { error: 'Não foi possível contactar o serviço de autorização da Deriv. Tenta novamente.' });
       }
     });
+    return;
+  }
+  if (requestUrl.pathname === '/history' && req.method === 'GET') {
+    const sendHistory = (status, payload) => {
+      if (res.headersSent) return;
+      res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      res.end(JSON.stringify(payload));
+    };
+    if (origin && !corsOrigins.has(origin)) return sendHistory(403, { error: 'Origem não autorizada.' });
+    const symbol = requestUrl.searchParams.get('symbol') || DEFAULT_SYMBOL;
+    const granularity = Number(requestUrl.searchParams.get('granularity') || 60);
+    const count = Math.min(2000, Math.max(30, Number(requestUrl.searchParams.get('count') || 500)));
+    const allowedGranularities = new Set([60, 300, 900, 1800, 3600, 14400, 86400]);
+    if (!validSymbol(symbol) || !allowedGranularities.has(granularity) || !Number.isFinite(count)) {
+      return sendHistory(400, { error: 'Parâmetros de histórico inválidos.' });
+    }
+    let upstream, settled = false, attempt = 0, lastError = null;
+    const endpoints = [DERIV_URL, 'wss://ws.derivws.com/websockets/v3?app_id=' + encodeURIComponent(DERIV_CLIENT_ID)];
+    const timer = setTimeout(() => finish(new Error('A Deriv não respondeu ao pedido de histórico dentro do prazo.')), 20000);
+    const finish = (error, candles) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { upstream?.close(); } catch {}
+      if (error) return sendHistory(502, { error: error.message || 'Falha ao consultar o histórico da Deriv.' });
+      return sendHistory(200, { candles });
+    };
+    const connectNext = (error) => {
+      if (settled) return;
+      if (error) lastError = error;
+      if (attempt >= endpoints.length) return finish(lastError || new Error('Não foi possível ligar ao histórico público da Deriv.'));
+      const endpoint = endpoints[attempt++];
+      let socket;
+      try {
+        socket = new WebSocket(endpoint);
+        upstream = socket;
+        socket.on('open', () => {
+          if (settled || upstream !== socket) return;
+          socket.send(JSON.stringify({
+            ticks_history: symbol, adjust_start_time: 1, count, end: 'latest',
+            style: 'candles', granularity, req_id: 78124
+          }));
+        });
+        socket.on('message', raw => {
+          if (settled || upstream !== socket) return;
+          let data;
+          try { data = JSON.parse(raw.toString()); } catch { return; }
+          if (data.error) return connectNext(new Error(data.error.message || 'A Deriv recusou o histórico.'));
+          if (Array.isArray(data.candles)) return finish(null, data.candles);
+          if (Array.isArray(data.history?.candles)) return finish(null, data.history.candles);
+        });
+        socket.on('error', () => { if (!settled && upstream === socket) connectNext(new Error('Falha de ligação ao endpoint público da Deriv.')); });
+        socket.on('close', () => { if (!settled && upstream === socket) connectNext(new Error('A Deriv encerrou a ligação antes de enviar os candles.')); });
+      } catch (err) { connectNext(err); }
+    };
+    connectNext();
     return;
   }
   if (requestUrl.pathname === '/health') {

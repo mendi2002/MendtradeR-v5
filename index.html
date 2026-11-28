@@ -3386,11 +3386,12 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     const analysis=$('derivAnalysisTimeframe'),engine=$('v5Timeframe');
     if(source==='analysis'&&analysis&&engine)engine.value=analysis.value;
     if(source==='engine'&&analysis&&engine)analysis.value=engine.value;
+    resetDerivSignalForContext();
     updateDerivTimeframeAnalysis();
   }
   $('derivAnalysisTimeframe')?.addEventListener('change',()=>syncDerivAnalysisTimeframes('analysis'));
   $('v5Timeframe')?.addEventListener('change',()=>syncDerivAnalysisTimeframes('engine'));
-  $('derivFeedSymbol')?.addEventListener('change',()=>{derivAnalysisCache.clear();updateDerivTimeframeAnalysis();});
+  $('derivFeedSymbol')?.addEventListener('change',()=>{derivAnalysisCache.clear();resetDerivSignalForContext();updateDerivTimeframeAnalysis();});
 
   function addDerivCandleTick(tick){
     const epoch=Number(tick.epoch);const price=Number(tick.quote);

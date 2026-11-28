@@ -1207,7 +1207,8 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
                 <div class="field"><label>Direção sugerida</label><strong id="derivSignalDirection" style="font-size:22px">A AGUARDAR</strong></div>
                 <div class="field"><label>Força técnica indicativa</label><strong id="derivSignalStrength" style="font-size:22px">—</strong></div>
               </div>
-              <p id="derivSignalReason" class="small muted">São necessários pelo menos 60 ticks recentes e 3 confirmações consecutivas para uma primeira leitura.</p>
+              <p id="derivSignalReason" class="small muted">A aguardar histórico real de candles fechados da Deriv.</p>
+              <p id="derivSignalEta" class="small" style="color:#b7c8bd;margin:6px 0">Estimativa para sinal: a calcular após receber candles reais.</p>
               <p id="derivSignalWarning" class="small muted">Sinais experimentais baseados em movimentos de ticks, não em candles. Não são aconselhamento financeiro nem garantia de resultado. Nenhuma operação será executada.</p>
             </div>
             <div id="derivCandlePanel" class="card" style="margin-top:14px">
@@ -3495,6 +3496,20 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
     if(manualDir){manualDir.textContent='—';manualDir.style.color='';}
     if(manualReason)manualReason.textContent='A análise será atualizada quando fechar uma nova vela do período escolhido. A entrada continua manual.';
   }
+  function updateDerivSignalEta(){
+    const eta=$('derivSignalEta');if(!eta)return;
+    const selected=$('v5Timeframe')?.value||$('derivAnalysisTimeframe')?.value||'M1';
+    const seconds=DERIV_ANALYSIS_SECONDS[selected]||60;
+    const now=Math.floor(Date.now()/1000);
+    const nextClose=(Math.floor(now/seconds)+1)*seconds;
+    const remaining=Math.max(0,nextClose-now);
+    const waitCandles=derivActiveSignal?1:(derivSignalCandidate!=='neutral'&&derivSignalConfirmations>0?1:2);
+    const estimate=remaining+(waitCandles-1)*seconds;
+    const fmt=value=>{const h=Math.floor(value/3600),m=Math.floor((value%3600)/60),sec=value%60;return h>0?h+'h '+m+'min':m>0?m+'min '+sec+'s':sec+'s';};
+    if(!derivFeedSocket||derivFeedSocket.readyState!==WebSocket.OPEN){eta.textContent='Estimativa para sinal: indisponível enquanto o mercado estiver desligado.';return;}
+    if(derivActiveSignal){eta.textContent='Próxima reavaliação do sinal: em '+fmt(remaining)+' (no fecho da próxima vela).';return;}
+    eta.textContent='Estimativa para possível sinal: cerca de '+fmt(estimate)+', se as próximas velas confirmarem a mesma direção. Não é garantia.';
+  }
   function renderDerivSignal(side,score,detail,statusText){
     const tag=$('derivSignalTag'),dir=$('derivSignalDirection'),strength=$('derivSignalStrength'),reason=$('derivSignalReason');
     const manualTag=$('manualSignalStatus'),manualDir=$('manualSignalDirection'),manualReason=$('manualSignalReason');
@@ -3696,6 +3711,7 @@ body{background-image:radial-gradient(ellipse at 50% -15%,#102b45 0,transparent 
   $('derivFeedSymbol')?.addEventListener('change',()=>{loadDerivCandlesForSymbol($('derivFeedSymbol').value);if(derivFeedSocket||derivFeedWanted){closeDerivFeed();connectDerivFeed();}else updateDerivLiveSignal();});
   window.addEventListener('beforeunload',()=>{try{derivFeedSocket?.close();}catch(e){}});
 
+  updateDerivSignalEta();setInterval(updateDerivSignalEta,1000);
   $('depositBtn').addEventListener('click',()=>{});
   client.auth.getSession().then(async ({data})=>{if(data.session?.user)showApp(data.session.user); await finishDerivAccountOAuth();}).catch(error=>message('derivAccountMsg',error.message||'Não foi possível verificar o retorno da Deriv.','error'));
   client.auth.onAuthStateChange((_event,session)=>{if(session?.user&&!currentUser)showApp(session.user);else if(!session)showAuth();});
